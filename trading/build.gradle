@@ -1,0 +1,21 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+// 원장 서비스 (RDS-B) — 주문·차수체결·보유·자동투자·가입보상. 가장 복잡
+dependencies {
+    implementation project(':common')
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.kafka:spring-kafka'
+
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
+
+    // 차수 배치 스케줄러 (BATCH-001/002, 자동투자 CronJob)
+    implementation 'org.springframework.boot:spring-boot-starter-quartz'
+}

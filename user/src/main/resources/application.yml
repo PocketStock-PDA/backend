@@ -1,0 +1,46 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+
+  # user = RDS-A (mysql-a:3306). 로컬 기본값 + 운영은 환경변수 override
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/user_db?serverTimezone=UTC&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:localdev}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false   # 날짜를 ISO 문자열로 (LocalDateTime 깨짐 방지)
+    time-zone: UTC
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.pocketstock.user.domain
+  configuration:
+    map-underscore-to-camel-case: true   # DB snake_case ↔ Java camelCase
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info             # 헬스체크 노출 (/actuator/health)
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.pocketstock: DEBUG
+    org.mybatis: DEBUG                    # MyBatis SQL 로그

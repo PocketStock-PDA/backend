@@ -1,0 +1,19 @@
+rootProject.name = 'pocketstock-backend'
+
+// 공통 라이브러리
+include 'common'
+
+// API Gateway
+include 'api-gateway'
+
+// 일반 서비스 (RDS-A)
+include 'user'
+include 'asset'
+include 'portfolio'
+include 'budget'
+include 'notification'
+
+// 원장 서비스 (RDS-B)
+include 'cma'
+include 'trading'
+include 'exchange'

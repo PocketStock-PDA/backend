@@ -1,0 +1,18 @@
+// common = 공통 라이브러리 모듈 (실행 가능한 Spring Boot 앱이 아님)
+// 이벤트 DTO, 공통 응답 포맷, 예외, 유틸 등을 담아 각 서비스가 의존
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api 'org.springframework.boot:spring-boot-starter'
+    api 'org.springframework.boot:spring-boot-starter-validation'
+    api 'com.fasterxml.jackson.core:jackson-databind'
+
+    // 헬스체크 — 전 서비스 자동 적용(/actuator/health)
+    api 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // GlobalExceptionHandler(@RestControllerAdvice)는 MVC 전용 → 컴파일만,
+    // 런타임 web 은 각 서비스가 제공(gateway는 webflux라 핸들러 미적용)
+    compileOnly 'org.springframework.boot:spring-boot-starter-web'
+}

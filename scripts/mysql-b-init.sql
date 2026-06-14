@@ -1,0 +1,4 @@
+-- RDS-B (원장 서비스 DB, 물리 격리)
+CREATE DATABASE IF NOT EXISTS cma_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS exchange_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS trading_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
