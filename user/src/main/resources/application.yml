@@ -5,9 +5,9 @@ spring:
   application:
     name: user-service
 
-  # user = RDS-A (mysql-a:3306). 로컬 기본값 + 운영은 환경변수 override
+  # user = DB A(일반, pocketstock_main @ mysql-a:3306). 일반 5서비스 공유 DB, JOIN 허용
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/user_db?serverTimezone=UTC&characterEncoding=UTF-8}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/pocketstock_main?serverTimezone=UTC&characterEncoding=UTF-8}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:localdev}
     driver-class-name: com.mysql.cj.jdbc.Driver

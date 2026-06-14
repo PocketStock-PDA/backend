@@ -5,9 +5,9 @@ spring:
   application:
     name: cma-service
 
-  # cma = RDS-B 원장 (mysql-b:3307)
+  # cma = DB B(원장, pocketstock_ledger @ mysql-b:3307). 원장 3서비스 공유 DB, 환전·매수 로컬 트랜잭션
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3307/cma_db?serverTimezone=UTC&characterEncoding=UTF-8}
+    url: ${DB_URL:jdbc:mysql://localhost:3307/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:localdev}
     driver-class-name: com.mysql.cj.jdbc.Driver

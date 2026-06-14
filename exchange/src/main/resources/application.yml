@@ -5,9 +5,9 @@ spring:
   application:
     name: exchange-service
 
-  # exchange = RDS-B 원장 (mysql-b:3307)
+  # exchange = DB B(원장, pocketstock_ledger @ mysql-b:3307). 원장 3서비스 공유 DB
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3307/exchange_db?serverTimezone=UTC&characterEncoding=UTF-8}
+    url: ${DB_URL:jdbc:mysql://localhost:3307/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:localdev}
     driver-class-name: com.mysql.cj.jdbc.Driver
