@@ -1,0 +1,35 @@
+# CodeRabbit 설정 — https://docs.coderabbit.ai/reference/configuration
+# PocketStock backend — 한국어 자동 리뷰 (PR 머지 승인은 사람 0명, CodeRabbit이 코멘트만)
+language: "ko-KR"
+early_access: false
+tone_instructions: "간결하고 핵심만. 칭찬보다 개선점 위주로, 근거와 함께 제안."
+
+reviews:
+  profile: "chill"               # chill=핵심 위주(덜 깐깐), assertive=엄격
+  request_changes_workflow: false # 승인 강제 안 함 (우리 정책: 리뷰 승인 0명)
+  high_level_summary: true        # PR 상단에 변경 요약
+  review_status: true
+  poem: false                     # 시(poem) 코멘트 끄기
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false                 # Draft PR은 리뷰 안 함
+    base_branches:
+      - "dev"
+      - "main"
+  path_filters:                   # 리뷰 제외 (빌드 산출물·바이너리)
+    - "!**/build/**"
+    - "!**/.gradle/**"
+    - "!**/*.xlsx"
+    - "!**/*.jar"
+  path_instructions:
+    - path: "**/*.java"
+      instructions: >
+        Spring Boot 3 + MyBatis 컨벤션을 본다. 원장(cma·exchange·trading)은 append-only +
+        멱등키 + REVERT 규칙을 지키는지, DB A/B 경계(같은 DB JOIN 허용·쓰기는 자기 테이블만)를
+        위반하지 않는지, 금액은 DECIMAL/BigDecimal로 다루는지 확인한다.
+    - path: "**/*.sql"
+      instructions: "스키마 변경 시 인덱스·멱등키(UNIQUE)·NOT NULL 누락 여부를 본다."
+
+chat:
+  auto_reply: true
