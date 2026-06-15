@@ -1,0 +1,1155 @@
+<html>
+<head>
+	<title>미래에셋 ETF</title>
+</head>
+	<body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">
+		<table width="707" border="1" cellspacing="0" cellpadding="0">
+			<tr>
+				<td colspan="7" style='font-weight:bold;background-color:#FFFF66;text-align:center'>
+					&nbsp;-&nbsp;설정/해지현황&nbsp;
+				</td>
+			</tr>
+			<tr>
+				<td colspan="7" style="text-align: right; "></td>
+			</tr>
+			<tr>
+				<td style='background-color:#FFFF66;text-align:center'>No</th>
+				<td style='background-color:#FFFF66;text-align:center'>종목코드</th>
+				<td style='background-color:#FFFF66;text-align:center'>종목명</th>
+				<td style='background-color:#FFFF66;text-align:center'>수량(주)</th>
+						<td style='background-color:#FFFF66;text-align:center'>평가금액(원)</th>
+						<td style='background-color:#FFFF66;text-align:center'>비중(%)</th>
+					<td style='background-color:#FFFF66;text-align:center'> 
+					1주 수익률</td>
+			</tr>
+			<tr>
+					<td style="text-align:center;" width="100">1</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">NVDA US EQUITY</td>
+							<td style="text-align:center;" width="150">NVIDIA Corp</td>
+							<td style="text-align:center;" width="150">
+								518.74</td>
+							<td style="text-align:center;" width="150">161,515,626</td>
+										<td style="text-align:center;" width="150">8.15</td>							
+						<td style="text-align:center;" width="150">
+						.04</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">2</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AAPL US EQUITY</td>
+							<td style="text-align:center;" width="150">Apple Inc</td>
+							<td style="text-align:center;" width="150">
+								313.4</td>
+							<td style="text-align:center;" width="150">140,810,141</td>
+										<td style="text-align:center;" width="150">7.1</td>							
+						<td style="text-align:center;" width="150">
+						-5.27</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">3</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MU US EQUITY</td>
+							<td style="text-align:center;" width="150">Micron Technology Inc</td>
+							<td style="text-align:center;" width="150">
+								66.33</td>
+							<td style="text-align:center;" width="150">100,391,995</td>
+										<td style="text-align:center;" width="150">5.06</td>							
+						<td style="text-align:center;" width="150">
+						13.61</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">4</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MSFT US EQUITY</td>
+							<td style="text-align:center;" width="150">Microsoft Corp</td>
+							<td style="text-align:center;" width="150">
+								158.52</td>
+							<td style="text-align:center;" width="150">94,040,203</td>
+										<td style="text-align:center;" width="150">4.74</td>							
+						<td style="text-align:center;" width="150">
+						-6.22</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">5</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AMZN US EQUITY</td>
+							<td style="text-align:center;" width="150">Amazon.com Inc</td>
+							<td style="text-align:center;" width="150">
+								229.16</td>
+							<td style="text-align:center;" width="150">84,112,467</td>
+										<td style="text-align:center;" width="150">4.24</td>							
+						<td style="text-align:center;" width="150">
+						-3.04</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">6</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AMD US EQUITY</td>
+							<td style="text-align:center;" width="150">Advanced Micro Devices Inc</td>
+							<td style="text-align:center;" width="150">
+								96.09</td>
+							<td style="text-align:center;" width="150">71,332,056</td>
+										<td style="text-align:center;" width="150">3.6</td>							
+						<td style="text-align:center;" width="150">
+						9.69</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">7</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">GOOGL US EQUITY</td>
+							<td style="text-align:center;" width="150">Alphabet Inc</td>
+							<td style="text-align:center;" width="150">
+								124.28</td>
+							<td style="text-align:center;" width="150">67,575,863</td>
+										<td style="text-align:center;" width="150">3.41</td>							
+						<td style="text-align:center;" width="150">
+						-2.40</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">8</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">TSLA US EQUITY</td>
+							<td style="text-align:center;" width="150">Tesla Inc</td>
+							<td style="text-align:center;" width="150">
+								106.55</td>
+							<td style="text-align:center;" width="150">64,636,231</td>
+										<td style="text-align:center;" width="150">3.26</td>							
+						<td style="text-align:center;" width="150">
+						3.95</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">9</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">GOOG US EQUITY</td>
+							<td style="text-align:center;" width="150">Alphabet Inc</td>
+							<td style="text-align:center;" width="150">
+								116.09</td>
+							<td style="text-align:center;" width="150">62,909,157</td>
+										<td style="text-align:center;" width="150">3.17</td>							
+						<td style="text-align:center;" width="150">
+						-2.08</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">10</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AVGO US EQUITY</td>
+							<td style="text-align:center;" width="150">Broadcom Inc</td>
+							<td style="text-align:center;" width="150">
+								101.21</td>
+							<td style="text-align:center;" width="150">59,307,975</td>
+										<td style="text-align:center;" width="150">2.99</td>							
+						<td style="text-align:center;" width="150">
+						-.95</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">11</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">META US EQUITY</td>
+							<td style="text-align:center;" width="150">Meta Platforms Inc</td>
+							<td style="text-align:center;" width="150">
+								62.96</td>
+							<td style="text-align:center;" width="150">54,391,138</td>
+										<td style="text-align:center;" width="150">2.74</td>							
+						<td style="text-align:center;" width="150">
+						-4.39</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">12</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">WMT US EQUITY</td>
+							<td style="text-align:center;" width="150">Walmart Inc</td>
+							<td style="text-align:center;" width="150">
+								288.02</td>
+							<td style="text-align:center;" width="150">52,746,801</td>
+										<td style="text-align:center;" width="150">2.66</td>							
+						<td style="text-align:center;" width="150">
+						1.82</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">13</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">INTC US EQUITY</td>
+							<td style="text-align:center;" width="150">Intel Corp</td>
+							<td style="text-align:center;" width="150">
+								294.37</td>
+							<td style="text-align:center;" width="150">52,325,977</td>
+										<td style="text-align:center;" width="150">2.64</td>							
+						<td style="text-align:center;" width="150">
+						25.61</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">14</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CSCO US EQUITY</td>
+							<td style="text-align:center;" width="150">Cisco Systems Inc</td>
+							<td style="text-align:center;" width="150">
+								232.78</td>
+							<td style="text-align:center;" width="150">43,100,900</td>
+										<td style="text-align:center;" width="150">2.17</td>							
+						<td style="text-align:center;" width="150">
+						-.44</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">15</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">LRCX US EQUITY</td>
+							<td style="text-align:center;" width="150">Lam Research Corp</td>
+							<td style="text-align:center;" width="150">
+								73.59</td>
+							<td style="text-align:center;" width="150">40,544,991</td>
+										<td style="text-align:center;" width="150">2.05</td>							
+						<td style="text-align:center;" width="150">
+						20.95</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">16</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AMAT US EQUITY</td>
+							<td style="text-align:center;" width="150">Applied Materials Inc</td>
+							<td style="text-align:center;" width="150">
+								46.77</td>
+							<td style="text-align:center;" width="150">39,282,229</td>
+										<td style="text-align:center;" width="150">1.98</td>							
+						<td style="text-align:center;" width="150">
+						25.22</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">17</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">COST US EQUITY</td>
+							<td style="text-align:center;" width="150">Costco Wholesale Corp</td>
+							<td style="text-align:center;" width="150">
+								26.16</td>
+							<td style="text-align:center;" width="150">38,791,451</td>
+										<td style="text-align:center;" width="150">1.96</td>							
+						<td style="text-align:center;" width="150">
+						1.08</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">18</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">NFLX US EQUITY</td>
+							<td style="text-align:center;" width="150">Netflix Inc</td>
+							<td style="text-align:center;" width="150">
+								248.83</td>
+							<td style="text-align:center;" width="150">30,734,024</td>
+										<td style="text-align:center;" width="150">1.55</td>							
+						<td style="text-align:center;" width="150">
+						-2.24</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">19</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">KLAC US EQUITY</td>
+							<td style="text-align:center;" width="150">KLA Corp</td>
+							<td style="text-align:center;" width="150">
+								77.2</td>
+							<td style="text-align:center;" width="150">28,295,424</td>
+										<td style="text-align:center;" width="150">1.43</td>							
+						<td style="text-align:center;" width="150">
+						31.94</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">20</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">PLTR US EQUITY</td>
+							<td style="text-align:center;" width="150">Palantir Technologies Inc</td>
+							<td style="text-align:center;" width="150">
+								135.04</td>
+							<td style="text-align:center;" width="150">26,902,045</td>
+										<td style="text-align:center;" width="150">1.36</td>							
+						<td style="text-align:center;" width="150">
+						-5.56</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">21</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">SNDK US EQUITY</td>
+							<td style="text-align:center;" width="150">Sandisk Corp</td>
+							<td style="text-align:center;" width="150">
+								8.7</td>
+							<td style="text-align:center;" width="150">24,877,814</td>
+										<td style="text-align:center;" width="150">1.25</td>							
+						<td style="text-align:center;" width="150">
+						
+								-
+							</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">22</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">TXN US EQUITY</td>
+							<td style="text-align:center;" width="150">Texas Instruments Inc</td>
+							<td style="text-align:center;" width="150">
+								53.49</td>
+							<td style="text-align:center;" width="150">24,152,477</td>
+										<td style="text-align:center;" width="150">1.22</td>							
+						<td style="text-align:center;" width="150">
+						5.63</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">23</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MRVL US EQUITY</td>
+							<td style="text-align:center;" width="150">Marvell Technology Inc</td>
+							<td style="text-align:center;" width="150">
+								51.34</td>
+							<td style="text-align:center;" width="150">21,902,827</td>
+										<td style="text-align:center;" width="150">1.1</td>							
+						<td style="text-align:center;" width="150">
+						6.16</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">24</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">LIN US EQUITY</td>
+							<td style="text-align:center;" width="150">Linde PLC</td>
+							<td style="text-align:center;" width="150">
+								27.31</td>
+							<td style="text-align:center;" width="150">21,393,717</td>
+										<td style="text-align:center;" width="150">1.08</td>							
+						<td style="text-align:center;" width="150">
+						3.09</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">25</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">PANW US EQUITY</td>
+							<td style="text-align:center;" width="150">Palo Alto Networks Inc</td>
+							<td style="text-align:center;" width="150">
+								48.09</td>
+							<td style="text-align:center;" width="150">20,430,059</td>
+										<td style="text-align:center;" width="150">1.03</td>							
+						<td style="text-align:center;" width="150">
+						2.78</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">26</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">QCOM US EQUITY</td>
+							<td style="text-align:center;" width="150">QUALCOMM Inc</td>
+							<td style="text-align:center;" width="150">
+								62.88</td>
+							<td style="text-align:center;" width="150">19,395,877</td>
+										<td style="text-align:center;" width="150">0.98</td>							
+						<td style="text-align:center;" width="150">
+						-1.95</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">27</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">TMUS US EQUITY</td>
+							<td style="text-align:center;" width="150">T-Mobile US Inc</td>
+							<td style="text-align:center;" width="150">
+								64.94</td>
+							<td style="text-align:center;" width="150">18,339,655</td>
+										<td style="text-align:center;" width="150">0.93</td>							
+						<td style="text-align:center;" width="150">
+						6.18</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">28</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ADI US EQUITY</td>
+							<td style="text-align:center;" width="150">Analog Devices Inc</td>
+							<td style="text-align:center;" width="150">
+								28.77</td>
+							<td style="text-align:center;" width="150">18,020,238</td>
+										<td style="text-align:center;" width="150">0.91</td>							
+						<td style="text-align:center;" width="150">
+						4.09</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">29</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">PEP US EQUITY</td>
+							<td style="text-align:center;" width="150">PepsiCo Inc</td>
+							<td style="text-align:center;" width="150">
+								80.54</td>
+							<td style="text-align:center;" width="150">17,593,226</td>
+										<td style="text-align:center;" width="150">0.89</td>							
+						<td style="text-align:center;" width="150">
+						1.66</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">30</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AMGN US EQUITY</td>
+							<td style="text-align:center;" width="150">Amgen Inc</td>
+							<td style="text-align:center;" width="150">
+								31.77</td>
+							<td style="text-align:center;" width="150">17,095,449</td>
+										<td style="text-align:center;" width="150">0.86</td>							
+						<td style="text-align:center;" width="150">
+						1.61</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">31</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">STX US EQUITY</td>
+							<td style="text-align:center;" width="150">Seagate Technology Holdings PLC</td>
+							<td style="text-align:center;" width="150">
+								12.85</td>
+							<td style="text-align:center;" width="150">16,953,302</td>
+										<td style="text-align:center;" width="150">0.86</td>							
+						<td style="text-align:center;" width="150">
+						9.86</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">32</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">WDC US EQUITY</td>
+							<td style="text-align:center;" width="150">Western Digital Corp</td>
+							<td style="text-align:center;" width="150">
+								19.98</td>
+							<td style="text-align:center;" width="150">16,072,210</td>
+										<td style="text-align:center;" width="150">0.81</td>							
+						<td style="text-align:center;" width="150">
+						10.01</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">33</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CRWD US EQUITY</td>
+							<td style="text-align:center;" width="150">Crowdstrike Holdings Inc</td>
+							<td style="text-align:center;" width="150">
+								14.86</td>
+							<td style="text-align:center;" width="150">15,617,671</td>
+										<td style="text-align:center;" width="150">0.79</td>							
+						<td style="text-align:center;" width="150">
+						1.76</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">34</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ASML US EQUITY</td>
+							<td style="text-align:center;" width="150">ASML Holding NV</td>
+							<td style="text-align:center;" width="150">
+								5.18</td>
+							<td style="text-align:center;" width="150">14,953,777</td>
+										<td style="text-align:center;" width="150">0.75</td>							
+						<td style="text-align:center;" width="150">
+						13.51</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">35</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">GILD US EQUITY</td>
+							<td style="text-align:center;" width="150">Gilead Sciences Inc</td>
+							<td style="text-align:center;" width="150">
+								73.16</td>
+							<td style="text-align:center;" width="150">13,995,305</td>
+										<td style="text-align:center;" width="150">0.71</td>							
+						<td style="text-align:center;" width="150">
+						-2.76</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">36</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">APP US EQUITY</td>
+							<td style="text-align:center;" width="150">AppLovin Corp</td>
+							<td style="text-align:center;" width="150">
+								18.1</td>
+							<td style="text-align:center;" width="150">13,164,685</td>
+										<td style="text-align:center;" width="150">0.66</td>							
+						<td style="text-align:center;" width="150">
+						-10.85</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">37</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ISRG US EQUITY</td>
+							<td style="text-align:center;" width="150">Intuitive Surgical Inc</td>
+							<td style="text-align:center;" width="150">
+								20.93</td>
+							<td style="text-align:center;" width="150">13,134,107</td>
+										<td style="text-align:center;" width="150">0.66</td>							
+						<td style="text-align:center;" width="150">
+						-2.61</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">38</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">HON US EQUITY</td>
+							<td style="text-align:center;" width="150">Honeywell International Inc</td>
+							<td style="text-align:center;" width="150">
+								37.46</td>
+							<td style="text-align:center;" width="150">12,474,875</td>
+										<td style="text-align:center;" width="150">0.63</td>							
+						<td style="text-align:center;" width="150">
+						2.96</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">39</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">SHOP US EQUITY</td>
+							<td style="text-align:center;" width="150">Shopify Inc</td>
+							<td style="text-align:center;" width="150">
+								72.25</td>
+							<td style="text-align:center;" width="150">12,130,219</td>
+										<td style="text-align:center;" width="150">0.61</td>							
+						<td style="text-align:center;" width="150">
+						-.86</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">40</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">BKNG US EQUITY</td>
+							<td style="text-align:center;" width="150">Booking Holdings Inc</td>
+							<td style="text-align:center;" width="150">
+								46.67</td>
+							<td style="text-align:center;" width="150">11,603,285</td>
+										<td style="text-align:center;" width="150">0.59</td>							
+						<td style="text-align:center;" width="150">
+						-.54</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">41</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">SBUX US EQUITY</td>
+							<td style="text-align:center;" width="150">Starbucks Corp</td>
+							<td style="text-align:center;" width="150">
+								67.14</td>
+							<td style="text-align:center;" width="150">10,436,586</td>
+										<td style="text-align:center;" width="150">0.53</td>							
+						<td style="text-align:center;" width="150">
+						8.13</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">42</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">VRTX US EQUITY</td>
+							<td style="text-align:center;" width="150">Vertex Pharmaceuticals Inc</td>
+							<td style="text-align:center;" width="150">
+								14.97</td>
+							<td style="text-align:center;" width="150">10,125,285</td>
+										<td style="text-align:center;" width="150">0.51</td>							
+						<td style="text-align:center;" width="150">
+						-.43</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">43</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CDNS US EQUITY</td>
+							<td style="text-align:center;" width="150">Cadence Design Systems Inc</td>
+							<td style="text-align:center;" width="150">
+								16.27</td>
+							<td style="text-align:center;" width="150">9,488,795</td>
+										<td style="text-align:center;" width="150">0.48</td>							
+						<td style="text-align:center;" width="150">
+						2.33</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">44</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">FTNT US EQUITY</td>
+							<td style="text-align:center;" width="150">Fortinet Inc</td>
+							<td style="text-align:center;" width="150">
+								43.61</td>
+							<td style="text-align:center;" width="150">9,614,356</td>
+										<td style="text-align:center;" width="150">0.48</td>							
+						<td style="text-align:center;" width="150">
+						1.12</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">45</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MAR US EQUITY</td>
+							<td style="text-align:center;" width="150">Marriott International Inc/MD</td>
+							<td style="text-align:center;" width="150">
+								15.62</td>
+							<td style="text-align:center;" width="150">9,421,881</td>
+										<td style="text-align:center;" width="150">0.48</td>							
+						<td style="text-align:center;" width="150">
+						2.56</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">46</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ADP US EQUITY</td>
+							<td style="text-align:center;" width="150">Automatic Data Processing Inc</td>
+							<td style="text-align:center;" width="150">
+								23.73</td>
+							<td style="text-align:center;" width="150">8,142,362</td>
+										<td style="text-align:center;" width="150">0.41</td>							
+						<td style="text-align:center;" width="150">
+						-2.47</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">47</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MNST US EQUITY</td>
+							<td style="text-align:center;" width="150">Monster Beverage Corp</td>
+							<td style="text-align:center;" width="150">
+								57.65</td>
+							<td style="text-align:center;" width="150">8,063,343</td>
+										<td style="text-align:center;" width="150">0.41</td>							
+						<td style="text-align:center;" width="150">
+						3.66</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">48</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ADBE US EQUITY</td>
+							<td style="text-align:center;" width="150">Adobe Inc</td>
+							<td style="text-align:center;" width="150">
+								24.02</td>
+							<td style="text-align:center;" width="150">7,987,424</td>
+										<td style="text-align:center;" width="150">0.4</td>							
+						<td style="text-align:center;" width="150">
+						-18.86</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">49</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CEG US EQUITY</td>
+							<td style="text-align:center;" width="150">Constellation Energy Corp</td>
+							<td style="text-align:center;" width="150">
+								21.33</td>
+							<td style="text-align:center;" width="150">7,997,680</td>
+										<td style="text-align:center;" width="150">0.4</td>							
+						<td style="text-align:center;" width="150">
+						-.42</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">50</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CSX US EQUITY</td>
+							<td style="text-align:center;" width="150">CSX Corp</td>
+							<td style="text-align:center;" width="150">
+								109.59</td>
+							<td style="text-align:center;" width="150">7,888,871</td>
+										<td style="text-align:center;" width="150">0.4</td>							
+						<td style="text-align:center;" width="150">
+						1.23</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">51</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CMCSA US EQUITY</td>
+							<td style="text-align:center;" width="150">Comcast Corp</td>
+							<td style="text-align:center;" width="150">
+								211.48</td>
+							<td style="text-align:center;" width="150">7,704,133</td>
+										<td style="text-align:center;" width="150">0.39</td>							
+						<td style="text-align:center;" width="150">
+						2.85</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">52</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">SNPS US EQUITY</td>
+							<td style="text-align:center;" width="150">Synopsys Inc</td>
+							<td style="text-align:center;" width="150">
+								11.29</td>
+							<td style="text-align:center;" width="150">7,829,271</td>
+										<td style="text-align:center;" width="150">0.39</td>							
+						<td style="text-align:center;" width="150">
+						-2.36</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">53</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MDLZ US EQUITY</td>
+							<td style="text-align:center;" width="150">Mondelez International Inc</td>
+							<td style="text-align:center;" width="150">
+								75.54</td>
+							<td style="text-align:center;" width="150">7,274,088</td>
+										<td style="text-align:center;" width="150">0.37</td>							
+						<td style="text-align:center;" width="150">
+						1.53</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">54</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MELI US EQUITY</td>
+							<td style="text-align:center;" width="150">MercadoLibre Inc</td>
+							<td style="text-align:center;" width="150">
+								2.99</td>
+							<td style="text-align:center;" width="150">7,316,165</td>
+										<td style="text-align:center;" width="150">0.37</td>							
+						<td style="text-align:center;" width="150">
+						-1.13</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">55</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">DDOG US EQUITY</td>
+							<td style="text-align:center;" width="150">Datadog Inc</td>
+							<td style="text-align:center;" width="150">
+								19.36</td>
+							<td style="text-align:center;" width="150">6,892,120</td>
+										<td style="text-align:center;" width="150">0.35</td>							
+						<td style="text-align:center;" width="150">
+						-1.80</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">56</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">INTU US EQUITY</td>
+							<td style="text-align:center;" width="150">Intuit Inc</td>
+							<td style="text-align:center;" width="150">
+								16.3</td>
+							<td style="text-align:center;" width="150">6,859,819</td>
+										<td style="text-align:center;" width="150">0.35</td>							
+						<td style="text-align:center;" width="150">
+						-6.75</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">57</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MPWR US EQUITY</td>
+							<td style="text-align:center;" width="150">Monolithic Power Systems Inc</td>
+							<td style="text-align:center;" width="150">
+								2.89</td>
+							<td style="text-align:center;" width="150">6,981,656</td>
+										<td style="text-align:center;" width="150">0.35</td>							
+						<td style="text-align:center;" width="150">
+						6.50</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">58</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">NXPI US EQUITY</td>
+							<td style="text-align:center;" width="150">NXP Semiconductors NV</td>
+							<td style="text-align:center;" width="150">
+								14.89</td>
+							<td style="text-align:center;" width="150">6,846,652</td>
+										<td style="text-align:center;" width="150">0.35</td>							
+						<td style="text-align:center;" width="150">
+						3.01</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">59</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ROST US EQUITY</td>
+							<td style="text-align:center;" width="150">Ross Stores Inc</td>
+							<td style="text-align:center;" width="150">
+								19.06</td>
+							<td style="text-align:center;" width="150">6,926,392</td>
+										<td style="text-align:center;" width="150">0.35</td>							
+						<td style="text-align:center;" width="150">
+						4.24</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">60</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ORLY US EQUITY</td>
+							<td style="text-align:center;" width="150">OReilly Automotive Inc</td>
+							<td style="text-align:center;" width="150">
+								49.41</td>
+							<td style="text-align:center;" width="150">6,765,907</td>
+										<td style="text-align:center;" width="150">0.34</td>							
+						<td style="text-align:center;" width="150">
+						.76</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">61</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CTAS US EQUITY</td>
+							<td style="text-align:center;" width="150">Cintas Corp</td>
+							<td style="text-align:center;" width="150">
+								23.57</td>
+							<td style="text-align:center;" width="150">6,515,248</td>
+										<td style="text-align:center;" width="150">0.33</td>							
+						<td style="text-align:center;" width="150">
+						-1.98</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">62</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AEP US EQUITY</td>
+							<td style="text-align:center;" width="150">American Electric Power Co Inc</td>
+							<td style="text-align:center;" width="150">
+								31.87</td>
+							<td style="text-align:center;" width="150">6,223,060</td>
+										<td style="text-align:center;" width="150">0.31</td>							
+						<td style="text-align:center;" width="150">
+						.07</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">63</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">WBD US EQUITY</td>
+							<td style="text-align:center;" width="150">Warner Bros Discovery Inc</td>
+							<td style="text-align:center;" width="150">
+								146.15</td>
+							<td style="text-align:center;" width="150">5,966,110</td>
+										<td style="text-align:center;" width="150">0.3</td>							
+						<td style="text-align:center;" width="150">
+						2.82</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">64</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">DASH US EQUITY</td>
+							<td style="text-align:center;" width="150">DoorDash Inc</td>
+							<td style="text-align:center;" width="150">
+								24.16</td>
+							<td style="text-align:center;" width="150">5,676,292</td>
+										<td style="text-align:center;" width="150">0.29</td>							
+						<td style="text-align:center;" width="150">
+						-3.97</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">65</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">LITE US EQUITY</td>
+							<td style="text-align:center;" width="150">Lumentum Holdings Inc</td>
+							<td style="text-align:center;" width="150">
+								4.21</td>
+							<td style="text-align:center;" width="150">5,691,915</td>
+										<td style="text-align:center;" width="150">0.29</td>							
+						<td style="text-align:center;" width="150">
+						6.70</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">66</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">REGN US EQUITY</td>
+							<td style="text-align:center;" width="150">Regeneron Pharmaceuticals Inc</td>
+							<td style="text-align:center;" width="150">
+								6.12</td>
+							<td style="text-align:center;" width="150">5,687,483</td>
+										<td style="text-align:center;" width="150">0.29</td>							
+						<td style="text-align:center;" width="150">
+						-3.67</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">67</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">BKR US EQUITY</td>
+							<td style="text-align:center;" width="150">Baker Hughes Co</td>
+							<td style="text-align:center;" width="150">
+								58.24</td>
+							<td style="text-align:center;" width="150">5,618,814</td>
+										<td style="text-align:center;" width="150">0.28</td>							
+						<td style="text-align:center;" width="150">
+						.88</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">68</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">PCAR US EQUITY</td>
+							<td style="text-align:center;" width="150">PACCAR Inc</td>
+							<td style="text-align:center;" width="150">
+								30.99</td>
+							<td style="text-align:center;" width="150">5,537,853</td>
+										<td style="text-align:center;" width="150">0.28</td>							
+						<td style="text-align:center;" width="150">
+						1.58</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">69</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ABNB US EQUITY</td>
+							<td style="text-align:center;" width="150">Airbnb Inc</td>
+							<td style="text-align:center;" width="150">
+								24.96</td>
+							<td style="text-align:center;" width="150">4,964,449</td>
+										<td style="text-align:center;" width="150">0.25</td>							
+						<td style="text-align:center;" width="150">
+						-.94</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">70</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">PDD US EQUITY</td>
+							<td style="text-align:center;" width="150">PDD Holdings Inc</td>
+							<td style="text-align:center;" width="150">
+								39.36</td>
+							<td style="text-align:center;" width="150">4,863,311</td>
+										<td style="text-align:center;" width="150">0.25</td>							
+						<td style="text-align:center;" width="150">
+						-4.13</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">71</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">FANG US EQUITY</td>
+							<td style="text-align:center;" width="150">Diamondback Energy Inc</td>
+							<td style="text-align:center;" width="150">
+								16.62</td>
+							<td style="text-align:center;" width="150">4,839,386</td>
+										<td style="text-align:center;" width="150">0.24</td>							
+						<td style="text-align:center;" width="150">
+						-.25</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">72</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">FAST US EQUITY</td>
+							<td style="text-align:center;" width="150">Fastenal Co</td>
+							<td style="text-align:center;" width="150">
+								67.68</td>
+							<td style="text-align:center;" width="150">4,771,678</td>
+										<td style="text-align:center;" width="150">0.24</td>							
+						<td style="text-align:center;" width="150">
+						-.47</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">73</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">EA US EQUITY</td>
+							<td style="text-align:center;" width="150">Electronic Arts Inc</td>
+							<td style="text-align:center;" width="150">
+								14.75</td>
+							<td style="text-align:center;" width="150">4,551,782</td>
+										<td style="text-align:center;" width="150">0.23</td>							
+						<td style="text-align:center;" width="150">
+						.13</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">74</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MCHP US EQUITY</td>
+							<td style="text-align:center;" width="150">Microchip Technology Inc</td>
+							<td style="text-align:center;" width="150">
+								31.89</td>
+							<td style="text-align:center;" width="150">4,504,469</td>
+										<td style="text-align:center;" width="150">0.23</td>							
+						<td style="text-align:center;" width="150">
+						7.81</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">75</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ODFL US EQUITY</td>
+							<td style="text-align:center;" width="150">Old Dominion Freight Line Inc</td>
+							<td style="text-align:center;" width="150">
+								12.28</td>
+							<td style="text-align:center;" width="150">4,623,980</td>
+										<td style="text-align:center;" width="150">0.23</td>							
+						<td style="text-align:center;" width="150">
+						1.31</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">76</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ARM US EQUITY</td>
+							<td style="text-align:center;" width="150">ARM Holdings PLC</td>
+							<td style="text-align:center;" width="150">
+								8.23</td>
+							<td style="text-align:center;" width="150">4,280,597</td>
+										<td style="text-align:center;" width="150">0.22</td>							
+						<td style="text-align:center;" width="150">
+						
+								-
+							</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">77</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">FER US EQUITY</td>
+							<td style="text-align:center;" width="150">Ferrovial NV</td>
+							<td style="text-align:center;" width="150">
+								42.4</td>
+							<td style="text-align:center;" width="150">4,340,001</td>
+										<td style="text-align:center;" width="150">0.22</td>							
+						<td style="text-align:center;" width="150">
+						-.14</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">78</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">XEL US EQUITY</td>
+							<td style="text-align:center;" width="150">Xcel Energy Inc</td>
+							<td style="text-align:center;" width="150">
+								36.77</td>
+							<td style="text-align:center;" width="150">4,373,966</td>
+										<td style="text-align:center;" width="150">0.22</td>							
+						<td style="text-align:center;" width="150">
+						.23</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">79</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">EXC US EQUITY</td>
+							<td style="text-align:center;" width="150">Exelon Corp</td>
+							<td style="text-align:center;" width="150">
+								60.28</td>
+							<td style="text-align:center;" width="150">4,169,332</td>
+										<td style="text-align:center;" width="150">0.21</td>							
+						<td style="text-align:center;" width="150">
+						1.01</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">80</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ADSK US EQUITY</td>
+							<td style="text-align:center;" width="150">Autodesk Inc</td>
+							<td style="text-align:center;" width="150">
+								12.49</td>
+							<td style="text-align:center;" width="150">3,902,191</td>
+										<td style="text-align:center;" width="150">0.2</td>							
+						<td style="text-align:center;" width="150">
+						-13.71</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">81</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CCEP US EQUITY</td>
+							<td style="text-align:center;" width="150">Coca-Cola Europacific Partners PLC</td>
+							<td style="text-align:center;" width="150">
+								27</td>
+							<td style="text-align:center;" width="150">4,008,670</td>
+										<td style="text-align:center;" width="150">0.2</td>							
+						<td style="text-align:center;" width="150">
+						4.86</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">82</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">IDXX US EQUITY</td>
+							<td style="text-align:center;" width="150">IDEXX Laboratories Inc</td>
+							<td style="text-align:center;" width="150">
+								4.69</td>
+							<td style="text-align:center;" width="150">3,976,705</td>
+										<td style="text-align:center;" width="150">0.2</td>							
+						<td style="text-align:center;" width="150">
+						-.23</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">83</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">KDP US EQUITY</td>
+							<td style="text-align:center;" width="150">Keurig Dr Pepper Inc</td>
+							<td style="text-align:center;" width="150">
+								80.07</td>
+							<td style="text-align:center;" width="150">3,800,390</td>
+										<td style="text-align:center;" width="150">0.19</td>							
+						<td style="text-align:center;" width="150">
+						3.87</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">84</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">TTWO US EQUITY</td>
+							<td style="text-align:center;" width="150">Take-Two Interactive Software Inc</td>
+							<td style="text-align:center;" width="150">
+								10.91</td>
+							<td style="text-align:center;" width="150">3,516,502</td>
+										<td style="text-align:center;" width="150">0.18</td>							
+						<td style="text-align:center;" width="150">
+						-1.23</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">85</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ALNY US EQUITY</td>
+							<td style="text-align:center;" width="150">Alnylam Pharmaceuticals Inc</td>
+							<td style="text-align:center;" width="150">
+								7.82</td>
+							<td style="text-align:center;" width="150">3,439,352</td>
+										<td style="text-align:center;" width="150">0.17</td>							
+						<td style="text-align:center;" width="150">
+						-6.67</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">86</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">MSTR US EQUITY</td>
+							<td style="text-align:center;" width="150">Strategy Inc</td>
+							<td style="text-align:center;" width="150">
+								18.51</td>
+							<td style="text-align:center;" width="150">3,379,999</td>
+										<td style="text-align:center;" width="150">0.17</td>							
+						<td style="text-align:center;" width="150">
+						2.93</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">87</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">PYPL US EQUITY</td>
+							<td style="text-align:center;" width="150">PayPal Holdings Inc</td>
+							<td style="text-align:center;" width="150">
+								54.26</td>
+							<td style="text-align:center;" width="150">3,400,829</td>
+										<td style="text-align:center;" width="150">0.17</td>							
+						<td style="text-align:center;" width="150">
+						.58</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">88</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">AXON US EQUITY</td>
+							<td style="text-align:center;" width="150">Axon Enterprise Inc</td>
+							<td style="text-align:center;" width="150">
+								4.74</td>
+							<td style="text-align:center;" width="150">3,214,358</td>
+										<td style="text-align:center;" width="150">0.16</td>							
+						<td style="text-align:center;" width="150">
+						-9.13</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">89</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">PAYX US EQUITY</td>
+							<td style="text-align:center;" width="150">Paychex Inc</td>
+							<td style="text-align:center;" width="150">
+								21.16</td>
+							<td style="text-align:center;" width="150">3,192,420</td>
+										<td style="text-align:center;" width="150">0.16</td>							
+						<td style="text-align:center;" width="150">
+						.10</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">90</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">TRI US EQUITY</td>
+							<td style="text-align:center;" width="150">Thomson Reuters Corp</td>
+							<td style="text-align:center;" width="150">
+								25.81</td>
+							<td style="text-align:center;" width="150">3,147,889</td>
+										<td style="text-align:center;" width="150">0.16</td>							
+						<td style="text-align:center;" width="150">
+						-5.02</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">91</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ROP US EQUITY</td>
+							<td style="text-align:center;" width="150">Roper Technologies Inc</td>
+							<td style="text-align:center;" width="150">
+								6.07</td>
+							<td style="text-align:center;" width="150">3,069,311</td>
+										<td style="text-align:center;" width="150">0.15</td>							
+						<td style="text-align:center;" width="150">
+						.84</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">92</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CPRT US EQUITY</td>
+							<td style="text-align:center;" width="150">Copart Inc</td>
+							<td style="text-align:center;" width="150">
+								57.05</td>
+							<td style="text-align:center;" width="150">2,693,044</td>
+										<td style="text-align:center;" width="150">0.14</td>							
+						<td style="text-align:center;" width="150">
+						-.68</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">93</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">DXCM US EQUITY</td>
+							<td style="text-align:center;" width="150">Dexcom Inc</td>
+							<td style="text-align:center;" width="150">
+								22.68</td>
+							<td style="text-align:center;" width="150">2,593,797</td>
+										<td style="text-align:center;" width="150">0.13</td>							
+						<td style="text-align:center;" width="150">
+						3.44</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">94</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">GEHC US EQUITY</td>
+							<td style="text-align:center;" width="150">GE HealthCare Technologies Inc</td>
+							<td style="text-align:center;" width="150">
+								26.86</td>
+							<td style="text-align:center;" width="150">2,633,416</td>
+										<td style="text-align:center;" width="150">0.13</td>							
+						<td style="text-align:center;" width="150">
+						.79</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">95</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">KHC US EQUITY</td>
+							<td style="text-align:center;" width="150">Kraft Heinz Co/The</td>
+							<td style="text-align:center;" width="150">
+								69.76</td>
+							<td style="text-align:center;" width="150">2,567,834</td>
+										<td style="text-align:center;" width="150">0.13</td>							
+						<td style="text-align:center;" width="150">
+						8.02</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">96</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">WDAY US EQUITY</td>
+							<td style="text-align:center;" width="150">Workday Inc</td>
+							<td style="text-align:center;" width="150">
+								12.55</td>
+							<td style="text-align:center;" width="150">2,489,662</td>
+										<td style="text-align:center;" width="150">0.13</td>							
+						<td style="text-align:center;" width="150">
+						-9.34</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">97</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CTSH US EQUITY</td>
+							<td style="text-align:center;" width="150">Cognizant Technology Solutions Corp</td>
+							<td style="text-align:center;" width="150">
+								28.18</td>
+							<td style="text-align:center;" width="150">2,191,935</td>
+										<td style="text-align:center;" width="150">0.11</td>							
+						<td style="text-align:center;" width="150">
+						-1.95</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">98</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">VRSK US EQUITY</td>
+							<td style="text-align:center;" width="150">Verisk Analytics Inc</td>
+							<td style="text-align:center;" width="150">
+								8.13</td>
+							<td style="text-align:center;" width="150">2,248,787</td>
+										<td style="text-align:center;" width="150">0.11</td>							
+						<td style="text-align:center;" width="150">
+						1.14</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">99</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">INSM US EQUITY</td>
+							<td style="text-align:center;" width="150">Insmed Inc</td>
+							<td style="text-align:center;" width="150">
+								12.7</td>
+							<td style="text-align:center;" width="150">1,866,837</td>
+										<td style="text-align:center;" width="150">0.09</td>							
+						<td style="text-align:center;" width="150">
+						3.85</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">100</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">ZS US EQUITY</td>
+							<td style="text-align:center;" width="150">Zscaler Inc</td>
+							<td style="text-align:center;" width="150">
+								9.48</td>
+							<td style="text-align:center;" width="150">1,816,955</td>
+										<td style="text-align:center;" width="150">0.09</td>							
+						<td style="text-align:center;" width="150">
+						-.96</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">101</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">CHTR US EQUITY</td>
+							<td style="text-align:center;" width="150">Charter Communications Inc</td>
+							<td style="text-align:center;" width="150">
+								7.46</td>
+							<td style="text-align:center;" width="150">1,577,528</td>
+										<td style="text-align:center;" width="150">0.08</td>							
+						<td style="text-align:center;" width="150">
+						10.37</td>
+				</tr>
+			<tr>
+					<td style="text-align:center;" width="100">102</td>
+					<td style="text-align:center;mso-number-format:'\@';" width="125">KRD010010001</td>
+							<td style="text-align:center;" width="150">원화예금</td>
+							<td style="text-align:center;" width="150">
+								2,974,681</td>
+							<td style="text-align:center;" width="150">2,974,681</td>
+										<td style="text-align:center;" width="150">0.15</td>							
+						<td style="text-align:center;" width="150">
+						
+								-
+							</td>
+				</tr>
+			</table>
+	</body>
+</html>
