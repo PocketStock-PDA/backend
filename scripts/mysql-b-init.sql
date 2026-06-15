@@ -308,7 +308,7 @@ CREATE TABLE IF NOT EXISTS rewards (
 
 -- =====================================================================
 -- 외래키(FK) — 같은 DB B 내 관계 (2026-06-15: cross-domain ref_order_id 포함)
--- ※ user_id는 users가 DB A라 cross-DB → FK 불가(값참조). stock_code도 값참조.
+-- ※ user_id는 users가 DB A라 cross-DB → FK 불가(값참조). stock_code는 trading 내부(같은 DB B) FK.
 -- =====================================================================
 -- cma same-domain
 ALTER TABLE cma_balances         ADD CONSTRAINT fk_cb_acc    FOREIGN KEY (cma_account_id) REFERENCES cma_accounts(id);
@@ -326,3 +326,13 @@ ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_acc   FOREIGN KEY (accoun
 ALTER TABLE whole_share_events   ADD CONSTRAINT fk_wse_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
 -- cross-domain (exchange → trading, 같은 DB B)
 ALTER TABLE fx_transactions      ADD CONSTRAINT fk_fx_order  FOREIGN KEY (ref_order_id) REFERENCES orders(id);
+
+-- stock_code → tradable_stocks (같은 DB B 종목 마스터, 2026-06-15 추가)
+ALTER TABLE holdings             ADD CONSTRAINT fk_hold_stock FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+ALTER TABLE orders               ADD CONSTRAINT fk_ord_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+ALTER TABLE stock_categories     ADD CONSTRAINT fk_sc_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+ALTER TABLE daily_valuations     ADD CONSTRAINT fk_dv_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+ALTER TABLE operating_account    ADD CONSTRAINT fk_oa_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+ALTER TABLE rewards              ADD CONSTRAINT fk_rwd_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
