@@ -272,3 +272,28 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- =====================================================================
+-- 외래키(FK) — 같은 DB A 내 관계 (2026-06-15: cross-domain user_id 포함)
+-- ※ DB B의 user_id는 users가 DB A라 cross-DB → FK 불가(값참조), 여기 없음
+-- =====================================================================
+-- same-domain
+ALTER TABLE user_auth_methods    ADD CONSTRAINT fk_uam_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE account_passwords    ADD CONSTRAINT fk_ap_user    FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE terms_agreements     ADD CONSTRAINT fk_terms_user FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE linked_accounts      ADD CONSTRAINT fk_la_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
+ALTER TABLE card_transactions    ADD CONSTRAINT fk_ct_la      FOREIGN KEY (linked_account_id) REFERENCES linked_accounts(id);
+ALTER TABLE portfolio_items      ADD CONSTRAINT fk_pi_pf      FOREIGN KEY (portfolio_id)      REFERENCES recommended_portfolios(id);
+-- cross-domain (user_id → users, 같은 DB A)
+ALTER TABLE linked_institutions     ADD CONSTRAINT fk_li_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE linked_accounts         ADD CONSTRAINT fk_la_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE card_transactions       ADD CONSTRAINT fk_ct_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE spending_analysis       ADD CONSTRAINT fk_sa_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE external_holdings       ADD CONSTRAINT fk_eh_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE budget_goals            ADD CONSTRAINT fk_bg_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE budget_savings          ADD CONSTRAINT fk_bs_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE recommended_portfolios  ADD CONSTRAINT fk_rp_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE holdings_replica        ADD CONSTRAINT fk_hr_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE calendar_recommendations ADD CONSTRAINT fk_cr_user  FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE notifications           ADD CONSTRAINT fk_noti_user FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE notification_settings   ADD CONSTRAINT fk_ns_user   FOREIGN KEY (user_id) REFERENCES users(id);
