@@ -240,20 +240,26 @@ CREATE TABLE IF NOT EXISTS auto_invest_stocks (
   UNIQUE KEY uq_ais (user_id, stock_code)
 );
 
+-- 종목 마스터 (한투 .mst/.COD 파일 정제 → seed). 단축코드=LS API tr_key.
+-- stock_code 전역 UNIQUE: KR 단축코드(숫자6) vs US 심볼(알파벳) 충돌 불가 → 단일 FK 대상.
+-- NXT/주간/통합은 별도 행이 아니라 시세 venue 구분(LS unt_* 사용) → 마스터는 종목당 1행.
 CREATE TABLE IF NOT EXISTS tradable_stocks (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  stock_code VARCHAR(20) NOT NULL UNIQUE,
-  stock_name VARCHAR(100),
-  market VARCHAR(10) NOT NULL,
-  exchange VARCHAR(20),
-  sector VARCHAR(40),
-  currency VARCHAR(3),
-  logo_url VARCHAR(255) NULL,
+  id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_code    VARCHAR(20)  NOT NULL UNIQUE,   -- 단축코드(KR 6자리)/심볼(US AAPL) → 주문·표시·LS tr_key
+  market        VARCHAR(10)  NOT NULL,          -- KOSPI/KOSDAQ/NASDAQ/NYSE/AMEX
+  standard_code VARCHAR(20)  NULL,              -- 표준코드/ISIN (KR7005930003) — KR 안정 식별자
+  stock_name    VARCHAR(100) NOT NULL,          -- 한글종목명
+  english_name  VARCHAR(100) NULL,              -- 영문명 (US)
+  rt_symbol     VARCHAR(30)  NULL,              -- 실시간 시세 구독 심볼 (US: NASAACB / KR: null이면 stock_code 사용)
+  currency      CHAR(3)      NOT NULL,          -- KRW/USD
+  sec_type      VARCHAR(10)  NOT NULL,          -- STOCK / ETF
   is_fractional BOOLEAN DEFAULT TRUE,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_ts_code_market (stock_code, market)  -- composite FK(orders·batch_orders) 대상
+  is_active     BOOLEAN DEFAULT TRUE,           -- 거래정지/정리매매 제외
+  logo_url      VARCHAR(255) NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ts_code_market (stock_code, market),  -- orders·batch_orders composite FK 대상(종목-시장 정합성)
+  INDEX idx_ts_sectype (sec_type)
 );
 
 CREATE TABLE IF NOT EXISTS stock_categories (
