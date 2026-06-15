@@ -244,7 +244,7 @@ CREATE TABLE IF NOT EXISTS tradable_stocks (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_code VARCHAR(20) NOT NULL UNIQUE,
   stock_name VARCHAR(100),
-  market VARCHAR(10),
+  market VARCHAR(10) NOT NULL,
   exchange VARCHAR(20),
   sector VARCHAR(40),
   currency VARCHAR(3),
@@ -252,7 +252,8 @@ CREATE TABLE IF NOT EXISTS tradable_stocks (
   is_fractional BOOLEAN DEFAULT TRUE,
   is_active BOOLEAN DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ts_code_market (stock_code, market)  -- composite FK(orders·batch_orders) 대상
 );
 
 CREATE TABLE IF NOT EXISTS stock_categories (
@@ -328,11 +329,21 @@ ALTER TABLE whole_share_events   ADD CONSTRAINT fk_wse_acc   FOREIGN KEY (accoun
 -- cross-domain (exchange → trading, 같은 DB B)
 ALTER TABLE fx_transactions      ADD CONSTRAINT fk_fx_order  FOREIGN KEY (ref_order_id) REFERENCES orders(id);
 -- stock_code → tradable_stocks (trading 내부 종목 마스터, 같은 DB B, 2026-06-15)
+-- FK child 컬럼 leading 인덱스 명시 (InnoDB 자동생성 대신 이름·의도 고정)
+ALTER TABLE holdings             ADD INDEX idx_hold_stock (stock_code);
+ALTER TABLE orders               ADD INDEX idx_ord_stock  (stock_code, market);
+ALTER TABLE batch_orders         ADD INDEX idx_bo_stock   (stock_code, market);
+ALTER TABLE daily_valuations     ADD INDEX idx_dv_stock   (stock_code);
+ALTER TABLE auto_invest_stocks   ADD INDEX idx_ais_stock  (stock_code);
+ALTER TABLE rewards              ADD INDEX idx_rwd_stock  (stock_code);
+-- 단순 FK(stock_code) — 종목 마스터 존재만 검증
 ALTER TABLE holdings             ADD CONSTRAINT fk_hold_stock FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
-ALTER TABLE orders               ADD CONSTRAINT fk_ord_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
-ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE stock_categories     ADD CONSTRAINT fk_sc_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE daily_valuations     ADD CONSTRAINT fk_dv_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE operating_account    ADD CONSTRAINT fk_oa_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE rewards              ADD CONSTRAINT fk_rwd_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
+-- composite FK(stock_code, market) — 종목-시장 정합성까지 검증 (체결엔진 라우팅 무결성)
+-- ※ orders·batch_orders는 market NOT NULL이라 composite 적용. auto_invest_stocks는 market NULL 허용이라 단순 FK 유지
+ALTER TABLE orders               ADD CONSTRAINT fk_ord_stock  FOREIGN KEY (stock_code, market) REFERENCES tradable_stocks(stock_code, market);
+ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_stock   FOREIGN KEY (stock_code, market) REFERENCES tradable_stocks(stock_code, market);
