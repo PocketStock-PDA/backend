@@ -24,7 +24,9 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: localdev
     volumes:
-      - ./scripts/mysql-b-init.sql:/docker-entrypoint-initdb.d/init.sql
+      # initdb.d: 빈 볼륨(첫 up / down -v 후)에서만 알파벳순 1회 실행 → 평소 up은 자동 스킵
+      - ./scripts/mysql-b-init.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./scripts/stock-master/tradable_stocks_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
       - mysql-b-data:/var/lib/mysql
 
   redis:
