@@ -305,3 +305,24 @@ CREATE TABLE IF NOT EXISTS rewards (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_rwd_user (user_id)
 );
+
+-- =====================================================================
+-- 외래키(FK) — 같은 DB B 내 관계 (2026-06-15: cross-domain ref_order_id 포함)
+-- ※ user_id는 users가 DB A라 cross-DB → FK 불가(값참조). stock_code도 값참조.
+-- =====================================================================
+-- cma same-domain
+ALTER TABLE cma_balances         ADD CONSTRAINT fk_cb_acc    FOREIGN KEY (cma_account_id) REFERENCES cma_accounts(id);
+ALTER TABLE cma_transactions     ADD CONSTRAINT fk_cmt_acc   FOREIGN KEY (cma_account_id) REFERENCES cma_accounts(id);
+-- trading same-domain
+ALTER TABLE deposit_transactions ADD CONSTRAINT fk_dt_acc    FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+ALTER TABLE holdings             ADD CONSTRAINT fk_hold_acc  FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+ALTER TABLE orders               ADD CONSTRAINT fk_ord_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+ALTER TABLE orders               ADD CONSTRAINT fk_ord_round FOREIGN KEY (round_id)   REFERENCES trading_rounds(id);
+ALTER TABLE orders               ADD CONSTRAINT fk_ord_batch FOREIGN KEY (batch_id)   REFERENCES batch_orders(id);
+ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_round  FOREIGN KEY (round_id)   REFERENCES trading_rounds(id);
+ALTER TABLE allocations          ADD CONSTRAINT fk_alloc_ord FOREIGN KEY (order_id)       REFERENCES orders(id);
+ALTER TABLE allocations          ADD CONSTRAINT fk_alloc_bo  FOREIGN KEY (batch_order_id) REFERENCES batch_orders(id);
+ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+ALTER TABLE whole_share_events   ADD CONSTRAINT fk_wse_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+-- cross-domain (exchange → trading, 같은 DB B)
+ALTER TABLE fx_transactions      ADD CONSTRAINT fk_fx_order  FOREIGN KEY (ref_order_id) REFERENCES orders(id);
