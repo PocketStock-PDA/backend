@@ -48,8 +48,8 @@ subprojects {
         useJUnitPlatform()
     }
 
-    // Swagger(springdoc) — MVC 서비스만. gateway(WebFlux)·common(라이브러리)는 제외
-    if (project.name != 'api-gateway' && project.name != 'common') {
+    // Swagger(springdoc) — 실행 앱(core-api·ledger-api)만
+    if (project.name == 'core-api' || project.name == 'ledger-api') {
         dependencies {
             implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
         }

@@ -1,21 +1,23 @@
+// user = 라이브러리 모듈(부품). core-api·ledger-api가 의존해서 공유.
+//  - member/  : 회원 도메인(회원가입·로그인·약관·계좌비번) → DB A. core-api만 스캔.
+//  - security/: JWT 인증(무상태) → core·ledger 둘 다 스캔.
 plugins {
-    id 'org.springframework.boot'
+    id 'java-library'   // bootJar 안 만듦 (실행 모듈 아님)
 }
 
 dependencies {
-    implementation project(':common')
+    api project(':common')   // api = 이 모듈을 쓰는 쪽에도 common 노출
 
-    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // 회원 도메인(web 컨트롤러 + DB A MyBatis)
+    api 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
     runtimeOnly 'com.mysql:mysql-connector-j'
 
+    // JWT 토큰 인증 — spring-security 미사용, 순수 Servlet Filter로 직접 처리
+    api 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // 거래인증 토큰(30분, AUTH-015)·로그인 실패 카운트 등
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation 'org.springframework.kafka:spring-kafka'
-
-    // 서비스 간 통신 (Eureka 제외, Docker DNS로 디스커버리)
-    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
-    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
-
-    // 인증 (계좌비번 중앙검증 등)
-    implementation 'org.springframework.boot:spring-boot-starter-security'
 }
