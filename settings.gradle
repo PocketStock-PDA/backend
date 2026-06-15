@@ -1,19 +1,9 @@
 rootProject.name = 'pocketstock-backend'
 
-// 공통 라이브러리
-include 'common'
+// 라이브러리 모듈 (부품 — 혼자 실행 X, 실행 앱이 의존)
+include 'common'   // 응답·예외·유틸
+include 'user'     // 회원 도메인 + JWT 인증 (core·ledger 공유)
 
-// API Gateway
-include 'api-gateway'
-
-// 일반 서비스 (RDS-A)
-include 'user'
-include 'asset'
-include 'portfolio'
-include 'budget'
-include 'notification'
-
-// 원장 서비스 (RDS-B)
-include 'cma'
-include 'trading'
-include 'exchange'
+// 실행 모듈 (배포 단위 — bootJar)
+include 'core-api'    // DB A(pocketstock_main): user·asset·budget·portfolio·notification
+include 'ledger-api'  // DB B(pocketstock_ledger, 원장): cma·exchange·trading
