@@ -90,7 +90,7 @@
 | 시세 | 종목 상세(마스터+현재가 합성) | GET | `/api/trading/stocks/{stockCode}` |  | B·김준형 | ✅ |
 | 시세 | [국내] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=domestic` | t1102 [LS 모의] | B·김준형 | ✅ |
 | 시세 | [해외] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=overseas` | g3101 [LS 모의] | B·김준형 |  |
-| 시세 | [국내] 호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=domestic` | t8450 (현재가호가) [LS 모의] | B·김준형 |  |
+| 시세 | [국내] 호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=domestic` | t8450 (현재가호가) [LS 모의] | B·김준형 | ✅ |
 | 시세 | [해외] 현재가·호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=overseas` | g3106 [LS 모의] | B·김준형 |  |
 | 시세 | [국내] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=domestic` | t3320 (FNG요약) [LS 모의] | B·김준형 |  |
 | 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | g3104 [LS 모의] | B·김준형 |  |
