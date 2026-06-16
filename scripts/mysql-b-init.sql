@@ -53,6 +53,17 @@ CREATE TABLE IF NOT EXISTS collection_settings (
   UNIQUE KEY uq_cs (user_id, source_type, source_ref_id)
 );
 
+-- 부족금액 자동충전 설정 (SETTLE-006, 1인 1행, on-demand 충전만)
+CREATE TABLE IF NOT EXISTS cma_auto_charge_settings (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL UNIQUE,
+  is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  source_account_ref BIGINT NULL,
+  max_charge_per_tx DECIMAL(18,4) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ========== exchange (범용 환전) ==========
 CREATE TABLE IF NOT EXISTS fx_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
