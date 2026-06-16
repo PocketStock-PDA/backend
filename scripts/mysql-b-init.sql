@@ -159,12 +159,13 @@ CREATE TABLE IF NOT EXISTS orders (
   user_id BIGINT NOT NULL,
   account_id BIGINT NOT NULL,
   stock_code VARCHAR(20) NOT NULL,
-  market VARCHAR(10) NOT NULL,
+  exchange VARCHAR(10) NOT NULL,
   side VARCHAR(4) NOT NULL,
   order_type VARCHAR(20),
   order_amount DECIMAL(18,4) NULL,
   order_quantity DECIMAL(18,6) NULL,
   est_quantity DECIMAL(18,6) NULL,
+  price DECIMAL(18,4) NULL,
   status VARCHAR(20) DEFAULT 'RECEIVED',
   source VARCHAR(20),
   round_id BIGINT NULL,
@@ -180,7 +181,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS batch_orders (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_code VARCHAR(20) NOT NULL,
-  market VARCHAR(10) NOT NULL,
+  exchange VARCHAR(10) NOT NULL,
   side VARCHAR(4) NOT NULL,
   round_id BIGINT NULL,
   pricing_method VARCHAR(20),
@@ -258,7 +259,7 @@ CREATE TABLE IF NOT EXISTS auto_invest_stocks (
 CREATE TABLE IF NOT EXISTS tradable_stocks (
   id            BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_code    VARCHAR(20)  NOT NULL UNIQUE,   -- 단축코드(KR 6자리)/심볼(US AAPL) → 주문·표시·LS tr_key
-  market        VARCHAR(10)  NOT NULL,          -- KOSPI/KOSDAQ/NASDAQ/NYSE/AMEX
+  exchange      VARCHAR(10)  NOT NULL,          -- 거래소: KOSPI/KOSDAQ/NASDAQ/NYSE/AMEX (국내/해외는 거래소값에서 파생)
   standard_code VARCHAR(20)  NULL,              -- 표준코드/ISIN (KR7005930003) — KR 안정 식별자
   stock_name    VARCHAR(100) NOT NULL,          -- 한글종목명
   english_name  VARCHAR(100) NULL,              -- 영문명 (US)
@@ -270,7 +271,7 @@ CREATE TABLE IF NOT EXISTS tradable_stocks (
   logo_url      VARCHAR(255) NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_ts_code_market (stock_code, market),  -- orders·batch_orders composite FK 대상(종목-시장 정합성)
+  UNIQUE KEY uq_ts_code_exchange (stock_code, exchange),  -- orders·batch_orders composite FK 대상(종목-거래소 정합성)
   INDEX idx_ts_sectype (sec_type)
 );
 
@@ -349,8 +350,8 @@ ALTER TABLE fx_transactions      ADD CONSTRAINT fk_fx_order  FOREIGN KEY (ref_or
 -- stock_code → tradable_stocks (trading 내부 종목 마스터, 같은 DB B, 2026-06-15)
 -- FK child 컬럼 leading 인덱스 명시 (InnoDB 자동생성 대신 이름·의도 고정)
 ALTER TABLE holdings             ADD INDEX idx_hold_stock (stock_code);
-ALTER TABLE orders               ADD INDEX idx_ord_stock  (stock_code, market);
-ALTER TABLE batch_orders         ADD INDEX idx_bo_stock   (stock_code, market);
+ALTER TABLE orders               ADD INDEX idx_ord_exchange (stock_code, exchange);
+ALTER TABLE batch_orders         ADD INDEX idx_bo_exchange  (stock_code, exchange);
 ALTER TABLE daily_valuations     ADD INDEX idx_dv_stock   (stock_code);
 ALTER TABLE auto_invest_stocks   ADD INDEX idx_ais_stock  (stock_code);
 ALTER TABLE rewards              ADD INDEX idx_rwd_stock  (stock_code);
@@ -361,7 +362,7 @@ ALTER TABLE daily_valuations     ADD CONSTRAINT fk_dv_stock   FOREIGN KEY (stock
 ALTER TABLE operating_account    ADD CONSTRAINT fk_oa_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE rewards              ADD CONSTRAINT fk_rwd_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
--- composite FK(stock_code, market) — 종목-시장 정합성까지 검증 (체결엔진 라우팅 무결성)
--- ※ orders·batch_orders는 market NOT NULL이라 composite 적용. auto_invest_stocks는 market NULL 허용이라 단순 FK 유지
-ALTER TABLE orders               ADD CONSTRAINT fk_ord_stock  FOREIGN KEY (stock_code, market) REFERENCES tradable_stocks(stock_code, market);
-ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_stock   FOREIGN KEY (stock_code, market) REFERENCES tradable_stocks(stock_code, market);
+-- composite FK(stock_code, exchange) — 종목-거래소 정합성까지 검증 (체결엔진 라우팅 무결성)
+-- ※ orders·batch_orders는 exchange NOT NULL이라 composite 적용. auto_invest_stocks는 market(DOMESTIC/OVERSEAS) NULL 허용이라 단순 FK 유지
+ALTER TABLE orders               ADD CONSTRAINT fk_ord_stock  FOREIGN KEY (stock_code, exchange) REFERENCES tradable_stocks(stock_code, exchange);
+ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_stock   FOREIGN KEY (stock_code, exchange) REFERENCES tradable_stocks(stock_code, exchange);

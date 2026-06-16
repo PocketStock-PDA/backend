@@ -2,7 +2,7 @@
 USE pocketstock_ledger;
 SET NAMES utf8mb4;  -- 적재 client charset 고정(미지정 시 latin1로 읽혀 한글 이중인코딩됨)
 
-INSERT INTO tradable_stocks (stock_code, market, standard_code, stock_name, english_name, rt_symbol, currency, sec_type, is_fractional, is_active) VALUES
+INSERT INTO tradable_stocks (stock_code, exchange, standard_code, stock_name, english_name, rt_symbol, currency, sec_type, is_fractional, is_active) VALUES
 ('005930', 'KOSPI', 'KR7005930003', '삼성전자', NULL, NULL, 'KRW', 'STOCK', 1, 1),
 ('000660', 'KOSPI', 'KR7000660001', 'SK하이닉스', NULL, NULL, 'KRW', 'STOCK', 1, 1),
 ('402340', 'KOSPI', 'KR7402340004', 'SK스퀘어', NULL, NULL, 'KRW', 'STOCK', 1, 1),
@@ -956,5 +956,5 @@ INSERT INTO tradable_stocks (stock_code, market, standard_code, stock_name, engl
 ('XLU', 'AMEX', NULL, 'SPDR UTILITIES SELECT SECTOR', 'SELECT SECTOR SPDR TRUST STATE STREET UTLTS SLCT SCTR SPDR E', 'AMSXLU', 'USD', 'ETF', 1, 1),
 ('XLV', 'AMEX', NULL, 'SPDR HEALTH CARE SELECT SECTOR', 'SELECT SECTOR SPDR TRUST STATE STREET HEALTH CARE SELECT SEC', 'AMSXLV', 'USD', 'ETF', 1, 1),
 ('XLY', 'AMEX', NULL, 'SPDR CONSUMER DISCRETIONARY SELECT SECTOR', 'SELECT SECTOR SPDR TRUST SST CNSMR DISCRETIONARY SLCT SCTR S', 'AMSXLY', 'USD', 'ETF', 1, 1)
-ON DUPLICATE KEY UPDATE stock_name=VALUES(stock_name), market=VALUES(market), updated_at=CURRENT_TIMESTAMP;
+ON DUPLICATE KEY UPDATE stock_name=VALUES(stock_name), exchange=VALUES(exchange), updated_at=CURRENT_TIMESTAMP;
 

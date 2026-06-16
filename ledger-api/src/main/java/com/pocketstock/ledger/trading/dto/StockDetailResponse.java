@@ -8,7 +8,7 @@ public record StockDetailResponse(
         String stockCode,
         String stockName,
         String englishName,
-        String market,
+        String exchange,
         String standardCode,
         String currency,
         String secType,
