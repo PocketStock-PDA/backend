@@ -35,8 +35,9 @@ class LsTokenProviderIT {
     @Test
     @DisplayName("접근토큰을 발급하고 Redis에 TTL과 함께 캐싱하며, 재호출 시 캐시를 반환한다")
     void issueAndCache() {
+        // LS가 토큰 형식(JWT 등)을 보장하지 않으므로 형식이 아닌 발급·캐시 동작만 검증
         String first = provider.getAccessToken();
-        assertThat(first).isNotBlank().startsWith("eyJ");
+        assertThat(first).isNotBlank();
 
         // 두 번째 호출은 캐시 적중 → 동일 토큰
         String second = provider.getAccessToken();

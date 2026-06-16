@@ -3,7 +3,6 @@ package com.pocketstock.ledger.trading.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.ls.LsApiProperties;
 import com.pocketstock.ledger.ls.LsTokenProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -11,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.util.Map;
 
@@ -31,10 +31,10 @@ public class LsMarketClient {
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
-    public LsMarketClient(LsApiProperties props, LsTokenProvider tokenProvider, ObjectMapper objectMapper) {
+    public LsMarketClient(LsTokenProvider tokenProvider, ObjectMapper objectMapper, RestClient lsRestClient) {
         this.tokenProvider = tokenProvider;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder().baseUrl(props.getBaseUrl()).build();
+        this.restClient = lsRestClient;
     }
 
     /** t1102 국내 현재가 조회(KRX). */
@@ -78,7 +78,12 @@ public class LsMarketClient {
                 tokenProvider.refresh();
                 return callT1102(shcode, false);
             }
-            throw e;
+            // 재시도 후에도 LS가 우리 토큰을 거부 → 끝유저 인증 문제가 아닌 업스트림 장애
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "LS 인증 실패(토큰 재발급 후에도 거부됨)");
+        } catch (RestClientException e) {
+            // 타임아웃·5xx·연결 실패 등 외부 호출 장애 → 502로 명확히 응답(catch-all 500 방지)
+            log.error("LS 시세 호출 실패: {}", e.getMessage());
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "LS 시세 서버 호출 실패");
         }
     }
 

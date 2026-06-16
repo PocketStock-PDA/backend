@@ -30,8 +30,8 @@ public class DevController {
 
     @GetMapping(value = "/dev", produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     public String page() throws IOException {
-        byte[] html = new ClassPathResource("dev/dev.html").getInputStream().readAllBytes();
-        return new String(html, StandardCharsets.UTF_8);
+        // getContentAsString이 내부 스트림을 열고 닫는다(누수 없음)
+        return new ClassPathResource("dev/dev.html").getContentAsString(StandardCharsets.UTF_8);
     }
 
     @GetMapping("/dev/token")

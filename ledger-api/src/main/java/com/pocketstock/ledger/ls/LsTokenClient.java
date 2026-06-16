@@ -29,11 +29,9 @@ public class LsTokenClient {
     private final LsApiProperties props;
     private final RestClient restClient;
 
-    public LsTokenClient(LsApiProperties props) {
+    public LsTokenClient(LsApiProperties props, RestClient lsRestClient) {
         this.props = props;
-        this.restClient = RestClient.builder()
-                .baseUrl(props.getBaseUrl())
-                .build();
+        this.restClient = lsRestClient;
     }
 
     /** client_credentials로 접근토큰 신규 발급. */

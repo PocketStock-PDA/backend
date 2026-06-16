@@ -17,7 +17,10 @@ public enum ErrorCode {
 
     // 도메인 공통(예시)
     INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "잔액이 부족합니다."),
-    IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "이미 처리된 요청입니다.");
+    IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "이미 처리된 요청입니다."),
+
+    // 외부 연동(LS 등) 호출 실패 — 업스트림 장애
+    EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "외부 서버 호출에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;
