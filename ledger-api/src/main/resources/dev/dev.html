@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <title>PocketStock DEV 테스트</title>
+  <style>
+    body { font-family: monospace; max-width: 760px; margin: 24px auto; padding: 0 12px; }
+    fieldset { margin-bottom: 18px; border: 1px solid #ccc; }
+    legend { font-weight: bold; }
+    input { font-family: monospace; padding: 4px; }
+    button { padding: 5px 10px; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    table { border-collapse: collapse; margin-top: 8px; }
+    td, th { border: 1px solid #ddd; padding: 4px 10px; text-align: right; }
+    th { background: #f0f0f0; }
+    .muted { color: #888; font-size: 12px; }
+    .up { color: #d33; } .down { color: #2255cc; }
+  </style>
+</head>
+<body>
+<h2>PocketStock — DEV 테스트 (local only)</h2>
+
+<fieldset>
+  <legend>1) 테스트 토큰</legend>
+  <button onclick="issueToken()">토큰 발급</button>
+  <span id="tokenState" class="muted">없음</span>
+  <div class="muted">/dev/token 으로 발급한 JWT를 localStorage에 저장해 이후 호출에 Bearer로 사용.</div>
+</fieldset>
+
+<fieldset>
+  <legend>2) 국내 현재가 (t1102)</legend>
+  종목코드 <input id="stockCode" value="005930" size="8"/>
+  <button onclick="getPrice()">현재가 조회</button>
+  <div id="priceView"></div>
+  <pre id="priceRaw" class="muted">결과 raw JSON</pre>
+</fieldset>
+
+<fieldset>
+  <legend>3) 실시간시세 (WebSocket) — 추후</legend>
+  <div class="muted">STOMP 붙으면 여기서 /topic/stock/trade/{code} 구독 테스트 예정.</div>
+</fieldset>
+
+<script>
+const TOKEN_KEY = 'ps_dev_token';
+
+function setTokenState() {
+  const t = localStorage.getItem(TOKEN_KEY);
+  document.getElementById('tokenState').textContent = t ? ('보유: ' + t.slice(0, 20) + '…') : '없음';
+}
+
+async function issueToken() {
+  const res = await fetch('/dev/token?userId=1');
+  const body = await res.json();
+  localStorage.setItem(TOKEN_KEY, body.data.token);
+  setTokenState();
+}
+
+async function getPrice() {
+  let token = localStorage.getItem(TOKEN_KEY);
+  if (!token) { await issueToken(); token = localStorage.getItem(TOKEN_KEY); }
+
+  const code = document.getElementById('stockCode').value.trim();
+  const res = await fetch(`/api/trading/stocks/${code}/price?market=domestic`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const body = await res.json();
+  document.getElementById('priceRaw').textContent = JSON.stringify(body, null, 2);
+
+  const view = document.getElementById('priceView');
+  if (!body.success) { view.innerHTML = `<p class="down">실패: ${body.message}</p>`; return; }
+  const d = body.data;
+  const cls = d.changePrice > 0 ? 'up' : (d.changePrice < 0 ? 'down' : '');
+  view.innerHTML = `
+    <table>
+      <tr><th>종목</th><td>${d.stockCode}</td></tr>
+      <tr><th>현재가</th><td>${d.currentPrice.toLocaleString()}</td></tr>
+      <tr><th>전일대비</th><td class="${cls}">${d.changePrice.toLocaleString()} (${d.changeRate}%)</td></tr>
+      <tr><th>시/고/저</th><td>${d.openPrice.toLocaleString()} / ${d.highPrice.toLocaleString()} / ${d.lowPrice.toLocaleString()}</td></tr>
+      <tr><th>거래량</th><td>${d.volume.toLocaleString()}</td></tr>
+    </table>`;
+}
+
+setTokenState();
+</script>
+</body>
+</html>
