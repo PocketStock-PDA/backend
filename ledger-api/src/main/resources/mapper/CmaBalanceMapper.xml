@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.cma.mapper.CmaBalanceMapper">
+
+    <resultMap id="cmaBalance" type="com.pocketstock.ledger.cma.domain.CmaBalance">
+        <id     property="id"            column="id"/>
+        <result property="cmaAccountId"  column="cma_account_id"/>
+        <result property="currency"      column="currency"/>
+        <result property="balance"       column="balance"/>
+        <result property="interestRate"  column="interest_rate"/>
+        <result property="updatedAt"     column="updated_at"/>
+    </resultMap>
+
+    <select id="findByAccountId" resultMap="cmaBalance">
+        SELECT id, cma_account_id, currency, balance, interest_rate, updated_at
+        FROM cma_balances
+        WHERE cma_account_id = #{cmaAccountId}
+    </select>
+
+    <select id="findByAccountIdAndCurrency" resultMap="cmaBalance">
+        SELECT id, cma_account_id, currency, balance, interest_rate, updated_at
+        FROM cma_balances
+        WHERE cma_account_id = #{cmaAccountId}
+          AND currency = #{currency}
+    </select>
+
+    <insert id="upsertBalance" parameterType="com.pocketstock.ledger.cma.domain.CmaBalance">
+        INSERT INTO cma_balances (cma_account_id, currency, balance, interest_rate, updated_at)
+        VALUES (#{cmaAccountId}, #{currency}, #{balance}, #{interestRate}, NOW())
+        ON DUPLICATE KEY UPDATE
+            balance      = #{balance},
+            updated_at   = NOW()
+    </insert>
+
+</mapper>
