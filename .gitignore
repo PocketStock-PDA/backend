@@ -20,5 +20,6 @@ out/
 *.log
 logs/
 
-# 참고용 md 파일
+# 개인 참고용 md 파일
 DESIGN.md
+CMA_DEVELOPMENT.md
