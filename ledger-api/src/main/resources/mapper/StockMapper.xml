@@ -6,7 +6,7 @@
     <resultMap id="tradableStock" type="com.pocketstock.ledger.trading.domain.TradableStock">
         <id     property="id"            column="id"/>
         <result property="stockCode"     column="stock_code"/>
-        <result property="market"        column="market"/>
+        <result property="exchange"      column="exchange"/>
         <result property="standardCode"  column="standard_code"/>
         <result property="stockName"     column="stock_name"/>
         <result property="englishName"   column="english_name"/>
@@ -21,7 +21,7 @@
     </resultMap>
 
     <sql id="columns">
-        id, stock_code, market, standard_code, stock_name, english_name, rt_symbol,
+        id, stock_code, exchange, standard_code, stock_name, english_name, rt_symbol,
         currency, sec_type, is_fractional, is_active, logo_url, created_at, updated_at
     </sql>
 

@@ -8,7 +8,7 @@ public record StockSearchItem(
         String stockCode,
         String stockName,
         String englishName,
-        String market,
+        String exchange,
         String secType,
         String currency,
         String logoUrl

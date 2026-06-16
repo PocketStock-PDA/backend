@@ -23,7 +23,7 @@ import java.util.Set;
 public class StockService {
 
     /** t1102(국내 현재가)로 시세 합성이 가능한 시장 — 그 외(해외)는 g3101 추후. */
-    private static final Set<String> DOMESTIC_MARKETS = Set.of("KOSPI", "KOSDAQ");
+    private static final Set<String> DOMESTIC_EXCHANGES = Set.of("KOSPI", "KOSDAQ");
     private static final int MAX_SEARCH_LIMIT = 50;
 
     private final StockMapper stockMapper;
@@ -42,7 +42,7 @@ public class StockService {
                         s.getStockCode(),
                         s.getStockName(),
                         s.getEnglishName(),
-                        s.getMarket(),
+                        s.getExchange(),
                         s.getSecType(),
                         s.getCurrency(),
                         s.getLogoUrl()))
@@ -59,7 +59,7 @@ public class StockService {
         }
 
         StockPriceResponse price = null;
-        if (DOMESTIC_MARKETS.contains(stock.getMarket())) {
+        if (DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
             price = stockPriceService.getDomesticPrice(userId, stockCode);
         }
 
@@ -67,7 +67,7 @@ public class StockService {
                 stock.getStockCode(),
                 stock.getStockName(),
                 stock.getEnglishName(),
-                stock.getMarket(),
+                stock.getExchange(),
                 stock.getStandardCode(),
                 stock.getCurrency(),
                 stock.getSecType(),
