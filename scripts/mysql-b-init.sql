@@ -4,6 +4,7 @@
 -- =====================================================================
 CREATE DATABASE IF NOT EXISTS pocketstock_ledger CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE pocketstock_ledger;
+SET NAMES utf8mb4;  -- initdb는 client charset이 latin1 → 한글 이중인코딩 방지
 
 -- ========== cma (멀티커런시 자금풀) ==========
 CREATE TABLE IF NOT EXISTS cma_accounts (

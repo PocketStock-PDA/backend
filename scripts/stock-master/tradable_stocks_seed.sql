@@ -1,5 +1,6 @@
 -- 자동생성: parse_stock_master.py (한투 마스터 정제)
 USE pocketstock_ledger;
+SET NAMES utf8mb4;  -- 적재 client charset 고정(미지정 시 latin1로 읽혀 한글 이중인코딩됨)
 
 INSERT INTO tradable_stocks (stock_code, market, standard_code, stock_name, english_name, rt_symbol, currency, sec_type, is_fractional, is_active) VALUES
 ('005930', 'KOSPI', 'KR7005930003', '삼성전자', NULL, NULL, 'KRW', 'STOCK', 1, 1),

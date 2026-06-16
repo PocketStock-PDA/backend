@@ -183,7 +183,8 @@ def main():
     sql_path = os.path.join(HERE, "tradable_stocks_seed.sql")
     with open(sql_path, "w", encoding="utf-8") as f:
         f.write("-- 자동생성: parse_stock_master.py (한투 마스터 정제)\n")
-        f.write("USE pocketstock_ledger;\n\n")
+        f.write("USE pocketstock_ledger;\n")
+        f.write("SET NAMES utf8mb4;  -- 적재 client charset 고정(미지정 시 한글 이중인코딩)\n\n")
         cols = "stock_code, market, standard_code, stock_name, english_name, rt_symbol, currency, sec_type, is_fractional, is_active"
         CHUNK = 1000
         for i in range(0, len(dedup), CHUNK):
