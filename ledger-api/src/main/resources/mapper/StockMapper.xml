@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.StockMapper">
+
+    <resultMap id="tradableStock" type="com.pocketstock.ledger.trading.domain.TradableStock">
+        <id     property="id"            column="id"/>
+        <result property="stockCode"     column="stock_code"/>
+        <result property="market"        column="market"/>
+        <result property="standardCode"  column="standard_code"/>
+        <result property="stockName"     column="stock_name"/>
+        <result property="englishName"   column="english_name"/>
+        <result property="rtSymbol"      column="rt_symbol"/>
+        <result property="currency"      column="currency"/>
+        <result property="secType"       column="sec_type"/>
+        <result property="isFractional"  column="is_fractional"/>
+        <result property="isActive"      column="is_active"/>
+        <result property="logoUrl"       column="logo_url"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="updatedAt"     column="updated_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        id, stock_code, market, standard_code, stock_name, english_name, rt_symbol,
+        currency, sec_type, is_fractional, is_active, logo_url, created_at, updated_at
+    </sql>
+
+    <select id="search" resultMap="tradableStock">
+        SELECT <include refid="columns"/>
+        FROM tradable_stocks
+        WHERE is_active = 1
+          AND (
+                stock_code   LIKE CONCAT(#{keyword}, '%')
+             OR stock_name   LIKE CONCAT('%', #{keyword}, '%')
+             OR english_name LIKE CONCAT('%', #{keyword}, '%')
+          )
+        ORDER BY
+            CASE
+                WHEN stock_code = #{keyword}                 THEN 0
+                WHEN stock_name = #{keyword}                 THEN 1
+                WHEN stock_code LIKE CONCAT(#{keyword}, '%')  THEN 2
+                WHEN stock_name LIKE CONCAT(#{keyword}, '%')  THEN 3
+                ELSE 4
+            END,
+            stock_name
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByCode" resultMap="tradableStock">
+        SELECT <include refid="columns"/>
+        FROM tradable_stocks
+        WHERE stock_code = #{stockCode}
+    </select>
+
+</mapper>
