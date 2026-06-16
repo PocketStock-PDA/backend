@@ -434,7 +434,7 @@ PIN/패턴 간편 로그인
 
 ### POST `/api/users/terms`
 
-약관 동의 등록
+약관 동의 등록 (약관 항목·termId·본문·버전은 프론트 정적 관리 — 별도 조회 API 없음)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized

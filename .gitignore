@@ -22,3 +22,6 @@ logs/
 
 # 개인 참고용 md 폴더
 docs/un6unw
+
+# Claude (로컬 전용)
+CLAUDE.md
