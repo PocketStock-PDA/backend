@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper">
+
+    <resultMap id="securitiesAccount" type="com.pocketstock.ledger.trading.domain.SecuritiesAccount">
+        <id     property="id"                  column="id"/>
+        <result property="userId"              column="user_id"/>
+        <result property="market"              column="market"/>
+        <result property="accountNoEnc"        column="account_no_enc"/>
+        <result property="status"              column="status"/>
+        <result property="isFractionalEnabled" column="is_fractional_enabled"/>
+        <result property="openedAt"            column="opened_at"/>
+        <result property="createdAt"           column="created_at"/>
+        <result property="updatedAt"           column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.SecuritiesAccount"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO securities_accounts
+            (user_id, market, account_no_enc, status, is_fractional_enabled, opened_at)
+        VALUES
+            (#{userId}, #{market}, #{accountNoEnc}, #{status}, #{isFractionalEnabled}, #{openedAt})
+    </insert>
+
+    <select id="findByUserId" resultMap="securitiesAccount">
+        SELECT id, user_id, market, account_no_enc, status, is_fractional_enabled,
+               opened_at, created_at, updated_at
+        FROM securities_accounts
+        WHERE user_id = #{userId}
+        ORDER BY id
+    </select>
+
+    <select id="existsByUserIdAndMarket" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM securities_accounts
+            WHERE user_id = #{userId} AND market = #{market}
+        )
+    </select>
+
+</mapper>
