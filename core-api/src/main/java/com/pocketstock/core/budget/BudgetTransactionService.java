@@ -24,7 +24,9 @@ public class BudgetTransactionService {
     public TransactionsResponse getTransactions(Long userId, String type, Integer year, Integer month, Integer day) {
         validate(type, year, month, day);
 
-        List<TransactionRow> rows = budgetTransactionMapper.findTransactions(userId, year, month, day);
+        Integer effectiveDay = "MONTHLY".equals(type) ? null : day;
+
+        List<TransactionRow> rows = budgetTransactionMapper.findTransactions(userId, year, month, effectiveDay);
 
         List<TransactionItem> transactions = rows.stream()
                 .map(r -> new TransactionItem(
