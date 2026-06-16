@@ -20,6 +20,5 @@ out/
 *.log
 logs/
 
-# 개인 참고용 md 파일
-DESIGN.md
-CMA_DEVELOPMENT.md
+# 개인 참고용 md 폴더
+docs/un6unw
