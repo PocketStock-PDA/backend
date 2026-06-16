@@ -36,7 +36,15 @@
 </fieldset>
 
 <fieldset>
-  <legend>3) 실시간시세 (WebSocket) — 추후</legend>
+  <legend>3) 국내 호가 (t8450)</legend>
+  종목코드 <input id="obCode" value="005930" size="8"/>
+  <button onclick="getOrderbook()">호가 조회</button>
+  <div id="obView"></div>
+  <pre id="obRaw" class="muted">결과 raw JSON</pre>
+</fieldset>
+
+<fieldset>
+  <legend>4) 실시간시세 (WebSocket) — 추후</legend>
   <div class="muted">STOMP 붙으면 여기서 /topic/stock/trade/{code} 구독 테스트 예정.</div>
 </fieldset>
 
@@ -77,6 +85,40 @@ async function getPrice() {
       <tr><th>전일대비</th><td class="${cls}">${d.changePrice.toLocaleString()} (${d.changeRate}%)</td></tr>
       <tr><th>시/고/저</th><td>${d.openPrice.toLocaleString()} / ${d.highPrice.toLocaleString()} / ${d.lowPrice.toLocaleString()}</td></tr>
       <tr><th>거래량</th><td>${d.volume.toLocaleString()}</td></tr>
+    </table>`;
+}
+
+async function getOrderbook() {
+  let token = localStorage.getItem(TOKEN_KEY);
+  if (!token) { await issueToken(); token = localStorage.getItem(TOKEN_KEY); }
+
+  const code = document.getElementById('obCode').value.trim();
+  const res = await fetch(`/api/trading/stocks/${code}/orderbook?market=domestic`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const body = await res.json();
+  document.getElementById('obRaw').textContent = JSON.stringify(body, null, 2);
+
+  const view = document.getElementById('obView');
+  if (!body.success) { view.innerHTML = `<p class="down">실패: ${body.message}</p>`; return; }
+  const d = body.data;
+  const fmt = n => Number(n).toLocaleString();
+
+  let rows = '';
+  // 매도호가: 10단계 → 1단계 (최우선 매도를 하단, 매수와 맞닿게)
+  for (let i = d.asks.length - 1; i >= 0; i--) {
+    const a = d.asks[i];
+    rows += `<tr><td class="down">${fmt(a.volume)}</td><td class="down">${fmt(a.price)}</td><td></td></tr>`;
+  }
+  // 매수호가: 1단계 → 10단계 (최우선 매수를 상단)
+  for (const b of d.bids) {
+    rows += `<tr><td></td><td class="up">${fmt(b.price)}</td><td class="up">${fmt(b.volume)}</td></tr>`;
+  }
+  view.innerHTML = `
+    <table>
+      <tr><th>매도잔량</th><th>호가 (현재가 ${fmt(d.currentPrice)})</th><th>매수잔량</th></tr>
+      ${rows}
+      <tr><td class="down">${fmt(d.totalAskVolume)}</td><td class="muted">상한 ${fmt(d.upperLimit)} / 하한 ${fmt(d.lowerLimit)}</td><td class="up">${fmt(d.totalBidVolume)}</td></tr>
     </table>`;
 }
 
