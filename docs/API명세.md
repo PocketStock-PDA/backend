@@ -8,9 +8,9 @@
 |---|---|---|
 | **A·우정인** | 회원·인증 · 증권계좌 개설 · 알림 · 퍼즐/보상 | 30 |
 | **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 | 27 |
-| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 31 |
+| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 33 |
 | **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 리밸런싱 | 24 |
-| | **합계** | **112** |
+| | **합계** | **114** |
 
 ## 📌 범례
 
@@ -75,14 +75,16 @@
 | CMA | CMA 잔액·성과율(원화RP/외화RP) 조회 | GET | `/api/cma/balance` |  | C·강문군 |
 | CMA | CMA 계좌내역(입금·출금·이자) 조회 | GET | `/api/cma/transactions` |  | C·강문군 |
 | 자금이체 | 자금 이동 이력 조회 | GET | `/api/cma/transfers` |  | C·강문군 |
+| 자동충전 | 부족금액 자동충전 설정 조회 | GET | `/api/cma/auto-charge-settings` |  | C·강문군 |
+| 자동충전 | 부족금액 자동충전 설정(ON/OFF·1회한도·대상계좌) | PUT | `/api/cma/auto-charge-settings` |  | C·강문군 |
 
 ## Trading
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 |
 |---|---|---|---|---|---|
-| 증권계좌 | 증권계좌 개설(CMA+국내·해외 위탁) | POST | `/api/trading/accounts` |  | A·우정인 |
-| 증권계좌 | 계좌 상태 조회 | GET | `/api/trading/accounts` |  | A·우정인 |
-| 증권계좌 | 예수금/출금가능금액 조회 | GET | `/api/trading/deposit` |  | A·우정인 |
+| 증권계좌 | 증권계좌 개설(CMA+국내·해외 위탁) | POST | `/api/trading/accounts` |  | B·김준형 |
+| 증권계좌 | 계좌 상태 조회 | GET | `/api/trading/accounts` |  | B·김준형 |
+| 증권계좌 | 예수금/출금가능금액 조회 | GET | `/api/trading/deposit` |  | B·김준형 |
 | 시세 | 종목 카테고리 탐색(40대 여성 상위 등) | GET | `/api/trading/stocks/categories` |  | B·김준형 |
 | 시세 | 종목 검색(자체 종목마스터) | GET | `/api/trading/stocks/search` |  | B·김준형 |
 | 시세 | 종목 상세(마스터+현재가 합성) | GET | `/api/trading/stocks/{stockCode}` |  | B·김준형 |
