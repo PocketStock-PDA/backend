@@ -1,3 +1,5 @@
 package com.pocketstock.core.asset.dto;
 
-public record CategorySpending(String category, long amount, double ratio) {}
+import java.math.BigDecimal;
+
+public record CategorySpending(String category, BigDecimal amount, BigDecimal ratio) {}

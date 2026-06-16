@@ -1,5 +1,6 @@
 import csv
 import os
+from decimal import Decimal
 import pymysql
 
 conn = pymysql.connect(
@@ -57,7 +58,7 @@ with conn:
                 row['merchant_name'],
                 row['mcc'],
                 row['category'],
-                float(row['amount']),
+                Decimal(row['amount']),
                 row['paid_at'],
                 1 if row['is_cancelled'] == 'True' else 0
             ))
