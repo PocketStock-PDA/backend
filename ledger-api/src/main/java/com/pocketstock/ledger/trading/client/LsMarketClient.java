@@ -37,54 +37,60 @@ public class LsMarketClient {
         this.restClient = lsRestClient;
     }
 
-    /** t1102 국내 현재가 조회(KRX). */
+    /** t1102 국내 현재가 조회(KRX). 401이면 토큰 1회 재발급 후 재시도. */
     public LsT1102Response.OutBlock getDomesticPrice(String shcode) {
-        return callT1102(shcode, true);
+        try {
+            return callOnce(shcode);
+        } catch (HttpClientErrorException.Unauthorized e) {
+            // 캐시 토큰이 만료 직전 거부될 수 있음 → 강제 재발급 후 1회 재시도.
+            // 재발급·재시도 중 발생하는 외부 호출 장애도 모두 502로 변환(catch 누수 방지).
+            log.warn("LS 401 — 토큰 재발급 후 재시도");
+            try {
+                tokenProvider.refresh();
+                return callOnce(shcode);
+            } catch (RestClientException retryEx) {
+                throw external(retryEx);
+            }
+        } catch (RestClientException e) {
+            throw external(e);
+        }
     }
 
-    private LsT1102Response.OutBlock callT1102(String shcode, boolean allowRetry) {
+    /** t1102 단건 호출 + 응답 검증. 외부 호출 예외(RestClientException)는 호출자가 처리. */
+    private LsT1102Response.OutBlock callOnce(String shcode) {
         byte[] body = serialize(Map.of("t1102InBlock",
                 Map.of("shcode", shcode, "exchgubun", EXCHANGE_KRX)));
-        try {
-            LsT1102Response res = restClient.post()
-                    .uri(MARKET_DATA_PATH)
-                    .header(HttpHeaders.CONTENT_TYPE, JSON_CONTENT_TYPE)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenProvider.getAccessToken())
-                    .header("tr_cd", "t1102")
-                    .header("tr_cont", "N")
-                    .header("tr_cont_key", "")
-                    .header("mac_address", "")
-                    .body(body)
-                    .retrieve()
-                    .body(LsT1102Response.class);
 
-            if (res == null || res.outBlock() == null) {
-                String msg = res != null ? res.rspMsg() : "LS 응답 없음";
-                throw new BusinessException(ErrorCode.NOT_FOUND, "현재가 조회 실패: " + msg);
-            }
-            if (res.rspCd() != null && !SUCCESS_CODE.equals(res.rspCd())) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "LS 오류(" + res.rspCd() + "): " + res.rspMsg());
-            }
-            // LS는 무효 종목코드에도 성공(00000) + 빈 블록(hname="")을 반환 → 종목명 없으면 미존재로 처리
-            if (!StringUtils.hasText(res.outBlock().hname())) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + shcode);
-            }
-            return res.outBlock();
+        LsT1102Response res = restClient.post()
+                .uri(MARKET_DATA_PATH)
+                .header(HttpHeaders.CONTENT_TYPE, JSON_CONTENT_TYPE)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenProvider.getAccessToken())
+                .header("tr_cd", "t1102")
+                .header("tr_cont", "N")
+                .header("tr_cont_key", "")
+                .header("mac_address", "")
+                .body(body)
+                .retrieve()
+                .body(LsT1102Response.class);
 
-        } catch (HttpClientErrorException.Unauthorized e) {
-            // 캐시 토큰이 만료 직전 거부될 수 있음 → 1회 강제 재발급 후 재시도
-            if (allowRetry) {
-                log.warn("LS 401 — 토큰 재발급 후 재시도");
-                tokenProvider.refresh();
-                return callT1102(shcode, false);
-            }
-            // 재시도 후에도 LS가 우리 토큰을 거부 → 끝유저 인증 문제가 아닌 업스트림 장애
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "LS 인증 실패(토큰 재발급 후에도 거부됨)");
-        } catch (RestClientException e) {
-            // 타임아웃·5xx·연결 실패 등 외부 호출 장애 → 502로 명확히 응답(catch-all 500 방지)
-            log.error("LS 시세 호출 실패: {}", e.getMessage());
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "LS 시세 서버 호출 실패");
+        if (res == null || res.outBlock() == null) {
+            String msg = res != null ? res.rspMsg() : "LS 응답 없음";
+            throw new BusinessException(ErrorCode.NOT_FOUND, "현재가 조회 실패: " + msg);
         }
+        if (res.rspCd() != null && !SUCCESS_CODE.equals(res.rspCd())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "LS 오류(" + res.rspCd() + "): " + res.rspMsg());
+        }
+        // LS는 무효 종목코드에도 성공(00000) + 빈 블록(hname="")을 반환 → 종목명 없으면 미존재로 처리
+        if (!StringUtils.hasText(res.outBlock().hname())) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + shcode);
+        }
+        return res.outBlock();
+    }
+
+    /** 외부(LS) 호출 장애를 502로 변환. */
+    private BusinessException external(RestClientException e) {
+        log.error("LS 시세 호출 실패: {}", e.getMessage());
+        return new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "LS 시세 서버 호출 실패");
     }
 
     private byte[] serialize(Object value) {
