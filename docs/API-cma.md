@@ -302,3 +302,59 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: type (COLLECT | BANK
  }
  }
 ```
+
+---
+
+## 자동충전
+
+### GET `/api/cma/auto-charge-settings`
+
+부족금액 자동충전 설정 조회 (SETTLE-006)
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "자동충전 설정 조회 성공",
+  "data": {
+  "enabled": true,
+  "sourceAccountId": 12,
+  "maxChargePerTx": 100000
+ }
+ }
+```
+
+---
+
+### PUT `/api/cma/auto-charge-settings`
+
+부족금액 자동충전 설정 (ON/OFF·1회 한도·충전 재원 계좌). 매수·정기적립 시 CMA 원화풀 부족분만 연동 은행계좌에서 자동 이체(on-demand). '매일 자동충전' 정기 선충전은 미지원.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+**Request Body**
+
+```json
+{
+  "enabled": true,
+  "sourceAccountId": 12,
+  "maxChargePerTx": 100000
+ }
+```
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "자동충전 설정 완료",
+  "data": null
+ }
+```

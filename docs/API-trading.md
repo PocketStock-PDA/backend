@@ -4,9 +4,11 @@
 
 ## 증권계좌
 
-### POST `/api/trading/accounts`
+### POST `/api/trading/accounts` ✅ 구현완료
 
-증권계좌 개설 (CMA + 국내·해외 위탁)
+증권계좌 개설 (국내·해외 위탁)
+
+> **구현 메모**: `accountTypes ⊆ {DOMESTIC, OVERSEAS}`. 이미 개설된 시장은 건너뛰는 **멱등** 동작(기존 베이스 계좌번호 재사용). 계좌번호 형식 `{베이스5자리}-{01 국내 | 02 해외}`, DB엔 AES-256-GCM 암호문(`account_no_enc`) 저장. CMA 계좌 동시 생성은 추후(이벤트 연계). 미인증 401 / 잘못된 유형 400.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -35,9 +37,11 @@
 
 ---
 
-### GET `/api/trading/accounts`
+### GET `/api/trading/accounts` ✅ 구현완료
 
 계좌 상태 조회
+
+> **구현 메모**: 개설된 위탁계좌를 시장별로 반환(`type` = DOMESTIC | OVERSEAS). 계좌번호는 복호화해 응답. 미인증 401.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -58,9 +62,11 @@
 
 ---
 
-### GET `/api/trading/deposit`
+### GET `/api/trading/deposit` ✅ 구현완료
 
 예수금/출금가능금액 조회
+
+> **구현 메모**: KRW 예수금 최신 잔액 기준. 자금 유입·미체결 증거금 흐름 구현 전까지 `withdrawable`·`orderable` = `deposit`(동일값). 거래 없으면 0. 미인증 401.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -174,9 +180,12 @@
 
 ---
 
-### GET `/api/trading/stocks/{stockCode}/price?market=domestic`
+### GET `/api/trading/stocks/{stockCode}/price?market=domestic` ✅ 구현완료
 
 [국내] 현재가 조회<br> Path: {stockCode} - 종목코드 (예: 005930) | LS TR: t1102
+
+> **구현 메모**: LS `t1102`(`/stock/market-data`, KRX) 실연동. `sign`(4하한·5하락)으로 `changePrice`·`changeRate` 부호 적용. 금액 필드는 BigDecimal(정수는 그대로 직렬화). LS 토큰은 `LsTokenProvider`(Redis 캐싱) 공유, 401 시 1회 재발급 재시도.
+> **에러**: 무효 종목코드 → **404**(LS가 빈 블록 반환 → `hname` 없으면 미존재 처리) / LS 호출 장애(타임아웃·5xx) → **502**(`EXTERNAL_API_ERROR`) / `market=overseas` → 현재 **400**(g3101 추후) / 미인증 401.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
