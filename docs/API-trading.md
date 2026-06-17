@@ -359,6 +359,8 @@
 
 [국내] 실시간 체결가 (소수점·온주)<br> Path: {stockCode} - 종목코드 (예: 005930) | LS TR: US3
 
+> **구현 메모**: LS US3(통합 체결, KRX+NXT) 실시간을 `TradeRealtimeListener`가 매핑해 push. 현재가/등락/시고저/거래량 필드명을 REST 현재가(t1102 `StockPriceResponse`)와 맞춰 진입 시 REST 스냅샷 → WS 틱 갱신으로 재사용. `changePrice`·`changeRate`는 sign(4하한·5하락) 적용 부호 포함. 구독 시에만 LS에 종목 등록(온디맨드), tr_key = `U`+단축코드 7자리+공백 3자리(10자리).
+
 - **HTTP Status Code**: 101 Switching Protocols
 
 **Response Body**
@@ -366,10 +368,17 @@
 ```json
 {
   "stockCode": "005930",
-  "tradePrice": 73500,
-  "tradeVolume": 100,
-  "changeRate": 1.66,
-  "tradedAt": "2025-06-15T10:30:00.123"
+  "tradeTime": "162202",
+  "currentPrice": 56100,
+  "changePrice": 900,
+  "changeRate": 1.63,
+  "openPrice": 55500,
+  "highPrice": 56700,
+  "lowPrice": 55500,
+  "volume": 16495969,
+  "lastTradeVolume": 40,
+  "tradeType": "-",
+  "tradeStrength": 107.51
  }
 ```
 
