@@ -72,7 +72,7 @@
 
 ---
 
-### GET `/api/budget/goals`
+### ✅ GET `/api/budget/goals`
 
 가계부 목표 조회
 
