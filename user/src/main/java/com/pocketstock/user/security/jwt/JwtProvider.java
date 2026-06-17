@@ -21,7 +21,7 @@ public class JwtProvider {
     private final long validityMs;
 
     public JwtProvider(
-            @Value("${jwt.secret:pocketstock-local-dev-secret-key-please-change-32bytes+}") String secret,
+            @Value("${jwt.secret}") String secret,
             @Value("${jwt.validity-ms:3600000}") long validityMs) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.validityMs = validityMs;

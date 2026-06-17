@@ -8,6 +8,7 @@ import com.pocketstock.user.member.dto.SignupResponse;
 import com.pocketstock.user.member.dto.UsernameCheckResponse;
 import com.pocketstock.user.member.mapper.MemberMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,7 +57,12 @@ public class MemberService {
                 .gender(parseGender(req.residentBack()))
                 .build();
 
-        memberMapper.insertMember(member);   // 이후 member.getId()에 PK가 채워짐
+        try {
+            memberMapper.insertMember(member);   // 이후 member.getId()에 PK가 채워짐
+        } catch (DataIntegrityViolationException e) {
+            // 사전 체크와 INSERT 사이 동시 가입(username UNIQUE 제약 위반) → 500 대신 409
+            throw new BusinessException(ErrorCode.CONFLICT, "이미 사용 중인 아이디입니다.");
+        }
 
         return new SignupResponse(member.getId(), member.getUsername());
     }
