@@ -25,6 +25,10 @@ spring:
       write-dates-as-timestamps: false
     time-zone: UTC
 
+springdoc:
+  swagger-ui:
+    persist-authorization: true
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
