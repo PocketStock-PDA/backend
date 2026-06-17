@@ -1,6 +1,8 @@
 package com.pocketstock.user.member;
 
 import com.pocketstock.common.response.ApiResponse;
+import com.pocketstock.user.member.dto.PasswordValidateRequest;
+import com.pocketstock.user.member.dto.PasswordValidateResponse;
 import com.pocketstock.user.member.dto.SignupRequest;
 import com.pocketstock.user.member.dto.SignupResponse;
 import com.pocketstock.user.member.dto.UsernameCheckResponse;
@@ -31,5 +33,13 @@ public class MemberController {
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@RequestBody SignupRequest request) {
         SignupResponse data = memberService.signup(request);
         return ResponseEntity.ok(ApiResponse.ok("회원가입 성공", data));
+    }
+
+    /** 비밀번호 보안규칙 실시간 검증 — 규칙 위반도 200으로 valid/failedRules 반환. */
+    @PostMapping("/validate-password")
+    public ResponseEntity<ApiResponse<PasswordValidateResponse>> validatePassword(
+            @RequestBody PasswordValidateRequest request) {
+        PasswordValidateResponse data = memberService.validatePassword(request.password());
+        return ResponseEntity.ok(ApiResponse.ok("비밀번호 검증 성공", data));
     }
 }
