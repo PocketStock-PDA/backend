@@ -32,6 +32,10 @@ ls:
     app-key: ${LS_APP_KEY:}
     app-secret-key: ${LS_APP_SECRET_KEY:}
 
+feign:
+  core-api:
+    url: ${CORE_API_URL:http://localhost:8081}
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
