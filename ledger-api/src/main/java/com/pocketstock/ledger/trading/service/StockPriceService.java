@@ -2,21 +2,30 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
+import com.pocketstock.ledger.kis.KisMarketClient;
+import com.pocketstock.ledger.kis.KisPriceDetailResponse;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
 import com.pocketstock.ledger.trading.client.LsT1102Response;
+import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.dto.StockPriceResponse;
+import com.pocketstock.ledger.trading.mapper.StockMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class StockPriceService {
 
+    private static final int RATE_SCALE = 2;
+
     private final LsMarketClient lsMarketClient;
+    private final KisMarketClient kisMarketClient;
+    private final StockMapper stockMapper;
 
     /** 국내 현재가 조회(t1102). sign으로 전일대비/등락율 부호를 적용한다. */
     public StockPriceResponse getDomesticPrice(Long userId, String stockCode) {
@@ -39,6 +48,61 @@ public class StockPriceService {
                 BigDecimal.valueOf(ob.low()),
                 BigDecimal.valueOf(ob.open()),
                 ob.volume());
+    }
+
+    /**
+     * 해외 현재가 조회(KIS 현재가상세 HHDFS76200200). 국내와 같은 StockPriceResponse로 정렬.
+     * KIS는 대비/등락율을 안 주므로 last-base로 계산한다(부호는 자연 부호).
+     */
+    public StockPriceResponse getOverseasPrice(Long userId, String stockCode) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        TradableStock stock = stockMapper.findByCode(stockCode);
+        if (stock == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
+        }
+
+        String excd = resolveExcd(stock);
+        KisPriceDetailResponse.Output out = kisMarketClient.getOverseasPriceDetail(excd, stock.getStockCode());
+
+        BigDecimal last = dec(out.last());
+        BigDecimal base = dec(out.base());
+        BigDecimal change = last.subtract(base);
+        BigDecimal changeRate = base.signum() == 0
+                ? BigDecimal.ZERO
+                : change.divide(base, 6, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                        .setScale(RATE_SCALE, RoundingMode.HALF_UP);
+
+        return new StockPriceResponse(
+                stockCode, last, change, changeRate,
+                dec(out.high()), dec(out.low()), dec(out.open()), lng(out.tvol()));
+    }
+
+    /** 거래소코드(EXCD): rt_symbol 앞 3자리 우선(예 NASAAPL→NAS), 없으면 exchange 매핑. */
+    private String resolveExcd(TradableStock stock) {
+        String rt = stock.getRtSymbol();
+        if (rt != null && rt.length() >= 3) {
+            return rt.substring(0, 3);
+        }
+        return switch (stock.getExchange()) {
+            case "NASDAQ" -> "NAS";
+            case "NYSE" -> "NYS";
+            case "AMEX" -> "AMS";
+            default -> throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "해외 거래소 매핑 불가: " + stock.getExchange());
+        };
+    }
+
+    private BigDecimal dec(String s) {
+        String t = (s == null) ? "" : s.trim();
+        return t.isEmpty() ? BigDecimal.ZERO : new BigDecimal(t);
+    }
+
+    private long lng(String s) {
+        String t = (s == null) ? "" : s.trim();
+        return t.isEmpty() ? 0L : new BigDecimal(t).longValue();
     }
 
     private boolean isDown(String sign) {
