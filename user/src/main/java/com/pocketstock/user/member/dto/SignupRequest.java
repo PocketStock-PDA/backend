@@ -11,4 +11,15 @@ public record SignupRequest(
         String residentFront,
         String residentBack,
         String phone
-) {}
+) {
+    // 민감정보(비밀번호·주민번호)는 로그·예외 메시지 유출 방지를 위해 마스킹
+    @Override
+    public String toString() {
+        return "SignupRequest{username=" + username
+                + ", password=***MASKED***"
+                + ", name=" + name
+                + ", residentFront=***MASKED***"
+                + ", residentBack=***MASKED***"
+                + ", phone=" + phone + '}';
+    }
+}
