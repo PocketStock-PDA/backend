@@ -9,7 +9,7 @@
 홈 대시보드 (CMA잔액 + 수집가능 잔돈)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 Unauthorized / 404 Not Found
 
 **Response Body**
 
@@ -17,14 +17,20 @@
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "CMA 홈 대시보드 조회 성공",
+  "message": "홈 대시보드 조회 성공",
   "data": {
-  "cmaBalance": 1250000,
-  "cmaReturnRate": 3.5,
-  "collectableAmount": 8430,
-  "lastCollectedAt": "2025-06-10T09:00:00"
- }
- }
+    "cmaBalance": { "KRW": 37840.0, "USD": 45.67 },
+    "interestRate": 0.0350,
+    "todayInterest": 3,
+    "collectedToday": 5830.0,
+    "collectSources": [
+      { "sourceType": "ACCOUNT", "name": "신한은행",       "amount": 320.0  },
+      { "sourceType": "CARD",    "name": "SOL트래블",      "amount": 870.0  },
+      { "sourceType": "POINT",   "name": "마이신한포인트",  "amount": 1240.0 }
+    ],
+    "totalCollectable": 2430.0
+  }
+}
 ```
 
 ---
