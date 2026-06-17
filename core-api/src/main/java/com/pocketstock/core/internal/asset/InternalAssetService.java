@@ -49,11 +49,11 @@ public class InternalAssetService {
     }
 
     @Transactional
-    public void markRoundupCollected(List<Long> cardTransactionIds) {
+    public void markRoundupCollected(Long userId, List<Long> cardTransactionIds) {
         if (cardTransactionIds == null || cardTransactionIds.isEmpty()) {
             return;
         }
-        mapper.markRoundupCollected(cardTransactionIds);
+        mapper.markRoundupCollected(userId, cardTransactionIds);
     }
 
     @Transactional(readOnly = true)

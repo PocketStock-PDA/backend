@@ -35,8 +35,10 @@ public class InternalAssetController {
     }
 
     @PatchMapping("/card-roundup/mark-collected")
-    public void markRoundupCollected(@RequestBody List<Long> cardTransactionIds) {
-        service.markRoundupCollected(cardTransactionIds);
+    public void markRoundupCollected(
+            @RequestParam Long userId,
+            @RequestBody List<Long> cardTransactionIds) {
+        service.markRoundupCollected(userId, cardTransactionIds);
     }
 
     @GetMapping("/points")
