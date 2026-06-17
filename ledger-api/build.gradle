@@ -9,6 +9,7 @@ dependencies {
     implementation project(':user')   // JWT 검증만 사용(LedgerApiApplication에서 security만 스캔)
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
     runtimeOnly 'com.mysql:mysql-connector-j'
 
