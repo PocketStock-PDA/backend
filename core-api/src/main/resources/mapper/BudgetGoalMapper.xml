@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.budget.mapper.BudgetGoalMapper">
+
+    <select id="findLastMonthCategorySpending" resultType="com.pocketstock.core.budget.dto.CategorySpendingRow">
+        SELECT category, SUM(amount) AS totalAmount
+        FROM card_transactions
+        WHERE user_id = #{userId}
+          AND paid_at >= #{from}
+          AND paid_at &lt;  #{to}
+          AND is_cancelled = false
+          AND category IS NOT NULL
+        GROUP BY category
+        ORDER BY totalAmount DESC
+    </select>
+
+    <insert id="upsertCategoryGoal">
+        INSERT INTO budget_goals (user_id, period, category, target_amount)
+        VALUES (#{userId}, #{period}, #{category}, #{targetAmount})
+        ON DUPLICATE KEY UPDATE
+            target_amount = VALUES(target_amount),
+            updated_at    = CURRENT_TIMESTAMP
+    </insert>
+
+</mapper>

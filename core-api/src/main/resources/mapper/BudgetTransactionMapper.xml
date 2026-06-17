@@ -14,9 +14,8 @@
         FROM card_transactions
         WHERE user_id = #{userId}
           AND is_cancelled = false
-          <if test="year != null">AND YEAR(paid_at) = #{year}</if>
-          <if test="month != null">AND MONTH(paid_at) = #{month}</if>
-          <if test="day != null">AND DAY(paid_at) = #{day}</if>
+          <if test="from != null">AND paid_at &gt;= #{from}</if>
+          <if test="to != null">AND paid_at &lt;  #{to}</if>
         ORDER BY paid_at DESC
     </select>
 
