@@ -64,10 +64,19 @@
 </fieldset>
 
 <fieldset>
-  <legend>5) 실시간시세 (WebSocket) — 추후</legend>
-  <div class="muted">STOMP 붙으면 여기서 /topic/stock/trade/{code} 구독 테스트 예정.</div>
+  <legend>5) 실시간 호가 (WebSocket / STOMP · UH1)</legend>
+  <button onclick="wsConnect()">연결</button>
+  <button onclick="wsDisconnect()">연결 해제</button>
+  <span id="wsState" class="muted">미연결</span>
+  <hr/>
+  종목코드 <input id="wsCode" value="005930" size="8"/>
+  <button onclick="wsSubscribeAsking()">호가 구독</button>
+  <button onclick="wsUnsubscribe()">구독 해제</button>
+  <div id="wsView"></div>
+  <div class="muted">STOMP /ws 연결 후 /topic/asking/{code} 구독 → LS 실시간(UH1) push 수신. 구독 시작 시 LS 등록, 해제 시 LS 해제(온디맨드).</div>
 </fieldset>
 
+<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script>
 const TOKEN_KEY = 'ps_dev_token';
 
@@ -199,6 +208,67 @@ async function loadOrders() {
     `<tr><td>${x.orderId}</td><td>${x.stockCode}</td><td>${x.side}</td><td>${x.orderType}</td><td>${won(x.quantity)}</td><td>${won(x.price)}</td><td>${x.status}</td></tr>`).join('');
   document.getElementById('portView').innerHTML =
     `<table><tr><th>#</th><th>종목</th><th>side</th><th>type</th><th>수량</th><th>가격</th><th>상태</th></tr>${rows || '<tr><td colspan="7" class="muted">내역 없음</td></tr>'}</table>`;
+}
+
+// ---- 5) 실시간 호가 (STOMP over native WebSocket) ----
+let stompClient = null;
+let askingSub = null;
+
+function wsState(msg) { document.getElementById('wsState').textContent = msg; }
+
+async function wsConnect() {
+  let token = localStorage.getItem(TOKEN_KEY);
+  if (!token) { await issueToken(); token = localStorage.getItem(TOKEN_KEY); }
+  if (stompClient && stompClient.connected) { wsState('이미 연결됨'); return; }
+
+  const scheme = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  stompClient = new StompJs.Client({
+    brokerURL: scheme + location.host + '/ws',
+    connectHeaders: { Authorization: 'Bearer ' + token },
+    reconnectDelay: 3000,
+    onConnect: () => wsState('연결됨'),
+    onStompError: f => wsState('STOMP 오류: ' + (f.headers && f.headers.message)),
+    onWebSocketClose: () => wsState('연결 종료'),
+  });
+  stompClient.activate();
+  wsState('연결 중…');
+}
+
+function wsSubscribeAsking() {
+  if (!stompClient || !stompClient.connected) { wsState('먼저 연결하세요'); return; }
+  const code = document.getElementById('wsCode').value.trim();
+  if (askingSub) askingSub.unsubscribe();
+  askingSub = stompClient.subscribe('/topic/asking/' + code, msg => renderAsking(JSON.parse(msg.body)));
+  wsState('구독 중: /topic/asking/' + code);
+}
+
+function wsUnsubscribe() {
+  if (askingSub) { askingSub.unsubscribe(); askingSub = null; wsState('구독 해제'); }
+}
+
+function wsDisconnect() {
+  wsUnsubscribe();
+  if (stompClient) { stompClient.deactivate(); stompClient = null; wsState('미연결'); }
+}
+
+// 호가 렌더 — REST 호가창(getOrderbook)과 동일 배치: 매도 역순(위) + 매수 정순(아래)
+function renderAsking(d) {
+  const fmt = n => Number(n).toLocaleString();
+  let rows = '';
+  for (let i = d.asks.length - 1; i >= 0; i--) {
+    const a = d.asks[i];
+    rows += `<tr><td class="down">${fmt(a.volume)}</td><td class="down">${fmt(a.price)}</td><td></td></tr>`;
+  }
+  for (const b of d.bids) {
+    rows += `<tr><td></td><td class="up">${fmt(b.price)}</td><td class="up">${fmt(b.volume)}</td></tr>`;
+  }
+  document.getElementById('wsView').innerHTML = `
+    <div class="muted">${d.stockCode} · 호가시간 ${d.quoteTime} · 누적거래량 ${fmt(d.accumVolume)}</div>
+    <table>
+      <tr><th>매도잔량</th><th>호가</th><th>매수잔량</th></tr>
+      ${rows}
+      <tr><td class="down">${fmt(d.totalAskVolume)}</td><td class="muted">실시간(통합)</td><td class="up">${fmt(d.totalBidVolume)}</td></tr>
+    </table>`;
 }
 
 setTokenState();
