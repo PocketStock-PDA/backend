@@ -22,7 +22,7 @@ public interface InternalAssetMapper {
             @Param("linkedAccountId") Long linkedAccountId
     );
 
-    int markRoundupCollected(@Param("ids") List<Long> ids);
+    int markRoundupCollected(@Param("userId") Long userId, @Param("ids") List<Long> ids);
 
     BigDecimal findPointBalance(
             @Param("userId") Long userId,

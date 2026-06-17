@@ -28,7 +28,9 @@
         UPDATE card_transactions
         SET is_roundup_collected = TRUE,
             roundup_collected_at = NOW()
-        WHERE id IN
+        WHERE user_id = #{userId}
+          AND is_roundup_collected = FALSE
+          AND id IN
         <foreach item="id" collection="ids" open="(" separator="," close=")">
             #{id}
         </foreach>
