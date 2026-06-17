@@ -20,6 +20,8 @@ public class KisMarketClient {
 
     private static final String PRICE_DETAIL_PATH = "/uapi/overseas-price/v1/quotations/price-detail";
     private static final String TR_PRICE_DETAIL = "HHDFS76200200";
+    private static final String ASKING_PRICE_PATH = "/uapi/overseas-price/v1/quotations/inquire-asking-price";
+    private static final String TR_ASKING_PRICE = "HHDFS76200100";
     private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
     private static final String CUST_TYPE_INDIVIDUAL = "P";
     private static final String SUCCESS_CODE = "0";
@@ -41,6 +43,15 @@ public class KisMarketClient {
         KisPriceDetailResponse.Output out = (res == null) ? null : res.output();
         verify(res, out, (res == null) ? null : res.rtCd(), (res == null) ? null : res.msg1(), symb);
         return out;
+    }
+
+    /** 해외 현재가 호가(HHDFS76200100). 미국 10호가. output2 평면(pbid/pask 1~10). */
+    public KisAskingPriceResponse getOverseasOrderbook(String excd, String symb) {
+        KisAskingPriceResponse res = callGet(ASKING_PRICE_PATH, TR_ASKING_PRICE, excd, symb,
+                KisAskingPriceResponse.class);
+        verify(res, (res == null) ? null : res.output2(),
+                (res == null) ? null : res.rtCd(), (res == null) ? null : res.msg1(), symb);
+        return res;
     }
 
     /** GET 공통 호출 — 401이면 토큰 1회 재발급 후 재시도. 외부 호출 장애는 모두 502로 변환. */
