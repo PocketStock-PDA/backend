@@ -36,7 +36,35 @@
 </fieldset>
 
 <fieldset>
-  <legend>3) 실시간시세 (WebSocket) — 추후</legend>
+  <legend>3) 국내 호가 (t8450)</legend>
+  종목코드 <input id="obCode" value="005930" size="8"/>
+  <button onclick="getOrderbook()">호가 조회</button>
+  <div id="obView"></div>
+  <pre id="obRaw" class="muted">결과 raw JSON</pre>
+</fieldset>
+
+<fieldset>
+  <legend>4) 온주 주문 (whole) + 보유/내역</legend>
+  <button onclick="credit()">예수금 1천만원 충전</button>
+  <span id="balState" class="muted">예수금 미조회</span>
+  <hr/>
+  종목 <input id="ordCode" value="005930" size="8"/>
+  <select id="ordSide"><option value="BUY">매수</option><option value="SELL">매도</option></select>
+  <select id="ordType" onchange="togglePrice()">
+    <option value="MARKET">시장가</option><option value="LIMIT">지정가</option>
+  </select>
+  가격 <input id="ordPrice" size="8" placeholder="지정가만" disabled/>
+  수량 <input id="ordQty" value="1" size="4"/>주
+  <button onclick="placeOrder()">주문</button>
+  <div id="ordView"></div>
+  <pre id="ordRaw" class="muted">결과 raw JSON</pre>
+  <button onclick="loadHoldings()">보유종목</button>
+  <button onclick="loadOrders()">거래내역</button>
+  <div id="portView"></div>
+</fieldset>
+
+<fieldset>
+  <legend>5) 실시간시세 (WebSocket) — 추후</legend>
   <div class="muted">STOMP 붙으면 여기서 /topic/stock/trade/{code} 구독 테스트 예정.</div>
 </fieldset>
 
@@ -54,6 +82,14 @@ async function issueToken() {
   localStorage.setItem(TOKEN_KEY, body.data.token);
   setTokenState();
 }
+
+async function authHeaders() {
+  let token = localStorage.getItem(TOKEN_KEY);
+  if (!token) { await issueToken(); token = localStorage.getItem(TOKEN_KEY); }
+  return { 'Authorization': 'Bearer ' + token };
+}
+
+const won = n => Number(n).toLocaleString();
 
 async function getPrice() {
   let token = localStorage.getItem(TOKEN_KEY);
@@ -78,6 +114,91 @@ async function getPrice() {
       <tr><th>시/고/저</th><td>${d.openPrice.toLocaleString()} / ${d.highPrice.toLocaleString()} / ${d.lowPrice.toLocaleString()}</td></tr>
       <tr><th>거래량</th><td>${d.volume.toLocaleString()}</td></tr>
     </table>`;
+}
+
+async function getOrderbook() {
+  let token = localStorage.getItem(TOKEN_KEY);
+  if (!token) { await issueToken(); token = localStorage.getItem(TOKEN_KEY); }
+
+  const code = document.getElementById('obCode').value.trim();
+  const res = await fetch(`/api/trading/stocks/${code}/orderbook?market=domestic`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const body = await res.json();
+  document.getElementById('obRaw').textContent = JSON.stringify(body, null, 2);
+
+  const view = document.getElementById('obView');
+  if (!body.success) { view.innerHTML = `<p class="down">실패: ${body.message}</p>`; return; }
+  const d = body.data;
+  const fmt = n => Number(n).toLocaleString();
+
+  let rows = '';
+  // 매도호가: 10단계 → 1단계 (최우선 매도를 하단, 매수와 맞닿게)
+  for (let i = d.asks.length - 1; i >= 0; i--) {
+    const a = d.asks[i];
+    rows += `<tr><td class="down">${fmt(a.volume)}</td><td class="down">${fmt(a.price)}</td><td></td></tr>`;
+  }
+  // 매수호가: 1단계 → 10단계 (최우선 매수를 상단)
+  for (const b of d.bids) {
+    rows += `<tr><td></td><td class="up">${fmt(b.price)}</td><td class="up">${fmt(b.volume)}</td></tr>`;
+  }
+  view.innerHTML = `
+    <table>
+      <tr><th>매도잔량</th><th>호가 (현재가 ${fmt(d.currentPrice)})</th><th>매수잔량</th></tr>
+      ${rows}
+      <tr><td class="down">${fmt(d.totalAskVolume)}</td><td class="muted">상한 ${fmt(d.upperLimit)} / 하한 ${fmt(d.lowerLimit)}</td><td class="up">${fmt(d.totalBidVolume)}</td></tr>
+    </table>`;
+}
+
+function togglePrice() {
+  document.getElementById('ordPrice').disabled = document.getElementById('ordType').value !== 'LIMIT';
+}
+
+async function credit() {
+  const res = await fetch('/dev/deposit?userId=1&amount=10000000');
+  const b = await res.json();
+  document.getElementById('balState').textContent = b.success
+    ? ('예수금 ' + won(b.data.balance) + '원') : ('실패: ' + b.message);
+}
+
+async function placeOrder() {
+  const h = await authHeaders();
+  const type = document.getElementById('ordType').value;
+  const body = {
+    stockCode: document.getElementById('ordCode').value.trim(),
+    side: document.getElementById('ordSide').value,
+    orderType: type,
+    price: type === 'LIMIT' ? Number(document.getElementById('ordPrice').value) : null,
+    quantity: Number(document.getElementById('ordQty').value)
+  };
+  const res = await fetch('/api/trading/orders/whole', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const b = await res.json();
+  document.getElementById('ordRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('ordView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const d = b.data;
+  v.innerHTML = `<p class="up">체결: ${d.side} ${d.quantity}주 @ ${won(d.fillPrice)} = ${won(d.totalAmount)}원 · 예수금 ${won(d.balanceAfter)}원</p>`;
+  loadHoldings();
+}
+
+async function loadHoldings() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/holdings', { headers: h })).json();
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.stockCode}</td><td>${won(x.quantity)}</td><td>${won(x.avgBuyPrice)}</td><td>${x.currency}</td></tr>`).join('');
+  document.getElementById('portView').innerHTML =
+    `<table><tr><th>종목</th><th>수량</th><th>평단</th><th>통화</th></tr>${rows || '<tr><td colspan="4" class="muted">보유 없음</td></tr>'}</table>`;
+}
+
+async function loadOrders() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/orders', { headers: h })).json();
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.orderId}</td><td>${x.stockCode}</td><td>${x.side}</td><td>${x.orderType}</td><td>${won(x.quantity)}</td><td>${won(x.price)}</td><td>${x.status}</td></tr>`).join('');
+  document.getElementById('portView').innerHTML =
+    `<table><tr><th>#</th><th>종목</th><th>side</th><th>type</th><th>수량</th><th>가격</th><th>상태</th></tr>${rows || '<tr><td colspan="7" class="muted">내역 없음</td></tr>'}</table>`;
 }
 
 setTokenState();
