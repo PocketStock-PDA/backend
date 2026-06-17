@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -18,7 +20,20 @@ public class SpendingService {
     private final SpendingMapper spendingMapper;
 
     public SpendingResponse getSpending(Long userId, Integer year, Integer month) {
-        List<CategoryAmountRow> rows = spendingMapper.findCategorySpending(userId, year, month);
+        LocalDateTime from = null;
+        LocalDateTime to   = null;
+
+        if (year != null && month != null) {
+            LocalDate start = LocalDate.of(year, month, 1);
+            from = start.atStartOfDay();
+            to   = start.plusMonths(1).atStartOfDay();
+        } else if (year != null) {
+            LocalDate start = LocalDate.of(year, 1, 1);
+            from = start.atStartOfDay();
+            to   = start.plusYears(1).atStartOfDay();
+        }
+
+        List<CategoryAmountRow> rows = spendingMapper.findCategorySpending(userId, from, to);
 
         BigDecimal total = rows.stream()
                 .map(CategoryAmountRow::getAmount)

@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -24,9 +26,20 @@ public class BudgetTransactionService {
     public TransactionsResponse getTransactions(Long userId, String type, Integer year, Integer month, Integer day) {
         validate(type, year, month, day);
 
-        Integer effectiveDay = "MONTHLY".equals(type) ? null : day;
+        LocalDateTime from = null;
+        LocalDateTime to   = null;
 
-        List<TransactionRow> rows = budgetTransactionMapper.findTransactions(userId, year, month, effectiveDay);
+        if ("MONTHLY".equals(type)) {
+            LocalDate start = LocalDate.of(year, month, 1);
+            from = start.atStartOfDay();
+            to   = start.plusMonths(1).atStartOfDay();
+        } else if ("DAILY".equals(type)) {
+            LocalDate date = LocalDate.of(year, month, day);
+            from = date.atStartOfDay();
+            to   = date.plusDays(1).atStartOfDay();
+        }
+
+        List<TransactionRow> rows = budgetTransactionMapper.findTransactions(userId, from, to);
 
         List<TransactionItem> transactions = rows.stream()
                 .map(r -> new TransactionItem(

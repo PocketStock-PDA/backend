@@ -1,3 +1,5 @@
 package com.pocketstock.core.budget.dto;
 
-public record BudgetGoalItem(String category, Long budget) {}
+import java.math.BigDecimal;
+
+public record BudgetGoalItem(String category, BigDecimal budget) {}
