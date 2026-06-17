@@ -64,8 +64,11 @@
   "code": "SUCCESS",
   "message": "가계부 목표 설정 성공",
   "data": {
-  "goalId": 1,
-  "monthlyBudget": 1500000
+  "monthlyBudget": 1500000,
+  "categories": [
+  {"category": "식비", "budget": 400000},
+  {"category": "교통", "budget": 150000}
+  ]
  }
  }
 ```
@@ -87,7 +90,6 @@
   "code": "SUCCESS",
   "message": "가계부 목표 조회 성공",
   "data": {
-  "goalId": 1,
   "monthlyBudget": 1500000,
   "spentAmount": 850000,
   "remainAmount": 650000,
