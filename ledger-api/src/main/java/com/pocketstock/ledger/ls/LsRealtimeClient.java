@@ -2,6 +2,7 @@ package com.pocketstock.ledger.ls;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pocketstock.ledger.realtime.RealtimeUpstream;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
-public class LsRealtimeClient {
+public class LsRealtimeClient implements RealtimeUpstream {
 
     private static final String TR_TYPE_REGISTER = "3";   // 실시간 시세 등록
     private static final String TR_TYPE_UNREGISTER = "4"; // 실시간 시세 해제
@@ -57,7 +58,13 @@ public class LsRealtimeClient {
                 .collect(Collectors.toMap(LsRealtimeListener::trCd, l -> l));
     }
 
+    @Override
+    public String name() {
+        return "LS";
+    }
+
     /** 종목 실시간 등록(구독자 0→1일 때만 호출됨). */
+    @Override
     public synchronized void register(String trCd, String trKey) {
         connectIfNeeded();
         if (activeKeys.add(key(trCd, trKey))) {
@@ -67,6 +74,7 @@ public class LsRealtimeClient {
     }
 
     /** 종목 실시간 해제(구독자 1→0일 때만 호출됨). */
+    @Override
     public synchronized void unregister(String trCd, String trKey) {
         if (activeKeys.remove(key(trCd, trKey)) && isOpen()) {
             send(TR_TYPE_UNREGISTER, trCd, trKey);
