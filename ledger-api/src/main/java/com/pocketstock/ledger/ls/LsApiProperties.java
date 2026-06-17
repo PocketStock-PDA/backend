@@ -15,8 +15,14 @@ import org.springframework.stereotype.Component;
 @Setter
 public class LsApiProperties {
 
-    /** LS 오픈API 도메인 (예: https://openapi.ls-sec.co.kr:8080) */
+    /** LS 오픈API REST 도메인 (예: https://openapi.ls-sec.co.kr:8080) */
     private String baseUrl;
+
+    /**
+     * LS 실시간 WebSocket 도메인 (REST와 별개 포트).
+     * 운영 wss://openapi.ls-sec.co.kr:9443/websocket · 모의 :29443/websocket
+     */
+    private String realtimeUrl;
 
     /** 고객 앱Key */
     private String appKey;
