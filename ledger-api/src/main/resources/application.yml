@@ -43,10 +43,17 @@ kis:
     app-key: ${KIS_APP_KEY:}
     app-secret: ${KIS_APP_SECRET:}
 
+feign:
+  core-api:
+    url: ${CORE_API_URL:http://localhost:8081}
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET}            # 토큰 검증용(공유 JwtProvider) — 필수, core-api와 동일 값
 
 management:
   endpoints:
@@ -61,3 +68,12 @@ logging:
   level:
     com.pocketstock: DEBUG
     org.mybatis: DEBUG
+
+---
+# local 프로파일 = 개발 전용. 운영에선 이 프로파일을 켜지 않으므로 ${JWT_SECRET}(필수) 유지.
+spring:
+  config:
+    activate:
+      on-profile: local
+jwt:
+  secret: pocketstock-local-dev-secret-please-change-in-prod-0123456789  # 개발 전용(운영 금지, core-api와 동일)

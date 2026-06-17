@@ -1,4 +1,4 @@
--- =====================================================================
+﻿-- =====================================================================
 -- DB A (일반) — pocketstock_main
 -- user · asset · budget · portfolio · notification 테이블 (같은 DB, JOIN 허용)
 -- =====================================================================
@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS card_transactions (
   amount DECIMAL(18,4),
   paid_at DATETIME,
   is_cancelled BOOLEAN DEFAULT FALSE,
+  is_roundup_collected BOOLEAN NOT NULL DEFAULT FALSE,
+  roundup_collected_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_ct_user (user_id), INDEX idx_ct_paid (paid_at)
 );
@@ -235,15 +237,30 @@ CREATE TABLE IF NOT EXISTS calendar_recommendations (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS recommended_cards (
+CREATE TABLE IF NOT EXISTS cards (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  card_name VARCHAR(100),
-  provider VARCHAR(40),
-  benefit_category VARCHAR(40),
+  card_name VARCHAR(100) NOT NULL,
+  card_type VARCHAR(10) NOT NULL COMMENT '신용|체크',
+  provider VARCHAR(40) NOT NULL,
+  annual_fee_domestic INT DEFAULT 0,
+  annual_fee_global INT DEFAULT 0,
+  image_url VARCHAR(255),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_card (card_name, provider)
+);
+
+CREATE TABLE IF NOT EXISTS card_benefits (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  card_id BIGINT NOT NULL,
+  benefit_category VARCHAR(40) NOT NULL,
   benefit_rate DECIMAL(7,4),
   benefit_desc VARCHAR(200),
-  is_active BOOLEAN DEFAULT TRUE,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cb (card_id, benefit_category),
+  INDEX idx_cb_card (card_id),
+  CONSTRAINT fk_cb_card FOREIGN KEY (card_id) REFERENCES cards (id)
 );
 
 -- ========== notification ==========

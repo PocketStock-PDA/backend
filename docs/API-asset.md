@@ -387,7 +387,7 @@ SOL트래블 외화잔액 연동
 
 ## 소비패턴분석
 
-### GET `/api/assets/spending`
+### ✅ GET `/api/assets/spending`
 
 소비패턴 분석 결과 조회<br> Query: year (number, 선택), month (number, 선택)
 

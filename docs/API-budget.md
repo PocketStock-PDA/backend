@@ -4,7 +4,7 @@
 
 ## 가계부
 
-### POST `/api/budget/goals/auto`
+### ✅ POST `/api/budget/goals/auto`
 
 소비분석 기반 목표 자동설정
 
@@ -37,7 +37,7 @@
 
 ---
 
-### POST `/api/budget/goals`
+### ✅ POST `/api/budget/goals`
 
 가계부 목표 설정 (생활비/카테고리)
 
@@ -48,7 +48,6 @@
 
 ```json
 {
-  "monthlyBudget": 1500000,
   "categories": [
   {"category": "식비", "budget": 400000},
   {"category": "교통", "budget": 150000}
@@ -64,15 +63,18 @@
   "code": "SUCCESS",
   "message": "가계부 목표 설정 성공",
   "data": {
-  "goalId": 1,
-  "monthlyBudget": 1500000
+  "monthlyBudget": 1500000,
+  "categories": [
+  {"category": "식비", "budget": 400000},
+  {"category": "교통", "budget": 150000}
+  ]
  }
  }
 ```
 
 ---
 
-### GET `/api/budget/goals`
+### ✅ GET `/api/budget/goals`
 
 가계부 목표 조회
 
@@ -87,7 +89,6 @@
   "code": "SUCCESS",
   "message": "가계부 목표 조회 성공",
   "data": {
-  "goalId": 1,
   "monthlyBudget": 1500000,
   "spentAmount": 850000,
   "remainAmount": 650000,
@@ -101,7 +102,7 @@
 
 ---
 
-### GET `/api/budget/transactions`
+### ✅ GET `/api/budget/transactions`
 
 일별/월별 소비내역 조회<br> Query: type (DAILY | MONTHLY, 선택), year (number, 선택), month (number, 선택), day (number, 선택)  (카드 소비 내역 기반: card_transactions JOIN budget_categories)
 
