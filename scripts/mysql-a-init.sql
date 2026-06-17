@@ -240,8 +240,10 @@ CREATE TABLE IF NOT EXISTS calendar_recommendations (
 CREATE TABLE IF NOT EXISTS cards (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   card_name VARCHAR(100) NOT NULL,
+  card_type VARCHAR(10) NOT NULL COMMENT '신용|체크',
   provider VARCHAR(40) NOT NULL,
-  annual_fee INT DEFAULT 0,
+  annual_fee_domestic INT DEFAULT 0,
+  annual_fee_global INT DEFAULT 0,
   image_url VARCHAR(255),
   is_active BOOLEAN DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
