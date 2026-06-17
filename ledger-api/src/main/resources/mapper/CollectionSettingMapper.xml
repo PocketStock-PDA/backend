@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.cma.mapper.CollectionSettingMapper">
+
+    <resultMap id="collectionSetting" type="com.pocketstock.ledger.cma.domain.CollectionSetting">
+        <id     property="id"          column="id"/>
+        <result property="userId"      column="user_id"/>
+        <result property="sourceType"  column="source_type"/>
+        <result property="sourceRefId" column="source_ref_id"/>
+        <result property="isEnabled"   column="is_enabled"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="collectionSetting">
+        SELECT id, user_id, source_type, source_ref_id, is_enabled, created_at, updated_at
+        FROM collection_settings
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- UNIQUE KEY (user_id, source_type, source_ref_id) 기준 upsert -->
+    <insert id="upsert" parameterType="com.pocketstock.ledger.cma.domain.CollectionSetting">
+        INSERT INTO collection_settings (user_id, source_type, source_ref_id, is_enabled)
+        VALUES (#{userId}, #{sourceType}, #{sourceRefId}, #{isEnabled})
+        ON DUPLICATE KEY UPDATE
+            is_enabled = #{isEnabled},
+            updated_at = NOW()
+    </insert>
+
+</mapper>
