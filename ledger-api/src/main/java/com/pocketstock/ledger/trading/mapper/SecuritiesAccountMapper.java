@@ -17,4 +17,7 @@ public interface SecuritiesAccountMapper {
 
     /** 시장별 존재 여부 */
     boolean existsByUserIdAndMarket(@Param("userId") Long userId, @Param("market") String market);
+
+    /** 유저의 특정 시장 계좌 1건 (없으면 null) */
+    SecuritiesAccount findByUserIdAndMarket(@Param("userId") Long userId, @Param("market") String market);
 }
