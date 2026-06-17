@@ -23,7 +23,7 @@
 |---|---|---|---|---|---|---|
 | 회원·인증 | 아이디 중복 확인 | GET | `/api/users/check-username` |  | A·우정인 | ✅ |
 | 회원·인증 | 회원가입(이름·주민번호 앞6+뒷1·아이디·비번·휴대폰) | POST | `/api/users/signup` |  | A·우정인 | ✅ |
-| 회원·인증 | 비밀번호 보안규칙 실시간 검증 | POST | `/api/users/validate-password` |  | A·우정인 |  |
+| 회원·인증 | 비밀번호 보안규칙 실시간 검증 | POST | `/api/users/validate-password` |  | A·우정인 | ✅ |
 | 회원·인증 | SMS 인증번호 발송 | POST | `/api/auth/sms/send` |  | A·우정인 |  |
 | 회원·인증 | SMS 인증번호 확인 | POST | `/api/auth/sms/verify` |  | A·우정인 |  |
 | 회원·인증 | 신한인증서 난수문자 인증요청 | POST | `/api/auth/shinhan-cert/request` |  | A·우정인 |  |
@@ -35,7 +35,7 @@
 | 회원·인증 | 로그아웃 | POST | `/api/auth/logout` |  | A·우정인 | ✅ |
 | 회원·인증 | 아이디 찾기 | POST | `/api/users/find-username` |  | A·우정인 |  |
 | 회원·인증 | 비밀번호 찾기/재설정 | POST | `/api/users/reset-password` |  | A·우정인 |  |
-| 회원·인증 | 약관 동의 등록 | POST | `/api/users/terms` |  | A·우정인 |  |
+| 회원·인증 | 약관 동의 등록 | POST | `/api/users/terms` |  | A·우정인 | ✅ |
 | 회원·인증 | PIN/패턴 설정 | POST | `/api/users/auth-method` |  | A·우정인 |  |
 | 회원·인증 | 계좌 비밀번호 설정 | POST | `/api/users/account-password` |  | A·우정인 |  |
 | 회원·인증 | 거래 인증(계좌비번 검증, 30분 유지) | POST | `/api/users/account-password/verify` |  | A·우정인 |  |

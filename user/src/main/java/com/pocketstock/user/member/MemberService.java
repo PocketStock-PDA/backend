@@ -3,6 +3,7 @@ package com.pocketstock.user.member;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.user.member.domain.Member;
+import com.pocketstock.user.member.dto.PasswordValidateResponse;
 import com.pocketstock.user.member.dto.SignupRequest;
 import com.pocketstock.user.member.dto.SignupResponse;
 import com.pocketstock.user.member.dto.UsernameCheckResponse;
@@ -16,6 +17,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +39,15 @@ public class MemberService {
 
         int count = memberMapper.countByUsername(username);
         return new UsernameCheckResponse(count == 0);
+    }
+
+    /**
+     * 비밀번호 보안규칙 실시간 검증.
+     * 입력 단계 피드백용이라 규칙 위반을 예외로 던지지 않고 valid/failedRules로 응답한다.
+     */
+    public PasswordValidateResponse validatePassword(String password) {
+        List<String> failedRules = PasswordPolicy.validate(password);
+        return new PasswordValidateResponse(failedRules.isEmpty(), failedRules);
     }
 
     /** 회원가입. 중복 아이디는 409(CONFLICT). */
@@ -75,6 +86,9 @@ public class MemberService {
                 || !StringUtils.hasText(req.residentFront())
                 || !StringUtils.hasText(req.residentBack())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "필수 항목이 누락되었습니다.");
+        }
+        if (!PasswordPolicy.isValid(req.password())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호가 보안 규칙을 충족하지 않습니다.");
         }
         if (req.residentFront().length() != 6 || req.residentBack().length() != 1) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "주민번호 형식이 올바르지 않습니다.");
