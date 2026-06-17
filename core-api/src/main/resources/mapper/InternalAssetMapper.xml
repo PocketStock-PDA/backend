@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.internal.asset.mapper.InternalAssetMapper">
+
+    <select id="findLinkedAccountsByUserAndIds"
+            resultType="com.pocketstock.core.internal.asset.dto.LinkedAccountSummary">
+        SELECT id, account_type, balance, currency
+        FROM linked_accounts
+        WHERE user_id = #{userId}
+          AND id IN
+          <foreach item="id" collection="ids" open="(" separator="," close=")">
+              #{id}
+          </foreach>
+    </select>
+
+    <!-- is_roundup_collected=FALSE, 미취소 건만 조회 -->
+    <select id="findUncollectedCardTxs" resultType="map">
+        SELECT id, amount
+        FROM card_transactions
+        WHERE user_id = #{userId}
+          AND linked_account_id = #{linkedAccountId}
+          AND is_roundup_collected = FALSE
+          AND status != 'CANCELLED'
+    </select>
+
+    <update id="markRoundupCollected">
+        UPDATE card_transactions
+        SET is_roundup_collected = TRUE,
+            roundup_collected_at = NOW()
+        WHERE id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- POINT 타입 연동 계좌 잔액 조회 -->
+    <select id="findPointBalance" resultType="java.math.BigDecimal">
+        SELECT balance
+        FROM linked_accounts
+        WHERE user_id = #{userId}
+          AND id = #{linkedAccountId}
+          AND account_type = 'POINT'
+    </select>
+
+</mapper>
