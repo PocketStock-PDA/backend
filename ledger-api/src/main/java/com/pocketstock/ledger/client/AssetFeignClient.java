@@ -15,17 +15,18 @@ import java.util.List;
 public interface AssetFeignClient {
 
     @GetMapping("/internal/assets/accounts")
-    List<LinkedAccountSummary> getLinkedAccounts(@RequestParam Long userId,
-                                                  @RequestParam List<Long> enabledIds);
+    List<LinkedAccountSummary> getLinkedAccounts(@RequestParam("userId") Long userId,
+                                                  @RequestParam("enabledIds") List<Long> enabledIds);
 
     @GetMapping("/internal/assets/card-roundup")
-    CardRoundupSummary getCardRoundup(@RequestParam Long userId,
-                                       @RequestParam Long linkedAccountId);
+    CardRoundupSummary getCardRoundup(@RequestParam("userId") Long userId,
+                                       @RequestParam("linkedAccountId") Long linkedAccountId);
 
     @PatchMapping("/internal/assets/card-roundup/mark-collected")
-    void markRoundupCollected(@RequestBody List<Long> cardTransactionIds);
+    void markRoundupCollected(@RequestParam("userId") Long userId,
+                               @RequestBody List<Long> cardTransactionIds);
 
     @GetMapping("/internal/assets/points")
-    PointSummary getAvailablePoints(@RequestParam Long userId,
-                                     @RequestParam Long linkedAccountId);
+    PointSummary getAvailablePoints(@RequestParam("userId") Long userId,
+                                     @RequestParam("linkedAccountId") Long linkedAccountId);
 }
