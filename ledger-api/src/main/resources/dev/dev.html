@@ -28,8 +28,11 @@
 </fieldset>
 
 <fieldset>
-  <legend>2) 국내 현재가 (t1102)</legend>
+  <legend>2) 현재가 (국내 t1102 / 해외 KIS HHDFS76200200)</legend>
   종목코드 <input id="stockCode" value="005930" size="8"/>
+  <select id="priceMarket" onchange="document.getElementById('stockCode').value = this.value==='overseas'?'AAPL':'005930'">
+    <option value="domestic">국내</option><option value="overseas">해외</option>
+  </select>
   <button onclick="getPrice()">현재가 조회</button>
   <div id="priceView"></div>
   <pre id="priceRaw" class="muted">결과 raw JSON</pre>
@@ -87,6 +90,15 @@
     미국 정규장(한국 밤) 또는 주간거래 시간에 데이터 수신.</div>
 </fieldset>
 
+<fieldset>
+  <legend>7) 해외 실시간 체결가 (KIS · HDFSCNT0)</legend>
+  KIS코드 <input id="ftCode" value="DNASAAPL" size="12"/>
+  <button onclick="wsSubscribeForeignTrade()">체결가 구독</button>
+  <button onclick="wsUnsubscribeForeignTrade()">구독 해제</button>
+  <div id="ftView"></div>
+  <div class="muted">상단 5번 연결 후 /topic/foreign/transaction/{code} 구독 → 해외 실시간 체결가(현재가·등락·체결량) push.</div>
+</fieldset>
+
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script>
 const TOKEN_KEY = 'ps_dev_token';
@@ -116,7 +128,8 @@ async function getPrice() {
   if (!token) { await issueToken(); token = localStorage.getItem(TOKEN_KEY); }
 
   const code = document.getElementById('stockCode').value.trim();
-  const res = await fetch(`/api/trading/stocks/${code}/price?market=domestic`, {
+  const market = document.getElementById('priceMarket').value;
+  const res = await fetch(`/api/trading/stocks/${code}/price?market=${market}`, {
     headers: { 'Authorization': 'Bearer ' + token }
   });
   const body = await res.json();
@@ -260,6 +273,7 @@ function wsUnsubscribe() {
 function wsDisconnect() {
   wsUnsubscribe();
   wsUnsubscribeForeign();
+  wsUnsubscribeForeignTrade();
   if (stompClient) { stompClient.deactivate(); stompClient = null; wsState('미연결'); }
 }
 
@@ -296,6 +310,33 @@ function renderForeign(d) {
       <tr><th>매도잔량</th><th>호가($)</th><th>매수잔량</th></tr>
       ${rows}
       <tr><td class="down">${fmtV(d.totalAskVolume)}</td><td class="muted">실시간</td><td class="up">${fmtV(d.totalBidVolume)}</td></tr>
+    </table>`;
+}
+
+// ---- 7) 해외 실시간 체결가 (KIS HDFSCNT0) ----
+let foreignTradeSub = null;
+
+function wsSubscribeForeignTrade() {
+  if (!stompClient || !stompClient.connected) { wsState('먼저 연결하세요'); return; }
+  const code = document.getElementById('ftCode').value.trim();
+  if (foreignTradeSub) foreignTradeSub.unsubscribe();
+  foreignTradeSub = stompClient.subscribe('/topic/foreign/transaction/' + code, msg => renderForeignTrade(JSON.parse(msg.body)));
+  wsState('구독 중: /topic/foreign/transaction/' + code);
+}
+
+function wsUnsubscribeForeignTrade() {
+  if (foreignTradeSub) { foreignTradeSub.unsubscribe(); foreignTradeSub = null; wsState('해외 체결 구독 해제'); }
+}
+
+function renderForeignTrade(d) {
+  const cls = Number(d.changePrice) > 0 ? 'up' : (Number(d.changePrice) < 0 ? 'down' : '');
+  document.getElementById('ftView').innerHTML = `
+    <table>
+      <tr><th>종목</th><td>${d.symbol} (${d.realtimeCode}) · ${d.localTime}</td></tr>
+      <tr><th>체결가</th><td class="${cls}">${Number(d.currentPrice)} (${Number(d.changePrice)} / ${Number(d.changeRate)}%)</td></tr>
+      <tr><th>시/고/저</th><td>${Number(d.openPrice)} / ${Number(d.highPrice)} / ${Number(d.lowPrice)}</td></tr>
+      <tr><th>체결량/누적</th><td>${Number(d.lastTradeVolume).toLocaleString()} / ${Number(d.volume).toLocaleString()}</td></tr>
+      <tr><th>체결강도</th><td>${Number(d.tradeStrength)}</td></tr>
     </table>`;
 }
 
