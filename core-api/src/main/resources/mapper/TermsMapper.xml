@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace = 인터페이스 풀패키지명(user 모듈)과 정확히 일치 -->
+<mapper namespace="com.pocketstock.user.member.mapper.TermsMapper">
+
+    <!-- 약관 동의 이력 다건 INSERT -->
+    <insert id="insertAgreements">
+        INSERT INTO terms_agreements
+            (user_id, terms_type, is_required, terms_version, is_agreed, agreed_at, ip, channel)
+        VALUES
+        <foreach collection="list" item="t" separator=",">
+            (#{t.userId}, #{t.termsType}, #{t.isRequired}, #{t.termsVersion},
+             #{t.isAgreed}, #{t.agreedAt}, #{t.ip}, #{t.channel})
+        </foreach>
+    </insert>
+
+</mapper>
