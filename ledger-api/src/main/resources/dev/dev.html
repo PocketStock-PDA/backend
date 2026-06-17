@@ -76,6 +76,17 @@
   <div class="muted">STOMP /ws 연결 후 /topic/asking/{code} 구독 → LS 실시간(UH1) push 수신. 구독 시작 시 LS 등록, 해제 시 LS 해제(온디맨드).</div>
 </fieldset>
 
+<fieldset>
+  <legend>6) 해외 실시간 호가 (KIS · HDFSASP0)</legend>
+  KIS코드 <input id="fgCode" value="DNASAAPL" size="12"/>
+  <button onclick="wsSubscribeForeign()">해외 호가 구독</button>
+  <button onclick="wsUnsubscribeForeign()">구독 해제</button>
+  <div id="fgView"></div>
+  <div class="muted">상단 5번에서 먼저 STOMP 연결. KIS tr_key = R/D + 시장(3) + 종목.
+    야간/정규 DNAS·DNYS·DAMS, 미국주간(10~16시) RBAQ·RBAY·RBAA (예: DNASAAPL, RBAQAAPL).
+    미국 정규장(한국 밤) 또는 주간거래 시간에 데이터 수신.</div>
+</fieldset>
+
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script>
 const TOKEN_KEY = 'ps_dev_token';
@@ -248,7 +259,44 @@ function wsUnsubscribe() {
 
 function wsDisconnect() {
   wsUnsubscribe();
+  wsUnsubscribeForeign();
   if (stompClient) { stompClient.deactivate(); stompClient = null; wsState('미연결'); }
+}
+
+// ---- 6) 해외 실시간 호가 (KIS HDFSASP0) ----
+let foreignSub = null;
+
+function wsSubscribeForeign() {
+  if (!stompClient || !stompClient.connected) { wsState('먼저 연결하세요'); return; }
+  const code = document.getElementById('fgCode').value.trim();
+  if (foreignSub) foreignSub.unsubscribe();
+  foreignSub = stompClient.subscribe('/topic/foreign/quote/' + code, msg => renderForeign(JSON.parse(msg.body)));
+  wsState('구독 중: /topic/foreign/quote/' + code);
+}
+
+function wsUnsubscribeForeign() {
+  if (foreignSub) { foreignSub.unsubscribe(); foreignSub = null; wsState('해외 구독 해제'); }
+}
+
+// 해외 호가 렌더 — 국내(renderAsking)와 동일 배치: 매도 역순(위) + 매수 정순(아래)
+function renderForeign(d) {
+  const fmtV = n => Number(n).toLocaleString();
+  const fmtP = n => Number(n);
+  let rows = '';
+  for (let i = d.asks.length - 1; i >= 0; i--) {
+    const a = d.asks[i];
+    rows += `<tr><td class="down">${fmtV(a.volume)}</td><td class="down">${fmtP(a.price)}</td><td></td></tr>`;
+  }
+  for (const b of d.bids) {
+    rows += `<tr><td></td><td class="up">${fmtP(b.price)}</td><td class="up">${fmtV(b.volume)}</td></tr>`;
+  }
+  document.getElementById('fgView').innerHTML = `
+    <div class="muted">${d.symbol} (${d.realtimeCode}) · 현지시간 ${d.localTime}</div>
+    <table>
+      <tr><th>매도잔량</th><th>호가($)</th><th>매수잔량</th></tr>
+      ${rows}
+      <tr><td class="down">${fmtV(d.totalAskVolume)}</td><td class="muted">실시간</td><td class="up">${fmtV(d.totalBidVolume)}</td></tr>
+    </table>`;
 }
 
 // 호가 렌더 — REST 호가창(getOrderbook)과 동일 배치: 매도 역순(위) + 매수 정순(아래)

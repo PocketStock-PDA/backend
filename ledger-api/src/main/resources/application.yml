@@ -34,6 +34,15 @@ ls:
     app-key: ${LS_APP_KEY:}
     app-secret-key: ${LS_APP_SECRET_KEY:}
 
+# 한국투자증권(KIS) 오픈API — 해외주식 실시간. 시크릿은 커밋 금지(application-local.yml/환경변수)
+# 도메인 기본값 = 실전. 모의면 base-url openapivts:29443 / realtime ops:31000 으로 override.
+kis:
+  api:
+    base-url: ${KIS_API_BASE_URL:https://openapi.koreainvestment.com:9443}
+    realtime-url: ${KIS_API_REALTIME_URL:ws://ops.koreainvestment.com:21000}
+    app-key: ${KIS_APP_KEY:}
+    app-secret: ${KIS_APP_SECRET:}
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
