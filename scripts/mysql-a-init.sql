@@ -1,4 +1,4 @@
--- =====================================================================
+﻿-- =====================================================================
 -- DB A (일반) — pocketstock_main
 -- user · asset · budget · portfolio · notification 테이블 (같은 DB, JOIN 허용)
 -- =====================================================================
@@ -237,15 +237,24 @@ CREATE TABLE IF NOT EXISTS calendar_recommendations (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS recommended_cards (
+CREATE TABLE IF NOT EXISTS cards (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  card_name VARCHAR(100),
-  provider VARCHAR(40),
+  card_name VARCHAR(100) NOT NULL,
+  provider VARCHAR(40) NOT NULL,
+  annual_fee INT DEFAULT 0,
+  image_url VARCHAR(255),
+  is_active BOOLEAN DEFAULT TRUE,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS card_benefits (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  card_id BIGINT NOT NULL,
   benefit_category VARCHAR(40),
   benefit_rate DECIMAL(7,4),
   benefit_desc VARCHAR(200),
-  is_active BOOLEAN DEFAULT TRUE,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  INDEX idx_cb_card (card_id),
+  CONSTRAINT fk_cb_card FOREIGN KEY (card_id) REFERENCES cards (id)
 );
 
 -- ========== notification ==========
