@@ -10,6 +10,7 @@ import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
+import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
 import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
 import com.pocketstock.ledger.cma.mapper.CmaBalanceMapper;
 import com.pocketstock.ledger.cma.mapper.CmaTransactionMapper;
@@ -20,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -82,6 +85,19 @@ public class CmaQueryService {
                 cmaBalance, interestRate, todayInterest,
                 collectedToday, collectSources, totalCollectable
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<CmaTransactionResponse> getTransactions(
+            Long userId, String txType, LocalDate from, LocalDate to, int page, int size) {
+        LocalDateTime fromDt = (from != null) ? from.atStartOfDay() : null;
+        LocalDateTime toDt   = (to   != null) ? to.plusDays(1).atStartOfDay() : null;
+
+        return transactionMapper.findByUserIdAndFilter(
+                        userId, txType, null, fromDt, toDt, page * size, size)
+                .stream()
+                .map(CmaTransactionResponse::from)
+                .toList();
     }
 
     private BigDecimal calcAccountAmount(Long userId, List<CollectionSetting> settings) {
