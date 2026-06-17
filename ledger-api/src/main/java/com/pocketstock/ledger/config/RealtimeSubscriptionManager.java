@@ -22,13 +22,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>SUBSCRIBE/UNSUBSCRIBE/DISCONNECT(연결 끊김) 이벤트를 모두 처리해
  * 구독 누수(등록만 되고 해제 안 됨)를 막는다.
  *
- * <p>매핑: {@code /topic/asking/{code}} → LS UH1, {@code /topic/foreign/quote/{code}} → KIS HDFSASP0,
- * {@code /topic/foreign/transaction/{code}} → KIS HDFSCNT0. US3·CUR 등은 {@link #resolve}에 추가.
+ * <p>매핑: {@code /topic/stock/trade/{code}} → LS US3, {@code /topic/asking/{code}} → LS UH1,
+ * {@code /topic/foreign/quote/{code}} → KIS HDFSASP0, {@code /topic/foreign/transaction/{code}} → KIS HDFSCNT0.
+ * CUR 등은 {@link #resolve}에 추가.
  */
 @Component
 @RequiredArgsConstructor
 public class RealtimeSubscriptionManager {
 
+    private static final String STOCK_TRADE_PREFIX = "/topic/stock/trade/";
     private static final String ASKING_PREFIX = "/topic/asking/";
     private static final String FOREIGN_QUOTE_PREFIX = "/topic/foreign/quote/";
     private static final String FOREIGN_TRADE_PREFIX = "/topic/foreign/transaction/";
@@ -99,6 +101,14 @@ public class RealtimeSubscriptionManager {
     private RealtimeKey resolve(String destination) {
         if (destination == null) {
             return null;
+        }
+        if (destination.startsWith(STOCK_TRADE_PREFIX)) {
+            String code = destination.substring(STOCK_TRADE_PREFIX.length()).trim();
+            if (!code.isEmpty()) {
+                // LS US3 tr_key = 거래소구분(U=통합) + 단축코드 → 7자리 + 공백 3 = 10자리.
+                // 명세 그대로 "U005930   " 형태. 패딩 없이 보내면 등록 ack만 오고 시세가 안 흐른다.
+                return new RealtimeKey(lsClient, "US3", String.format("%-10s", "U" + code));
+            }
         }
         if (destination.startsWith(ASKING_PREFIX)) {
             String code = destination.substring(ASKING_PREFIX.length()).trim();
