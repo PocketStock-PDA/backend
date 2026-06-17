@@ -29,8 +29,9 @@
         INSERT INTO cma_balances (cma_account_id, currency, balance, interest_rate, updated_at)
         VALUES (#{cmaAccountId}, #{currency}, #{balance}, #{interestRate}, NOW())
         ON DUPLICATE KEY UPDATE
-            balance      = #{balance},
-            updated_at   = NOW()
+            balance        = #{balance},
+            interest_rate  = #{interestRate},
+            updated_at     = NOW()
     </insert>
 
 </mapper>
