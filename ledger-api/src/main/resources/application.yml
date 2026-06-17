@@ -36,6 +36,10 @@ feign:
   core-api:
     url: ${CORE_API_URL:http://localhost:8081}
 
+springdoc:
+  swagger-ui:
+    persist-authorization: true
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
