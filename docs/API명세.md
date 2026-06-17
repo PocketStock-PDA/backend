@@ -1,3 +1,4 @@
+
 # PocketStock API 명세
 
 > 협업용 단일 문서. 각자 **자기 담당 행만** 수정하고 feature 브랜치 → `dev` PR. `.md`라 git이 줄단위 병합합니다.
@@ -65,7 +66,7 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 홈 | 홈 대시보드(CMA잔액+수집가능 잔돈) | GET | `/api/cma/home` |  | C·강문군 |  |
+| 홈 | 홈 대시보드(CMA잔액+수집가능 잔돈) | GET | `/api/cma/home` |  | C·강문군 | ✅ |
 | 잔돈수집 | 잔돈 모으기 실행(통합) | POST | `/api/cma/collect` |  | C·강문군 |  |
 | 잔돈수집 | 계좌 끝전 적립 | POST | `/api/cma/collect/account` |  | C·강문군 |  |
 | 잔돈수집 | 카드 라운드업 적립 | POST | `/api/cma/collect/card` |  | C·강문군 |  |
