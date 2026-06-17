@@ -53,12 +53,17 @@ docker compose up -d
 # 2) 전체 빌드
 ./gradlew build
 
-# 3) 실행 앱 기동
-./gradlew :core-api:bootRun     # DB A (8081)
-./gradlew :ledger-api:bootRun   # DB B (8082)
+# 3) 실행 앱 기동 (로컬은 local 프로파일로 — 개발용 기본 시크릿이 주입됨)
+./gradlew :core-api:bootRun   --args='--spring.profiles.active=local'   # DB A (8081)
+./gradlew :ledger-api:bootRun --args='--spring.profiles.active=local'   # DB B (8082)
 ```
 
-> DB·Redis·Kafka 접속정보 등 시크릿은 환경변수/`application-local.yml`로 주입(커밋 금지).
+> **로컬은 `local` 프로파일 필수.** JWT 서명키 등 개발용 기본값이 이 프로파일에서 주입된다.
+> 프로파일을 안 켜면 `jwt.secret`(운영용 `${JWT_SECRET}` 환경변수)이 없어 기동이 실패한다 — 의도된 fail-fast.
+> IntelliJ에서 실행하면 Run Configuration의 **Active profiles** 칸에 `local`을 적으면 된다.
+
+> DB·Redis·Kafka 접속정보, LS 키 등 **실제 시크릿**은 환경변수/`application-local.yml`(gitignore)로 주입(커밋 금지).
+> 운영 배포 시 `JWT_SECRET` 등은 반드시 환경변수로 주입한다(`local` 프로파일 미사용).
 
 ## 아키텍처
 - **모듈러 모놀리스**: 도메인은 패키지로 분리, 배포는 DB 경계 따라 2개(core-api/ledger-api). 공통 인증(JWT)은 `user.security` 라이브러리로 공유.
