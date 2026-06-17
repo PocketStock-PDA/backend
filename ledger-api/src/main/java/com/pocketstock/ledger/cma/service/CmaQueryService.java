@@ -12,12 +12,14 @@ import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
 import com.pocketstock.ledger.cma.mapper.CmaBalanceMapper;
+import com.pocketstock.ledger.cma.mapper.CmaTransactionMapper;
 import com.pocketstock.ledger.cma.mapper.CollectionSettingMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -26,8 +28,15 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CmaQueryService {
 
+    private static final Map<String, String> SOURCE_NAMES = Map.of(
+            "ACCOUNT", "신한은행",
+            "CARD",    "SOL트래블",
+            "POINT",   "마이신한포인트"
+    );
+
     private final CmaAccountMapper accountMapper;
     private final CmaBalanceMapper balanceMapper;
+    private final CmaTransactionMapper transactionMapper;
     private final CollectionSettingMapper settingMapper;
     private final AssetFeignClient assetFeignClient;
 
@@ -42,17 +51,36 @@ public class CmaQueryService {
         Map<String, BigDecimal> cmaBalance = balances.stream()
                 .collect(Collectors.toMap(CmaBalance::getCurrency, CmaBalance::getBalance));
 
+        CmaBalance krw = balances.stream()
+                .filter(b -> "KRW".equals(b.getCurrency()))
+                .findFirst().orElse(null);
+
+        BigDecimal interestRate = krw != null && krw.getInterestRate() != null
+                ? krw.getInterestRate() : BigDecimal.ZERO;
+        BigDecimal todayInterest = krw != null
+                ? krw.getBalance().multiply(interestRate)
+                        .divide(BigDecimal.valueOf(365), 0, RoundingMode.DOWN)
+                : BigDecimal.ZERO;
+
+        BigDecimal collectedToday = transactionMapper.sumCollectedToday(userId);
+
         List<CollectionSetting> settings = settingMapper.findByUserId(userId);
 
         BigDecimal accountAmount = calcAccountAmount(userId, settings);
-        BigDecimal cardAmount = calcCardAmount(userId, settings);
-        BigDecimal pointAmount = calcPointAmount(userId, settings);
+        BigDecimal cardAmount    = calcCardAmount(userId, settings);
+        BigDecimal pointAmount   = calcPointAmount(userId, settings);
         BigDecimal totalCollectable = accountAmount.add(cardAmount).add(pointAmount);
 
-        CmaHomeResponse.CollectableAmount collectableAmount =
-                new CmaHomeResponse.CollectableAmount(accountAmount, cardAmount, pointAmount);
+        List<CmaHomeResponse.CollectSource> collectSources = List.of(
+                new CmaHomeResponse.CollectSource("ACCOUNT", SOURCE_NAMES.get("ACCOUNT"), accountAmount),
+                new CmaHomeResponse.CollectSource("CARD",    SOURCE_NAMES.get("CARD"),    cardAmount),
+                new CmaHomeResponse.CollectSource("POINT",   SOURCE_NAMES.get("POINT"),   pointAmount)
+        );
 
-        return new CmaHomeResponse(cmaBalance, collectableAmount, totalCollectable);
+        return new CmaHomeResponse(
+                cmaBalance, interestRate, todayInterest,
+                collectedToday, collectSources, totalCollectable
+        );
     }
 
     private BigDecimal calcAccountAmount(Long userId, List<CollectionSetting> settings) {
