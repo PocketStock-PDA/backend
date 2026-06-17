@@ -2,6 +2,7 @@ package com.pocketstock.core.budget;
 
 import com.pocketstock.core.budget.dto.AutoBudgetGoalResponse;
 import com.pocketstock.core.budget.dto.BudgetGoalItem;
+import com.pocketstock.core.budget.dto.BudgetGoalRequest;
 import com.pocketstock.core.budget.dto.CategorySpendingRow;
 import com.pocketstock.core.budget.mapper.BudgetGoalMapper;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,22 @@ public class BudgetGoalService {
         List<BudgetGoalItem> categories = rows.stream()
                 .map(row -> new BudgetGoalItem(row.getCategory(), roundUpToTenThousand(row.getTotalAmount())))
                 .toList();
+
+        BigDecimal monthlyBudget = categories.stream()
+                .map(BudgetGoalItem::budget)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        categories.forEach(item ->
+                budgetGoalMapper.upsertCategoryGoal(userId, currentPeriod, item.category(), item.budget()));
+
+        return new AutoBudgetGoalResponse(monthlyBudget, categories);
+    }
+
+    @Transactional
+    public AutoBudgetGoalResponse setManualGoals(Long userId, BudgetGoalRequest request) {
+        String currentPeriod = LocalDate.now().format(PERIOD_FMT);
+
+        List<BudgetGoalItem> categories = request.categories();
 
         BigDecimal monthlyBudget = categories.stream()
                 .map(BudgetGoalItem::budget)
