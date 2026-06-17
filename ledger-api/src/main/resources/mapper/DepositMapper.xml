@@ -11,4 +11,13 @@
         LIMIT 1
     </select>
 
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.DepositTransaction"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO deposit_transactions
+            (user_id, account_id, tx_type, amount, currency, balance_after, ref_type, ref_id, idempotency_key)
+        VALUES
+            (#{userId}, #{accountId}, #{txType}, #{amount}, #{currency}, #{balanceAfter},
+             #{refType}, #{refId}, #{idempotencyKey})
+    </insert>
+
 </mapper>
