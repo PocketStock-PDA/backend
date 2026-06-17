@@ -63,6 +63,7 @@ public class CmaQueryService {
                 : BigDecimal.ZERO;
 
         BigDecimal collectedToday = transactionMapper.sumCollectedToday(userId);
+        if (collectedToday == null) collectedToday = BigDecimal.ZERO;
 
         List<CollectionSetting> settings = settingMapper.findByUserId(userId);
 
