@@ -20,4 +20,7 @@ dependencies {
 
     // 거래인증 토큰(30분, AUTH-015)·로그인 실패 카운트 등
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // 비밀번호 해싱(BCrypt) — spring-security 전체 X, crypto 유틸만 (버전은 Boot BOM이 관리)
+    implementation 'org.springframework.security:spring-security-crypto'
 }

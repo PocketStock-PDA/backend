@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace = 인터페이스 풀패키지명(user 모듈)과 정확히 일치 -->
+<mapper namespace="com.pocketstock.user.member.mapper.MemberMapper">
+
+    <select id="countByUsername" resultType="int">
+        SELECT COUNT(*)
+        FROM users
+        WHERE username = #{username}
+          AND deleted_at IS NULL
+    </select>
+
+    <!-- useGeneratedKeys: AUTO_INCREMENT로 생성된 id를 keyProperty(member.id)에 되돌려줌 -->
+    <insert id="insertMember" parameterType="com.pocketstock.user.member.domain.Member"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (username, password_hash, name, phone, birth_date, gender)
+        VALUES (#{username}, #{passwordHash}, #{name}, #{phone}, #{birthDate}, #{gender})
+    </insert>
+
+    <!-- map-underscore-to-camel-case: password_hash → passwordHash 자동 매핑 -->
+    <select id="findByUsername" resultType="com.pocketstock.user.member.domain.Member">
+        SELECT id, username, password_hash, name, phone, birth_date, gender
+        FROM users
+        WHERE username = #{username}
+          AND deleted_at IS NULL
+    </select>
+
+</mapper>
