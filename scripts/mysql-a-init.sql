@@ -244,15 +244,19 @@ CREATE TABLE IF NOT EXISTS cards (
   annual_fee INT DEFAULT 0,
   image_url VARCHAR(255),
   is_active BOOLEAN DEFAULT TRUE,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_card (card_name, provider)
 );
 
 CREATE TABLE IF NOT EXISTS card_benefits (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   card_id BIGINT NOT NULL,
-  benefit_category VARCHAR(40),
+  benefit_category VARCHAR(40) NOT NULL,
   benefit_rate DECIMAL(7,4),
   benefit_desc VARCHAR(200),
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cb (card_id, benefit_category),
   INDEX idx_cb_card (card_id),
   CONSTRAINT fk_cb_card FOREIGN KEY (card_id) REFERENCES cards (id)
 );
