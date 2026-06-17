@@ -1,5 +1,6 @@
 package com.pocketstock.core.budget.mapper;
 
+import com.pocketstock.core.budget.dto.BudgetGoalRow;
 import com.pocketstock.core.budget.dto.CategorySpendingRow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -10,6 +11,11 @@ import java.util.List;
 
 @Mapper
 public interface BudgetGoalMapper {
+
+    List<BudgetGoalRow> findGoalsByPeriod(
+            @Param("userId") Long userId,
+            @Param("period") String period
+    );
 
     List<CategorySpendingRow> findLastMonthCategorySpending(
             @Param("userId") Long userId,
