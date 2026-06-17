@@ -1,6 +1,11 @@
 package com.pocketstock.ledger.dev;
 
 import com.pocketstock.common.response.ApiResponse;
+import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
+import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
+import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
+import com.pocketstock.ledger.trading.service.DepositService;
+import com.pocketstock.ledger.trading.service.SecuritiesAccountService;
 import com.pocketstock.user.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,6 +34,9 @@ import java.util.Map;
 public class DevController {
 
     private final JwtProvider jwtProvider;
+    private final SecuritiesAccountService accountService;
+    private final SecuritiesAccountMapper accountMapper;
+    private final DepositService depositService;
 
     @GetMapping(value = "/dev", produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     public String page() throws IOException {
@@ -40,5 +50,17 @@ public class DevController {
         return ApiResponse.ok("테스트 토큰 발급", Map.of(
                 "userId", String.valueOf(userId),
                 "token", jwtProvider.createToken(userId)));
+    }
+
+    /** 국내 위탁계좌 보장(없으면 개설) + KRW 예수금 충전 — 온주 매수 테스트용. */
+    @GetMapping("/dev/deposit")
+    public ApiResponse<Map<String, String>> deposit(@RequestParam(defaultValue = "1") Long userId,
+                                                    @RequestParam(defaultValue = "10000000") BigDecimal amount) {
+        accountService.open(userId, new OpenAccountRequest(List.of("DOMESTIC")));
+        SecuritiesAccount account = accountMapper.findByUserIdAndMarket(userId, "DOMESTIC");
+        BigDecimal balance = depositService.record(userId, account.getId(), "IN_TRANSFER",
+                amount, "KRW", "dev", null);
+        log.info("[DEV] 예수금 충전 userId={} amount={} balance={}", userId, amount, balance);
+        return ApiResponse.ok("예수금 충전 완료", Map.of("balance", balance.toPlainString()));
     }
 }

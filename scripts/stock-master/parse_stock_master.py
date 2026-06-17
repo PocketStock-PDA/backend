@@ -42,7 +42,7 @@ US_FILES = ["NASMST.COD", "NYSMST.COD", "AMSMST.COD"]
 # 미국 stis(Security type) → sec_type
 US_SECTYPE = {"2": "STOCK", "3": "ETF"}
 
-COLS = ["stock_code", "market", "standard_code", "stock_name", "english_name",
+COLS = ["stock_code", "exchange", "standard_code", "stock_name", "english_name",
         "rt_symbol", "currency", "sec_type", "is_fractional", "is_active"]
 
 
@@ -69,7 +69,7 @@ def parse_kr(fname):
                 mktcap = 0
             rows.append({
                 "stock_code": short,
-                "market": market,
+                "exchange": market,
                 "standard_code": std,
                 "stock_name": name,
                 "english_name": "",
@@ -97,7 +97,7 @@ def parse_us(fname):
                 continue
             rows.append({
                 "stock_code": symb.strip(),
-                "market": mkt,
+                "exchange": mkt,
                 "standard_code": "",
                 "stock_name": (knam or enam).strip(),
                 "english_name": enam.strip(),
@@ -183,8 +183,9 @@ def main():
     sql_path = os.path.join(HERE, "tradable_stocks_seed.sql")
     with open(sql_path, "w", encoding="utf-8") as f:
         f.write("-- 자동생성: parse_stock_master.py (한투 마스터 정제)\n")
-        f.write("USE pocketstock_ledger;\n\n")
-        cols = "stock_code, market, standard_code, stock_name, english_name, rt_symbol, currency, sec_type, is_fractional, is_active"
+        f.write("USE pocketstock_ledger;\n")
+        f.write("SET NAMES utf8mb4;  -- 적재 client charset 고정(미지정 시 한글 이중인코딩)\n\n")
+        cols = "stock_code, exchange, standard_code, stock_name, english_name, rt_symbol, currency, sec_type, is_fractional, is_active"
         CHUNK = 1000
         for i in range(0, len(dedup), CHUNK):
             f.write(f"INSERT INTO tradable_stocks ({cols}) VALUES\n")
@@ -193,7 +194,7 @@ def main():
                 vals.append("(" + ", ".join(sql_val(r[c]) for c in COLS) + ")")
             f.write(",\n".join(vals))
             f.write("\nON DUPLICATE KEY UPDATE stock_name=VALUES(stock_name), "
-                    "market=VALUES(market), updated_at=CURRENT_TIMESTAMP;\n\n")
+                    "exchange=VALUES(exchange), updated_at=CURRENT_TIMESTAMP;\n\n")
 
     print(f"\n작성: {csv_path}")
     print(f"작성: {sql_path}")
