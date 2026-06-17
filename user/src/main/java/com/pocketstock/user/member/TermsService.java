@@ -12,7 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -36,16 +39,24 @@ public class TermsService {
 
         LocalDateTime now = LocalDateTime.now();
         List<TermsAgreement> rows = new ArrayList<>();
+        Set<Integer> seenTermIds = new HashSet<>();
+        Set<Term> agreedTerms = EnumSet.noneOf(Term.class);
 
         for (TermsAgreeRequest.TermItem item : req.terms()) {
             if (item == null || item.termId() == null) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT, "약관 항목이 올바르지 않습니다.");
+            }
+            if (!seenTermIds.add(item.termId())) {                   // 한 요청에 같은 약관 중복 금지
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "중복된 약관 항목입니다: " + item.termId());
             }
             Term term = Term.fromId(item.termId());                 // 알 수 없는 termId면 400
             boolean agreed = Boolean.TRUE.equals(item.agreed());
 
             if (term.isRequired() && !agreed) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT, "필수 약관에 동의해야 합니다.");
+            }
+            if (agreed) {
+                agreedTerms.add(term);
             }
 
             rows.add(TermsAgreement.builder()
@@ -56,6 +67,13 @@ public class TermsService {
                     .isAgreed(agreed)
                     .agreedAt(now)
                     .build());
+        }
+
+        // 필수 약관이 요청에서 누락된 경우도 거부(누락 == 거부) — 전체 롤백
+        for (Term term : Term.values()) {
+            if (term.isRequired() && !agreedTerms.contains(term)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "필수 약관에 동의해야 합니다.");
+            }
         }
 
         termsMapper.insertAgreements(rows);
