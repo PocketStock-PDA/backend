@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -12,8 +13,8 @@ public interface BudgetGoalMapper {
 
     List<CategorySpendingRow> findLastMonthCategorySpending(
             @Param("userId") Long userId,
-            @Param("year") int year,
-            @Param("month") int month
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
     );
 
     void upsertCategoryGoal(

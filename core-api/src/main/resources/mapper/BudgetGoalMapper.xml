@@ -8,8 +8,8 @@
         SELECT category, SUM(amount) AS totalAmount
         FROM card_transactions
         WHERE user_id = #{userId}
-          AND YEAR(paid_at) = #{year}
-          AND MONTH(paid_at) = #{month}
+          AND paid_at >= #{from}
+          AND paid_at &lt;  #{to}
           AND is_cancelled = false
           AND category IS NOT NULL
         GROUP BY category
