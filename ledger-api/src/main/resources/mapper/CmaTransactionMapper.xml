@@ -51,6 +51,14 @@
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
+    <select id="sumCollectedToday" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM cma_transactions
+        WHERE user_id = #{userId}
+          AND tx_type = 'COLLECT'
+          AND DATE(created_at) = CURDATE()
+    </select>
+
     <select id="findTransfers" resultMap="cmaTransaction">
         SELECT id, user_id, cma_account_id, currency, tx_type, source_type,
                amount, balance_after, ref_type, ref_id, idempotency_key, created_at

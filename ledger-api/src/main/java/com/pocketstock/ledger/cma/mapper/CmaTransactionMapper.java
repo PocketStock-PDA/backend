@@ -33,4 +33,6 @@ public interface CmaTransactionMapper {
             @Param("offset") int offset,
             @Param("limit") int limit
     );
+
+    BigDecimal sumCollectedToday(@Param("userId") Long userId);
 }
