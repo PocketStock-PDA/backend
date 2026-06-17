@@ -22,8 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>SUBSCRIBE/UNSUBSCRIBE/DISCONNECT(연결 끊김) 이벤트를 모두 처리해
  * 구독 누수(등록만 되고 해제 안 됨)를 막는다.
  *
- * <p>매핑: {@code /topic/asking/{code}} → LS UH1, {@code /topic/foreign/quote/{code}} → KIS HDFSASP0.
- * US3·GSC·CUR 등은 {@link #resolve}에 케이스를 추가하면 된다.
+ * <p>매핑: {@code /topic/asking/{code}} → LS UH1, {@code /topic/foreign/quote/{code}} → KIS HDFSASP0,
+ * {@code /topic/foreign/transaction/{code}} → KIS HDFSCNT0. US3·CUR 등은 {@link #resolve}에 추가.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,6 +31,7 @@ public class RealtimeSubscriptionManager {
 
     private static final String ASKING_PREFIX = "/topic/asking/";
     private static final String FOREIGN_QUOTE_PREFIX = "/topic/foreign/quote/";
+    private static final String FOREIGN_TRADE_PREFIX = "/topic/foreign/transaction/";
 
     private final LsRealtimeClient lsClient;
     private final KisRealtimeClient kisClient;
@@ -112,6 +113,12 @@ public class RealtimeSubscriptionManager {
             if (!code.isEmpty()) {
                 // KIS tr_key = R/D + 시장(3) + 종목 (예: RBAQAAPL). 클라가 완성형 코드로 구독.
                 return new RealtimeKey(kisClient, "HDFSASP0", code);
+            }
+        }
+        if (destination.startsWith(FOREIGN_TRADE_PREFIX)) {
+            String code = destination.substring(FOREIGN_TRADE_PREFIX.length()).trim();
+            if (!code.isEmpty()) {
+                return new RealtimeKey(kisClient, "HDFSCNT0", code);
             }
         }
         return null;
