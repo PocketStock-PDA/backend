@@ -38,4 +38,12 @@
         )
     </select>
 
+    <select id="findByUserIdAndMarket" resultMap="securitiesAccount">
+        SELECT id, user_id, market, account_no_enc, status, is_fractional_enabled,
+               opened_at, created_at, updated_at
+        FROM securities_accounts
+        WHERE user_id = #{userId} AND market = #{market}
+        LIMIT 1
+    </select>
+
 </mapper>

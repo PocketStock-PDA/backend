@@ -4,6 +4,7 @@
 -- =====================================================================
 CREATE DATABASE IF NOT EXISTS pocketstock_main CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE pocketstock_main;
+SET NAMES utf8mb4;  -- initdb는 client charset이 latin1 → 한글 이중인코딩 방지
 
 -- ========== user ==========
 CREATE TABLE IF NOT EXISTS users (

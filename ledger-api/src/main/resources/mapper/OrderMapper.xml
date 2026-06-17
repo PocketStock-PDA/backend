@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.OrderMapper">
+
+    <resultMap id="order" type="com.pocketstock.ledger.trading.domain.Order">
+        <id     property="id"            column="id"/>
+        <result property="clientOrderId" column="client_order_id"/>
+        <result property="userId"        column="user_id"/>
+        <result property="accountId"     column="account_id"/>
+        <result property="stockCode"     column="stock_code"/>
+        <result property="exchange"      column="exchange"/>
+        <result property="side"          column="side"/>
+        <result property="orderType"     column="order_type"/>
+        <result property="orderQuantity" column="order_quantity"/>
+        <result property="price"         column="price"/>
+        <result property="status"        column="status"/>
+        <result property="source"        column="source"/>
+        <result property="currency"      column="currency"/>
+        <result property="requestedAt"   column="requested_at"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="updatedAt"     column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.Order"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders
+            (client_order_id, user_id, account_id, stock_code, exchange, side, order_type,
+             order_quantity, price, status, source, currency, requested_at)
+        VALUES
+            (#{clientOrderId}, #{userId}, #{accountId}, #{stockCode}, #{exchange}, #{side}, #{orderType},
+             #{orderQuantity}, #{price}, #{status}, #{source}, #{currency}, #{requestedAt})
+    </insert>
+
+    <update id="updateFill">
+        UPDATE orders
+        SET status = #{status}, price = #{price}
+        WHERE id = #{id}
+    </update>
+
+    <select id="findByUserId" resultMap="order">
+        SELECT id, client_order_id, user_id, account_id, stock_code, exchange, side, order_type,
+               order_quantity, price, status, source, currency, requested_at, created_at, updated_at
+        FROM orders
+        WHERE user_id = #{userId}
+        ORDER BY id DESC
+    </select>
+
+</mapper>
