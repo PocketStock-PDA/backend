@@ -35,7 +35,9 @@ public class CmaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), 100);
         return ApiResponse.ok("계좌내역 조회 성공",
-                queryService.getTransactions(userId, txType, from, to, page, size));
+                queryService.getTransactions(userId, txType, from, to, safePage, safeSize));
     }
 }
