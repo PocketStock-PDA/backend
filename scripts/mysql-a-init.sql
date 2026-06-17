@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS card_transactions (
   amount DECIMAL(18,4),
   paid_at DATETIME,
   is_cancelled BOOLEAN DEFAULT FALSE,
-  is_roundup_collected BOOLEAN DEFAULT FALSE,
+  is_roundup_collected BOOLEAN NOT NULL DEFAULT FALSE,
   roundup_collected_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_ct_user (user_id), INDEX idx_ct_paid (paid_at)
