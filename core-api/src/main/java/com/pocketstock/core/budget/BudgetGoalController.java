@@ -5,9 +5,11 @@ import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.core.budget.dto.AutoBudgetGoalResponse;
 import com.pocketstock.core.budget.dto.BudgetGoalRequest;
+import com.pocketstock.core.budget.dto.BudgetGoalSummary;
 import com.pocketstock.user.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +21,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class BudgetGoalController {
 
     private final BudgetGoalService budgetGoalService;
+
+    @GetMapping("/goals")
+    public ResponseEntity<ApiResponse<BudgetGoalSummary>> getGoals(
+            @CurrentUserId Long userId) {
+
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        BudgetGoalSummary data = budgetGoalService.getGoals(userId);
+        return ResponseEntity.ok(ApiResponse.ok("가계부 목표 조회 성공", data));
+    }
 
     @PostMapping("/goals/auto")
     public ResponseEntity<ApiResponse<AutoBudgetGoalResponse>> setAutoGoals(
