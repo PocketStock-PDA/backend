@@ -48,7 +48,6 @@
 
 ```json
 {
-  "monthlyBudget": 1500000,
   "categories": [
   {"category": "식비", "budget": 400000},
   {"category": "교통", "budget": 150000}
