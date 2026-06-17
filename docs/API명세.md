@@ -95,7 +95,7 @@
 | 시세 | [해외] 현재가·호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=overseas` | HHDFS76200100 (해외 현재가호가) [KIS 실전] | B·김준형 | ✅ |
 | 시세 | [국내] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=domestic` | t3320 (FNG요약) [LS 실전] | B·김준형 |  |
 | 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | CTPF1702R (해외 상품기본정보) [KIS 실전] | B·김준형 |  |
-| 실시간시세 | [국내] 실시간 체결가(소수점·온주) | WS | `/topic/stock/trade/{stockCode}` | US3 (통합 체결) [LS 실전] | B·김준형 |  |
+| 실시간시세 | [국내] 실시간 체결가(소수점·온주) | WS | `/topic/stock/trade/{stockCode}` | US3 (통합 체결) [LS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [국내] 실시간 호가(온주) | WS | `/topic/asking/{stockCode}` | UH1 (통합 호가잔량) [LS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [해외] 실시간 체결가 | WS | `/topic/foreign/transaction/{symbol}` | HDFSCNT0 (해외 실시간지연체결가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [해외] 실시간 호가(온주) | WS | `/topic/foreign/quote/{symbol}` | HDFSASP0 (해외 실시간호가) [KIS 실전] | B·김준형 | ✅ |

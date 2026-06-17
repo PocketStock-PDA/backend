@@ -102,6 +102,15 @@
   <div class="muted">상단 5번 연결 후 /topic/foreign/transaction/{code} 구독 → 해외 실시간 체결가(현재가·등락·체결량) push.</div>
 </fieldset>
 
+<fieldset>
+  <legend>8) 국내 실시간 체결가 (LS · US3)</legend>
+  종목코드 <input id="stCode" value="005930" size="12"/>
+  <button onclick="wsSubscribeStockTrade()">체결가 구독</button>
+  <button onclick="wsUnsubscribeStockTrade()">구독 해제</button>
+  <div id="stView"></div>
+  <div class="muted">상단 5번 연결 후 /topic/stock/trade/{code} 구독 → 국내 실시간 체결가(통합 체결, 현재가·등락·체결량) push.</div>
+</fieldset>
+
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script>
 const TOKEN_KEY = 'ps_dev_token';
@@ -347,6 +356,34 @@ function renderForeignTrade(d) {
       <tr><th>체결가</th><td class="${cls}">${Number(d.currentPrice)} (${Number(d.changePrice)} / ${Number(d.changeRate)}%)</td></tr>
       <tr><th>시/고/저</th><td>${Number(d.openPrice)} / ${Number(d.highPrice)} / ${Number(d.lowPrice)}</td></tr>
       <tr><th>체결량/누적</th><td>${Number(d.lastTradeVolume).toLocaleString()} / ${Number(d.volume).toLocaleString()}</td></tr>
+      <tr><th>체결강도</th><td>${Number(d.tradeStrength)}</td></tr>
+    </table>`;
+}
+
+// ---- 8) 국내 실시간 체결가 (LS US3) ----
+let stockTradeSub = null;
+
+function wsSubscribeStockTrade() {
+  if (!stompClient || !stompClient.connected) { wsState('먼저 연결하세요'); return; }
+  const code = document.getElementById('stCode').value.trim();
+  if (stockTradeSub) stockTradeSub.unsubscribe();
+  stockTradeSub = stompClient.subscribe('/topic/stock/trade/' + code, msg => renderStockTrade(JSON.parse(msg.body)));
+  wsState('구독 중: /topic/stock/trade/' + code);
+}
+
+function wsUnsubscribeStockTrade() {
+  if (stockTradeSub) { stockTradeSub.unsubscribe(); stockTradeSub = null; wsState('국내 체결 구독 해제'); }
+}
+
+function renderStockTrade(d) {
+  const cls = Number(d.changePrice) > 0 ? 'up' : (Number(d.changePrice) < 0 ? 'down' : '');
+  const side = d.tradeType === '+' ? '매수' : (d.tradeType === '-' ? '매도' : '');
+  document.getElementById('stView').innerHTML = `
+    <table>
+      <tr><th>종목</th><td>${d.stockCode} · ${d.tradeTime}</td></tr>
+      <tr><th>체결가</th><td class="${cls}">${Number(d.currentPrice).toLocaleString()} (${Number(d.changePrice).toLocaleString()} / ${Number(d.changeRate)}%)</td></tr>
+      <tr><th>시/고/저</th><td>${Number(d.openPrice).toLocaleString()} / ${Number(d.highPrice).toLocaleString()} / ${Number(d.lowPrice).toLocaleString()}</td></tr>
+      <tr><th>체결량/누적</th><td>${side} ${Number(d.lastTradeVolume).toLocaleString()} / ${Number(d.volume).toLocaleString()}</td></tr>
       <tr><th>체결강도</th><td>${Number(d.tradeStrength)}</td></tr>
     </table>`;
 }
