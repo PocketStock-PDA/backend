@@ -5,6 +5,7 @@ import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.core.budget.dto.AutoBudgetGoalResponse;
 import com.pocketstock.core.budget.dto.BudgetGoalRequest;
+import jakarta.validation.Valid;
 import com.pocketstock.core.budget.dto.BudgetGoalSummary;
 import com.pocketstock.user.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +50,7 @@ public class BudgetGoalController {
     @PostMapping("/goals")
     public ResponseEntity<ApiResponse<AutoBudgetGoalResponse>> setManualGoals(
             @CurrentUserId Long userId,
-            @RequestBody BudgetGoalRequest request) {
+            @Valid @RequestBody BudgetGoalRequest request) {
 
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
