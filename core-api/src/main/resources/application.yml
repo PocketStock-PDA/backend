@@ -30,6 +30,10 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
+jwt:
+  validity-ms: 1800000          # access token 30분
+  refresh-validity-ms: 1209600000  # refresh token 14일
+
 management:
   endpoints:
     web:

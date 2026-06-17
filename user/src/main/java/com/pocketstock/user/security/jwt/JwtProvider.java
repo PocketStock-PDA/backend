@@ -42,4 +42,9 @@ public class JwtProvider {
                 .parseSignedClaims(token).getPayload();
         return Long.valueOf(claims.getSubject());
     }
+
+    /** 액세스 토큰 유효시간(초) — 로그인 응답의 expiresIn 용. */
+    public long getValiditySeconds() {
+        return validityMs / 1000;
+    }
 }
