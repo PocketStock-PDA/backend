@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -70,6 +71,15 @@ public class BudgetTransactionService {
         }
         if (type.equals("MONTHLY") && (year == null || month == null)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "MONTHLY 조회 시 year, month가 필요합니다.");
+        }
+        try {
+            if ("MONTHLY".equals(type)) {
+                LocalDate.of(year, month, 1);
+            } else if ("DAILY".equals(type)) {
+                LocalDate.of(year, month, day);
+            }
+        } catch (DateTimeException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "유효한 날짜를 입력해 주세요.");
         }
     }
 }
