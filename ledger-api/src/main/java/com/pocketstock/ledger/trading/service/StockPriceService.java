@@ -9,12 +9,16 @@ import com.pocketstock.ledger.trading.client.LsT1102Response;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.dto.StockPriceResponse;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.support.OverseasExchangeCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+
+import static com.pocketstock.ledger.trading.support.MarketFields.dec;
+import static com.pocketstock.ledger.trading.support.MarketFields.lng;
 
 @Slf4j
 @Service
@@ -63,7 +67,7 @@ public class StockPriceService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
         }
 
-        String excd = resolveExcd(stock);
+        String excd = OverseasExchangeCode.of(stock);
         KisPriceDetailResponse.Output out = kisMarketClient.getOverseasPriceDetail(excd, stock.getStockCode());
 
         BigDecimal last = dec(out.last());
@@ -78,31 +82,6 @@ public class StockPriceService {
         return new StockPriceResponse(
                 stockCode, last, change, changeRate,
                 dec(out.high()), dec(out.low()), dec(out.open()), lng(out.tvol()));
-    }
-
-    /** 거래소코드(EXCD): rt_symbol 앞 3자리 우선(예 NASAAPL→NAS), 없으면 exchange 매핑. */
-    private String resolveExcd(TradableStock stock) {
-        String rt = stock.getRtSymbol();
-        if (rt != null && rt.length() >= 3) {
-            return rt.substring(0, 3);
-        }
-        return switch (stock.getExchange()) {
-            case "NASDAQ" -> "NAS";
-            case "NYSE" -> "NYS";
-            case "AMEX" -> "AMS";
-            default -> throw new BusinessException(ErrorCode.INVALID_INPUT,
-                    "해외 거래소 매핑 불가: " + stock.getExchange());
-        };
-    }
-
-    private BigDecimal dec(String s) {
-        String t = (s == null) ? "" : s.trim();
-        return t.isEmpty() ? BigDecimal.ZERO : new BigDecimal(t);
-    }
-
-    private long lng(String s) {
-        String t = (s == null) ? "" : s.trim();
-        return t.isEmpty() ? 0L : new BigDecimal(t).longValue();
     }
 
     private boolean isDown(String sign) {

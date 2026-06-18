@@ -8,9 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.pocketstock.ledger.trading.support.MarketFields.dec;
 
 /**
  * LS UH1(통합호가잔량) 실시간 프레임을 {@link AskingResponse}로 매핑해
@@ -55,11 +56,5 @@ public class AskingRealtimeListener implements LsRealtimeListener {
                 dec(body, "volume"));
 
         messagingTemplate.convertAndSend(TOPIC_PREFIX + stockCode, payload);
-    }
-
-    /** LS 숫자 필드(문자/공백 가능) → BigDecimal. 빈 값은 0. */
-    private BigDecimal dec(JsonNode body, String field) {
-        String text = body.path(field).asText("").trim();
-        return text.isEmpty() ? BigDecimal.ZERO : new BigDecimal(text);
     }
 }
