@@ -11,6 +11,7 @@ public record CollectionSettingRequest(
     public record SettingItem(
             @NotNull String sourceType,
             Long sourceRefId,
-            @NotNull Boolean enabled
+            @NotNull Boolean enabled,
+            Integer threshold   // 끝전 커팅 기준: 1000 / 5000 / 10000, null이면 기존값 유지
     ) {}
 }

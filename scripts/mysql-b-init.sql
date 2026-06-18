@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS collection_settings (
   source_type VARCHAR(20) NOT NULL,
   source_ref_id BIGINT NULL,
   is_enabled BOOLEAN DEFAULT TRUE,
+  threshold INT NOT NULL DEFAULT 10000,  -- 끝전 커팅 기준: 1000 / 5000 / 10000 (ACCOUNT 타입에만 적용)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_cs (user_id, source_type, source_ref_id)

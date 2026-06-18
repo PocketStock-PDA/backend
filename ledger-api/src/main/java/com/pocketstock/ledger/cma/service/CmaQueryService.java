@@ -145,15 +145,29 @@ public class CmaQueryService {
     }
 
     private BigDecimal calcAccountAmount(Long userId, List<CollectionSetting> settings) {
-        List<Long> enabledIds = settings.stream()
+        List<CollectionSetting> enabledSettings = settings.stream()
                 .filter(s -> "ACCOUNT".equals(s.getSourceType()) && Boolean.TRUE.equals(s.getIsEnabled()))
+                .toList();
+        if (enabledSettings.isEmpty()) return BigDecimal.ZERO;
+
+        List<Long> enabledIds = enabledSettings.stream()
                 .map(CollectionSetting::getSourceRefId)
                 .toList();
-        if (enabledIds.isEmpty()) return BigDecimal.ZERO;
 
         List<LinkedAccountSummary> accounts = assetFeignClient.getLinkedAccounts(userId, enabledIds);
+
+        // 계좌별로 해당 설정의 threshold를 적용해 끝전 계산
+        java.util.Map<Long, Integer> thresholdByRefId = enabledSettings.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        CollectionSetting::getSourceRefId,
+                        s -> s.getThreshold() != null ? s.getThreshold() : 10000
+                ));
+
         return accounts.stream()
-                .map(a -> a.balance().remainder(BigDecimal.valueOf(10_000)))
+                .map(a -> {
+                    int threshold = thresholdByRefId.getOrDefault(a.id(), 10000);
+                    return a.balance().remainder(BigDecimal.valueOf(threshold));
+                })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
