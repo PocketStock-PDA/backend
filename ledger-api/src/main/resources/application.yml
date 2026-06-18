@@ -29,7 +29,7 @@ spring:
 ls:
   api:
     base-url: ${LS_API_BASE_URL:https://openapi.ls-sec.co.kr:8080}
-#    realtime-url: ${LS_API_REALTIME_URL:wss://openapi.ls-sec.co.kr:9443/websocket}
+    #    realtime-url: ${LS_API_REALTIME_URL:wss://openapi.ls-sec.co.kr:9443/websocket}
     realtime-url: ${LS_API_REALTIME_URL:wss://openapi.ls-sec.co.kr:9443/websocket}
     app-key: ${LS_APP_KEY:}
     app-secret-key: ${LS_APP_SECRET_KEY:}
