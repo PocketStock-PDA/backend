@@ -12,7 +12,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: localdev
     volumes:
-      - ./scripts/mysql-a-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/mysql-a-init.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./scripts/stock-master/cards_seed.sql:/docker-entrypoint-initdb.d/02-cards-seed.sql
       - mysql-a-data:/var/lib/mysql
 
   # DB B (원장, pocketstock_ledger, 물리 격리) — mysql-b 인스턴스
