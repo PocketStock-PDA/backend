@@ -72,7 +72,8 @@ public class AuthService {
 
         Member member = memberMapper.findByDeviceId(deviceId);
         if (member == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "등록되지 않은 기기입니다. 아이디로 로그인해 주세요.");
+            // 미등록 기기·PIN 미설정·불일치를 구분하지 않는다(기기 등록 여부 노출 방지).
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "간편 인증 정보가 올바르지 않습니다.");
         }
         Long userId = member.getId();
         String failKey = PIN_FAIL_PREFIX + userId;
