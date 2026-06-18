@@ -133,7 +133,7 @@
 
 ---
 
-### GET `/api/budget/calendar`
+### ✅ GET `/api/budget/calendar`
 
 파도 캘린더 (일별 예산) 조회<br> Query: year (number, 필수), month (number, 필수)
 

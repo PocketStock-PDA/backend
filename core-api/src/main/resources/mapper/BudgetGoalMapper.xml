@@ -25,6 +25,18 @@
         ORDER BY totalAmount DESC
     </select>
 
+    <select id="findDailySpending" resultType="com.pocketstock.core.budget.dto.DailySpendingRow">
+        SELECT DATE_FORMAT(paid_at, '%Y-%m-%d') AS date,
+               SUM(amount) AS spent
+        FROM card_transactions
+        WHERE user_id = #{userId}
+          AND paid_at >= #{from}
+          AND paid_at &lt;  #{to}
+          AND is_cancelled = false
+        GROUP BY DATE_FORMAT(paid_at, '%Y-%m-%d')
+        ORDER BY DATE_FORMAT(paid_at, '%Y-%m-%d')
+    </select>
+
     <insert id="upsertCategoryGoal">
         INSERT INTO budget_goals (user_id, period, category, target_amount)
         VALUES (#{userId}, #{period}, #{category}, #{targetAmount})
