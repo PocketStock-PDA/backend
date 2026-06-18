@@ -3,9 +3,13 @@ package com.pocketstock.user.member;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.user.member.domain.Member;
+import com.pocketstock.user.member.dto.FindUsernameRequest;
+import com.pocketstock.user.member.dto.FindUsernameResponse;
 import com.pocketstock.user.member.dto.PasswordValidateResponse;
+import com.pocketstock.user.member.dto.ResetPasswordRequest;
 import com.pocketstock.user.member.dto.SignupRequest;
 import com.pocketstock.user.member.dto.SignupResponse;
+import com.pocketstock.user.member.dto.UpdatePasswordRequest;
 import com.pocketstock.user.member.dto.UsernameCheckResponse;
 import com.pocketstock.user.member.mapper.MemberMapper;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +52,91 @@ public class MemberService {
     public PasswordValidateResponse validatePassword(String password) {
         List<String> failedRules = PasswordPolicy.validate(password);
         return new PasswordValidateResponse(failedRules.isEmpty(), failedRules);
+    }
+
+    /**
+     * 회원 비밀번호 수정 — 인증 필요.
+     * 현재 비밀번호 확인 → 새 비밀번호 정책 검증 → 해싱 후 변경.
+     */
+    @Transactional
+    public void updatePassword(Long userId, UpdatePasswordRequest req) {
+        if (userId == null) {
+            // JwtAuthFilter는 요청을 막지 않으므로(토큰 없으면 attribute 미설정) 여기서 인증을 강제한다.
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증이 필요합니다.");
+        }
+        if (req == null || !StringUtils.hasText(req.currentPassword()) || !StringUtils.hasText(req.newPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "필수 항목이 누락되었습니다.");
+        }
+
+        Member member = memberMapper.findById(userId);
+        if (member == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "회원을 찾을 수 없습니다.");
+        }
+        if (!passwordEncoder.matches(req.currentPassword(), member.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "현재 비밀번호가 일치하지 않습니다.");
+        }
+        if (!PasswordPolicy.isValid(req.newPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호가 보안 규칙을 충족하지 않습니다.");
+        }
+        if (req.currentPassword().equals(req.newPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+
+        memberMapper.updatePassword(userId, passwordEncoder.encode(req.newPassword()));
+    }
+
+    /**
+     * 아이디 찾기 — 이름+휴대폰 본인확인 후 마스킹된 아이디 반환.
+     * 계정 존재 여부 노출(enumeration)을 막기 위해 미일치 시 일반화된 메시지로 응답한다.
+     */
+    public FindUsernameResponse findUsername(FindUsernameRequest req) {
+        if (req == null || !StringUtils.hasText(req.name()) || !StringUtils.hasText(req.phone())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "필수 항목이 누락되었습니다.");
+        }
+        Member member = memberMapper.findByNameAndPhone(req.name(), req.phone());
+        if (member == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "일치하는 회원 정보가 없습니다.");
+        }
+        return new FindUsernameResponse(maskUsername(member.getUsername()));
+    }
+
+    /**
+     * 비밀번호 재설정 — 아이디+휴대폰 본인확인 후 새 비밀번호로 변경.
+     * ※ 금융 서비스 기준: 운영에서는 이 앞단을 SMS 본인인증(이슈 #2)으로 반드시 게이트해야 한다.
+     * 계정 존재 여부 노출을 막기 위해 미일치 시 일반화된 메시지로 응답한다.
+     */
+    @Transactional
+    public void resetPassword(ResetPasswordRequest req) {
+        if (req == null
+                || !StringUtils.hasText(req.username())
+                || !StringUtils.hasText(req.phone())
+                || !StringUtils.hasText(req.newPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "필수 항목이 누락되었습니다.");
+        }
+        if (!PasswordPolicy.isValid(req.newPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호가 보안 규칙을 충족하지 않습니다.");
+        }
+
+        Member member = memberMapper.findByUsernameAndPhone(req.username(), req.phone());
+        if (member == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "일치하는 회원 정보가 없습니다.");
+        }
+        if (passwordEncoder.matches(req.newPassword(), member.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "기존 비밀번호와 다른 비밀번호를 사용해야 합니다.");
+        }
+
+        memberMapper.updatePassword(member.getId(), passwordEncoder.encode(req.newPassword()));
+    }
+
+    /** 아이디 마스킹 — 앞 2·뒤 3자만 노출하고 가운데는 고정 ***(길이 노출 최소화). 짧으면 첫 글자만. */
+    private String maskUsername(String username) {
+        if (!StringUtils.hasText(username)) {
+            return "";
+        }
+        if (username.length() < 6) {
+            return username.charAt(0) + "***";
+        }
+        return username.substring(0, 2) + "***" + username.substring(username.length() - 3);
     }
 
     /** 회원가입. 중복 아이디는 409(CONFLICT). */
