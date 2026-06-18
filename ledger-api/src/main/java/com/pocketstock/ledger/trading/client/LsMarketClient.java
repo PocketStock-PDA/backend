@@ -27,6 +27,7 @@ public class LsMarketClient {
     private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
     private static final String SUCCESS_CODE = "00000";
     private static final String EXCHANGE_KRX = "K";
+    private static final String EXCHANGE_UNIFIED = "U"; // KRX+NXT 통합 — 실시간(UH1 통합)과 사다리 일치
 
     private final LsTokenProvider tokenProvider;
     private final ObjectMapper objectMapper;
@@ -49,10 +50,10 @@ public class LsMarketClient {
         return ob;
     }
 
-    /** t8450 국내 (통합)현재가호가 조회(KRX). 온주 주문 화면 진입 시 스냅샷용. */
+    /** t8450 국내 (통합)현재가호가 조회. 온주 주문 화면 진입 시 스냅샷용 — 실시간(UH1)과 같은 통합 기준. */
     public LsT8450Response.OutBlock getDomesticOrderbook(String shcode) {
         LsT8450Response res = callTr("t8450",
-                Map.of("t8450InBlock", Map.of("shcode", shcode, "exchgubun", EXCHANGE_KRX)),
+                Map.of("t8450InBlock", Map.of("shcode", shcode, "exchgubun", EXCHANGE_UNIFIED)),
                 LsT8450Response.class);
         LsT8450Response.OutBlock ob = (res == null) ? null : res.outBlock();
         verify(ob, (ob == null) ? null : ob.hname(),
