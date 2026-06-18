@@ -40,7 +40,7 @@ public class CardRecommendationService {
 
     public List<CardRecommendationItem> recommend(Long userId) {
         // 최근 3개월 소비 카테고리별 합계
-        LocalDateTime from = LocalDate.now().minusMonths(3).withDayOfMonth(1).atStartOfDay();
+        LocalDateTime from = LocalDate.now().minusMonths(3).atStartOfDay();
         LocalDateTime to = LocalDate.now().plusDays(1).atStartOfDay();
 
         List<CategoryAmountRow> spending = cardMapper.findCategorySpending(userId, from, to);
@@ -70,7 +70,9 @@ public class CardRecommendationService {
         List<CardRecommendationItem> result = cards.stream().map(card -> {
             List<CardBenefitRow> benefits = benefitsByCard.getOrDefault(card.getId(), List.of());
             Set<String> benefitKeywords = benefits.stream()
-                    .map(b -> b.getBenefitCategory().toLowerCase())
+                    .map(CardBenefitRow::getBenefitCategory)
+                    .filter(Objects::nonNull)
+                    .map(String::toLowerCase)
                     .collect(Collectors.toSet());
 
             double matchRate = spendRatio.entrySet().stream()
