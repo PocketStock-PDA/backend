@@ -111,6 +111,61 @@
   <div class="muted">상단 5번 연결 후 /topic/stock/trade/{code} 구독 → 국내 실시간 체결가(통합 체결, 현재가·등락·체결량) push.</div>
 </fieldset>
 
+<fieldset>
+  <legend>9) 실시간 환율 USD/KRW (LS · CUR)</legend>
+  <button onclick="wsSubscribeCurrency()">환율 구독</button>
+  <button onclick="wsUnsubscribeCurrency()">구독 해제</button>
+  <div id="curView"></div>
+  <div class="muted">상단 5번 연결 후 /topic/currency/usd-krw 구독 → LS 실시간(CUR) 현물USD 환율 push.
+    종목코드 없는 단일 토픽. 외환시장 개장시간(평일 주간)에 데이터 수신.</div>
+</fieldset>
+
+<fieldset>
+  <legend>10) 환율 조회 (REST · /api/exchange/rate)</legend>
+  <button onclick="getExchangeRate()">환율 조회</button>
+  <div id="rateView"></div>
+  <pre id="rateRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">캐시(LS CUR SSOT)의 기준율 + 매수/매도 적용환율(스프레드 0.96%·우대 90% 내재).
+    첫 틱 수신 전(콜드스타트)엔 502. 상시구독이라 9번 구독 없이도 값이 쌓임.</div>
+</fieldset>
+
+<fieldset>
+  <legend>11) 환전 이력 (REST · /api/exchange/history)</legend>
+  <button onclick="loadFxHistory()">이력 조회</button>
+  <div id="fxHistView"></div>
+  <div class="muted">fx_transactions 최신순. 환전 체결(/krw-to-usd)은 CMA 연동 후라 그 전까진 비어 있음.</div>
+</fieldset>
+
+<fieldset>
+  <legend>12) 자동환전 설정 (REST · /api/exchange/auto-settings)</legend>
+  <button onclick="loadAutoSettings()">설정 조회</button>
+  <hr/>
+  자동환전 <select id="aeEnabled"><option value="true">ON</option><option value="false">OFF</option></select>
+  달러우선 <select id="aeDollarFirst"><option value="true">ON</option><option value="false">OFF</option></select>
+  1회한도 <input id="aeMax" size="8" placeholder="원, 비우면 무제한"/>
+  잔돈 <select id="aeResidual"><option value="">-</option><option value="TO_KRW">TO_KRW</option><option value="KEEP_USD">KEEP_USD</option></select>
+  <button onclick="saveAutoSettings()">저장(PUT)</button>
+  <div id="autoView"></div>
+  <pre id="autoRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">1인 1행 upsert. 조회 → 값 반영 후 수정 저장.</div>
+</fieldset>
+
+<fieldset>
+  <legend>13) 환전 체결 (REST · /api/exchange/krw-to-usd · /usd-to-krw)</legend>
+  방향
+  <select id="fxDir">
+    <option value="krw-to-usd">원화→달러</option>
+    <option value="usd-to-krw">달러→원화</option>
+  </select>
+  금액 <input id="fxAmount" value="100000" size="10"/>
+  비번 <input id="fxPw" value="1234" size="6"/>
+  <button onclick="settleFx()">환전 체결</button>
+  <div id="fxSettleView"></div>
+  <pre id="fxSettleRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">캐시(LS CUR)에 환율이 쌓인 뒤(콜드스타트 시 502) 체결. CMA 풀은 dev 스텁(인메모리, KRW 5,000,000 / USD 1,000 시드, 비번 1234).
+    체결 성공 시 11번 이력에 행이 쌓임.</div>
+</fieldset>
+
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script>
 const TOKEN_KEY = 'ps_dev_token';
@@ -294,6 +349,8 @@ function wsDisconnect() {
   wsUnsubscribe();
   wsUnsubscribeForeign();
   wsUnsubscribeForeignTrade();
+  wsUnsubscribeStockTrade();
+  wsUnsubscribeCurrency();
   if (stompClient) { stompClient.deactivate(); stompClient = null; wsState('미연결'); }
 }
 
@@ -388,6 +445,30 @@ function renderStockTrade(d) {
     </table>`;
 }
 
+// ---- 9) 실시간 환율 USD/KRW (LS CUR) ----
+let currencySub = null;
+
+function wsSubscribeCurrency() {
+  if (!stompClient || !stompClient.connected) { wsState('먼저 연결하세요'); return; }
+  if (currencySub) currencySub.unsubscribe();
+  currencySub = stompClient.subscribe('/topic/currency/usd-krw', msg => renderCurrency(JSON.parse(msg.body)));
+  wsState('구독 중: /topic/currency/usd-krw');
+}
+
+function wsUnsubscribeCurrency() {
+  if (currencySub) { currencySub.unsubscribe(); currencySub = null; wsState('환율 구독 해제'); }
+}
+
+function renderCurrency(d) {
+  const cls = Number(d.change) > 0 ? 'up' : (Number(d.change) < 0 ? 'down' : '');
+  document.getElementById('curView').innerHTML = `
+    <table>
+      <tr><th>통화</th><td>${d.baseCurrency}/${d.targetCurrency}</td></tr>
+      <tr><th>환율</th><td class="${cls}">${Number(d.exchangeRate).toLocaleString()} (${Number(d.change)})</td></tr>
+      <tr><th>수신시각</th><td>${d.updatedAt}</td></tr>
+    </table>`;
+}
+
 // 호가 렌더 — REST 호가창(getOrderbook)과 동일 배치: 매도 역순(위) + 매수 정순(아래)
 function renderAsking(d) {
   const fmt = n => Number(n).toLocaleString();
@@ -406,6 +487,104 @@ function renderAsking(d) {
       ${rows}
       <tr><td class="down">${fmt(d.totalAskVolume)}</td><td class="muted">실시간(통합)</td><td class="up">${fmt(d.totalBidVolume)}</td></tr>
     </table>`;
+}
+
+// ---- 10) 환율 조회 (REST /api/exchange/rate) ----
+async function getExchangeRate() {
+  const h = await authHeaders();
+  const res = await fetch('/api/exchange/rate', { headers: h });
+  const b = await res.json();
+  document.getElementById('rateRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('rateView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const d = b.data;
+  const cls = Number(d.change) > 0 ? 'up' : (Number(d.change) < 0 ? 'down' : '');
+  const pref = Number(d.preferentialRate) * 100;
+  v.innerHTML = `
+    <table>
+      <tr><th>통화</th><td>${d.baseCurrency}/${d.targetCurrency}</td></tr>
+      <tr><th>매매기준율</th><td class="${cls}">${Number(d.baseRate).toLocaleString()} (${Number(d.change)})</td></tr>
+      <tr><th>매수(KRW→USD)</th><td>${Number(d.buyRate).toLocaleString()}</td></tr>
+      <tr><th>매도(USD→KRW)</th><td>${Number(d.sellRate).toLocaleString()}</td></tr>
+      <tr><th>우대율</th><td>${pref}%</td></tr>
+      <tr><th>갱신시각</th><td>${d.updatedAt}</td></tr>
+    </table>`;
+}
+
+// ---- 11) 환전 이력 (REST /api/exchange/history) ----
+async function loadFxHistory() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/exchange/history', { headers: h })).json();
+  const v = document.getElementById('fxHistView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data.history || []).map(x =>
+    `<tr><td>${x.type}</td><td>${won(x.krwAmount)}</td><td>${Number(x.usdAmount)}</td>` +
+    `<td>${x.triggerType}</td><td>${Number(x.rate).toLocaleString()}</td><td>${x.status}</td><td>${x.exchangedAt}</td></tr>`).join('');
+  v.innerHTML =
+    `<div class="muted">총 ${b.data.totalElements}건 · page ${b.data.page}</div>` +
+    `<table><tr><th>구분</th><th>원화</th><th>달러</th><th>트리거</th><th>환율</th><th>상태</th><th>시각</th></tr>` +
+    `${rows || '<tr><td colspan="7" class="muted">이력 없음</td></tr>'}</table>`;
+}
+
+// ---- 12) 자동환전 설정 (REST /api/exchange/auto-settings) ----
+function renderAutoSettings(d) {
+  document.getElementById('aeEnabled').value = String(d.autoEnabled);
+  document.getElementById('aeDollarFirst').value = String(d.useDollarFirst);
+  document.getElementById('aeMax').value = d.maxAmountPerTx != null ? d.maxAmountPerTx : '';
+  document.getElementById('aeResidual').value = d.residualHandling || '';
+  document.getElementById('autoView').innerHTML =
+    `<p class="muted">자동환전 ${d.autoEnabled ? 'ON' : 'OFF'} · 달러우선 ${d.useDollarFirst ? 'ON' : 'OFF'} · ` +
+    `한도 ${d.maxAmountPerTx != null ? won(d.maxAmountPerTx) + '원' : '무제한'} · 잔돈 ${d.residualHandling || '-'}</p>`;
+}
+
+async function loadAutoSettings() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/exchange/auto-settings', { headers: h })).json();
+  document.getElementById('autoRaw').textContent = JSON.stringify(b, null, 2);
+  if (!b.success) { document.getElementById('autoView').innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  renderAutoSettings(b.data);
+}
+
+async function saveAutoSettings() {
+  const h = await authHeaders();
+  const maxRaw = document.getElementById('aeMax').value.trim();
+  const body = {
+    autoEnabled: document.getElementById('aeEnabled').value === 'true',
+    useDollarFirst: document.getElementById('aeDollarFirst').value === 'true',
+    maxAmountPerTx: maxRaw === '' ? null : Number(maxRaw),
+    residualHandling: document.getElementById('aeResidual').value || null
+  };
+  const res = await fetch('/api/exchange/auto-settings', {
+    method: 'PUT', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const b = await res.json();
+  document.getElementById('autoRaw').textContent = JSON.stringify(b, null, 2);
+  if (!b.success) { document.getElementById('autoView').innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  renderAutoSettings(b.data);
+}
+
+// ---- 13) 환전 체결 (REST krw-to-usd / usd-to-krw) ----
+async function settleFx() {
+  const h = await authHeaders();
+  const dir = document.getElementById('fxDir').value;
+  const amount = Number(document.getElementById('fxAmount').value);
+  const pw = document.getElementById('fxPw').value;
+  const body = dir === 'krw-to-usd'
+    ? { krwAmount: amount, accountPassword: pw }
+    : { usdAmount: amount, accountPassword: pw };
+  const res = await fetch('/api/exchange/' + dir, {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const b = await res.json();
+  document.getElementById('fxSettleRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('fxSettleView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const d = b.data;
+  const isKrwToUsd = dir === 'krw-to-usd';
+  const got = isKrwToUsd ? `${Number(d.exchangedUsd)} USD` : `${won(d.exchangedKrw)} KRW`;
+  const remain = isKrwToUsd ? `원화풀 ${won(d.remainKrw)}원` : `달러풀 ${Number(d.remainUsd)} USD`;
+  v.innerHTML = `<p class="up">체결: ${got} @ ${Number(d.appliedRate).toLocaleString()} (수수료 ${d.fee}) · ${remain}</p>`;
+  loadFxHistory();
 }
 
 setTokenState();

@@ -24,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>매핑: {@code /topic/stock/trade/{code}} → LS US3, {@code /topic/asking/{code}} → LS UH1,
  * {@code /topic/foreign/quote/{code}} → KIS HDFSASP0, {@code /topic/foreign/transaction/{code}} → KIS HDFSCNT0.
- * CUR 등은 {@link #resolve}에 추가.
+ * 환율({@code /topic/currency/usd-krw}, CUR)은 온디맨드가 아니라 상시구독이라
+ * 여기서 다루지 않는다 — {@code CurrencyRatePinner} 참조.
  */
 @Component
 @RequiredArgsConstructor
@@ -131,6 +132,7 @@ public class RealtimeSubscriptionManager {
                 return new RealtimeKey(kisClient, "HDFSCNT0", code);
             }
         }
+        // 환율(CUR)은 상시구독(CurrencyRatePinner)이라 온디맨드 매핑에서 제외.
         return null;
     }
 

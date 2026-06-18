@@ -95,7 +95,7 @@
 | 시세 | [국내] 호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=domestic` | t8450 (현재가호가) [LS 실전] | B·김준형 | ✅ |
 | 시세 | [해외] 현재가·호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=overseas` | HHDFS76200100 (해외 현재가호가) [KIS 실전] | B·김준형 | ✅ |
 | 시세 | [국내] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=domestic` | t3320 (FNG요약) [LS 실전] | B·김준형 |  |
-| 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | CTPF1702R (해외 상품기본정보) [KIS 실전] | B·김준형 |  |
+| 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | HHDFS76200200 (해외 현재가상세) [KIS 실전] | B·김준형 |  |
 | 실시간시세 | [국내] 실시간 체결가(소수점·온주) | WS | `/topic/stock/trade/{stockCode}` | US3 (통합 체결) [LS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [국내] 실시간 호가(온주) | WS | `/topic/asking/{stockCode}` | UH1 (통합 호가잔량) [LS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [해외] 실시간 체결가 | WS | `/topic/foreign/transaction/{symbol}` | HDFSCNT0 (해외 실시간지연체결가) [KIS 실전] | B·김준형 | ✅ |
@@ -114,9 +114,11 @@
 | 정기적립식 | 자동모으기 일시중지/재개/해제 | PATCH | `/api/trading/auto-invest/{id}/status` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 종목 추가 | POST | `/api/trading/auto-invest/stocks` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 종합 설정 조회 | GET | `/api/trading/auto-invest` |  | B·김준형 |  |
-| 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | A·우정인 |  |
-| 보상 | 가입보상 종목 선택·지급 | POST | `/api/trading/rewards/signup` |  | A·우정인 |  |
-| 보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | A·우정인 |  |
+| 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | B·김준형 |  |
+| 보상 | 가입보상 종목 선택·지급 | POST | `/api/trading/rewards/signup` |  | B·김준형 |  |
+| 보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 |  |
+
+> 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
 
 ## Portfolio
 
@@ -152,15 +154,15 @@
 
 ## Exchange
 
-| 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
-|---|---|---|---|---|---|---|
-| 환전 | 환율 조회(USD/KRW, 예상 환전금액) | GET | `/api/exchange/rate` | CUR 기반(시세 캐시) [LS 모의] | C·강문군 |  |
-| 환전 | 실시간 환율(USD/KRW) | WS | `/topic/currency/usd-krw` | CUR (현물USD 실시간) [LS 모의] | C·강문군 |  |
-| 환전 | 환전 가능여부·가능금액 검증 | GET | `/api/exchange/validate` |  | C·강문군 |  |
-| 환전 | 원화→달러 환전 | POST | `/api/exchange/krw-to-usd` |  | C·강문군 |  |
-| 환전 | 달러→원화 환전 | POST | `/api/exchange/usd-to-krw` |  | C·강문군 |  |
-| 환전 | 자동환전 설정(달러우선·한도·잔돈) | PUT | `/api/exchange/auto-settings` |  | C·강문군 |  |
-| 환전 | 환전 이력 조회 | GET | `/api/exchange/history` |  | C·강문군 |  |
+| 대분류 | Description | Method | URI | LS TR코드                 | 담당 | 완료 |
+|---|---|---|---|-------------------------|---|---|
+| 환전 | 환율 조회(USD/KRW, 예상 환전금액) | GET | `/api/exchange/rate` | CUR 기반(시세 캐시) [LS 실전]   | B·김준형 |  |
+| 환전 | 실시간 환율(USD/KRW) | WS | `/topic/currency/usd-krw` | CUR (현물USD 실시간) [LS 실전] | B·김준형 |  |
+| 환전 | 환전 가능여부·가능금액 검증 | GET | `/api/exchange/validate` |                         | B·김준형 |  |
+| 환전 | 원화→달러 환전 | POST | `/api/exchange/krw-to-usd` |                         | B·김준형 |  |
+| 환전 | 달러→원화 환전 | POST | `/api/exchange/usd-to-krw` |                         | B·김준형 |  |
+| 환전 | 자동환전 설정(달러우선·한도·잔돈) | PUT | `/api/exchange/auto-settings` |                         | B·김준형 |  |
+| 환전 | 환전 이력 조회 | GET | `/api/exchange/history` |                         | B·김준형 |  |
 
 ## Notification
 
