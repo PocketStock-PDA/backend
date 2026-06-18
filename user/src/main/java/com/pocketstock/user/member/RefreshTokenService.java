@@ -3,11 +3,11 @@ package com.pocketstock.user.member;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -24,6 +24,18 @@ public class RefreshTokenService {
 
     private static final String KEY_PREFIX = "refresh:";
     private static final String USER_KEY_PREFIX = "user-refresh:";
+
+    /**
+     * 사용자 인덱스(KEYS[1])의 모든 토큰 키(ARGV[1] prefix)와 인덱스 자체를 원자적으로 삭제.
+     * Redis는 단일 스레드로 스크립트를 실행하므로 도중에 issue()가 끼어들 수 없다(race 제거).
+     */
+    private static final RedisScript<Long> REVOKE_ALL_SCRIPT = RedisScript.of(
+            "local tokens = redis.call('SMEMBERS', KEYS[1])\n"
+                    + "for _, t in ipairs(tokens) do\n"
+                    + "  redis.call('DEL', ARGV[1] .. t)\n"
+                    + "end\n"
+                    + "redis.call('DEL', KEYS[1])\n"
+                    + "return #tokens", Long.class);
 
     private final StringRedisTemplate redis;
 
@@ -58,14 +70,11 @@ public class RefreshTokenService {
         }
     }
 
-    /** 해당 사용자의 모든 refresh token 폐기 — 비밀번호 변경/재설정 시 다른 세션 강제 만료. */
+    /**
+     * 해당 사용자의 모든 refresh token 폐기 — 비밀번호 변경/재설정 시 다른 세션 강제 만료.
+     * 조회·삭제를 Lua로 원자 실행해 동시 issue()가 끼어든 토큰이 살아남는 race를 방지한다.
+     */
     public void revokeAllByUser(Long userId) {
-        String userKey = USER_KEY_PREFIX + userId;
-        Set<String> tokens = redis.opsForSet().members(userKey);
-        if (tokens != null && !tokens.isEmpty()) {
-            List<String> keys = tokens.stream().map(t -> KEY_PREFIX + t).toList();
-            redis.delete(keys);
-        }
-        redis.delete(userKey);
+        redis.execute(REVOKE_ALL_SCRIPT, List.of(USER_KEY_PREFIX + userId), KEY_PREFIX);
     }
 }
