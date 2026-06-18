@@ -9,22 +9,24 @@
         <result property="sourceType"  column="source_type"/>
         <result property="sourceRefId" column="source_ref_id"/>
         <result property="isEnabled"   column="is_enabled"/>
+        <result property="threshold"   column="threshold"/>
         <result property="createdAt"   column="created_at"/>
         <result property="updatedAt"   column="updated_at"/>
     </resultMap>
 
     <select id="findByUserId" resultMap="collectionSetting">
-        SELECT id, user_id, source_type, source_ref_id, is_enabled, created_at, updated_at
+        SELECT id, user_id, source_type, source_ref_id, is_enabled, threshold, created_at, updated_at
         FROM collection_settings
         WHERE user_id = #{userId}
     </select>
 
     <!-- UNIQUE KEY (user_id, source_type, source_ref_id) 기준 upsert -->
     <insert id="upsert" parameterType="com.pocketstock.ledger.cma.domain.CollectionSetting">
-        INSERT INTO collection_settings (user_id, source_type, source_ref_id, is_enabled)
-        VALUES (#{userId}, #{sourceType}, #{sourceRefId}, #{isEnabled})
+        INSERT INTO collection_settings (user_id, source_type, source_ref_id, is_enabled, threshold)
+        VALUES (#{userId}, #{sourceType}, #{sourceRefId}, #{isEnabled}, #{threshold})
         ON DUPLICATE KEY UPDATE
             is_enabled = #{isEnabled},
+            threshold  = #{threshold},
             updated_at = NOW()
     </insert>
 
