@@ -58,12 +58,12 @@
           AND deleted_at IS NULL
     </select>
 
+    <!-- device_id는 UNIQUE라 최대 1행. LIMIT로 중복을 가리지 않고, 이상 시 명확히 실패하게 둔다. -->
     <select id="findByDeviceId" resultType="com.pocketstock.user.member.domain.Member">
         SELECT id, username, password_hash, name, phone, birth_date, gender
         FROM users
         WHERE device_id = #{deviceId}
           AND deleted_at IS NULL
-        LIMIT 1
     </select>
 
     <update id="clearDeviceId">
