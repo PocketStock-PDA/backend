@@ -48,15 +48,3 @@ logging:
   level:
     com.pocketstock: DEBUG
     org.mybatis: DEBUG
-
----
-# local 프로파일 = 개발 전용. 운영에선 이 프로파일을 켜지 않으므로 ${JWT_SECRET}(필수) 유지.
-spring:
-  config:
-    activate:
-      on-profile: local
-jwt:
-  secret: pocketstock-local-dev-secret-please-change-in-prod-0123456789  # 개발 전용(운영 금지)
-springdoc:
-  swagger-ui:
-    persist-authorization: true

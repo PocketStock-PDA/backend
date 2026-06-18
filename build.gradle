@@ -54,4 +54,12 @@ subprojects {
             implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
         }
     }
+
+    // bootRun 기본 프로파일 = local (로컬 개발 편의 — bootRun은 dev 전용, 운영은 bootJar 실행).
+    // 덮어쓰기: ./gradlew :core-api:bootRun -Pprofile=prod
+    plugins.withId('org.springframework.boot') {
+        tasks.named('bootRun') {
+            systemProperty 'spring.profiles.active', findProperty('profile') ?: 'local'
+        }
+    }
 }
