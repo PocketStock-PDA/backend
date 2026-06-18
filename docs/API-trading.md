@@ -326,7 +326,7 @@
 
 ### GET `/api/trading/stocks/{stockCode}/info?market=overseas`
 
-[해외] 종목 기업정보<br> Path: {stockCode} - 종목코드 (예: AAPL) | LS TR: g3104
+[해외] 종목 기업정보<br> Path: {stockCode} - 종목코드 (예: AAPL) | KIS TR: HHDFS76200200
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -405,7 +405,7 @@
 
 ### WS `/topic/foreign/transaction/{symbol}`
 
-[해외] 실시간 체결가<br> Path: {symbol} - 해외 종목코드 (예: AAPL) | LS TR: GSC
+[해외] 실시간 체결가<br> Path: {symbol} - 해외 종목코드 (예: AAPL) | KIS TR: HDFSCNT0
 
 - **HTTP Status Code**: 101 Switching Protocols
 
@@ -426,7 +426,7 @@
 
 ### WS `/topic/foreign/quote/{symbol}`
 
-[해외] 실시간 호가 (온주)<br> Path: {symbol} - 해외 종목코드 (예: AAPL) | LS TR: GSH
+[해외] 실시간 호가 (온주)<br> Path: {symbol} - 해외 종목코드 (예: AAPL) | KIS TR: HDFSASP0
 
 - **HTTP Status Code**: 101 Switching Protocols
 

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.exchange.mapper.FxAutoSettingMapper">
+
+    <resultMap id="fxAutoSetting" type="com.pocketstock.ledger.exchange.domain.FxAutoSetting">
+        <id     property="id"               column="id"/>
+        <result property="userId"           column="user_id"/>
+        <result property="isAutoEnabled"    column="is_auto_enabled"/>
+        <result property="useDollarFirst"   column="use_dollar_first"/>
+        <result property="maxAmountPerTx"   column="max_amount_per_tx"/>
+        <result property="residualHandling" column="residual_handling"/>
+        <result property="createdAt"        column="created_at"/>
+        <result property="updatedAt"        column="updated_at"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="fxAutoSetting">
+        SELECT id, user_id, is_auto_enabled, use_dollar_first, max_amount_per_tx,
+               residual_handling, created_at, updated_at
+        FROM fx_auto_settings
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert" parameterType="com.pocketstock.ledger.exchange.domain.FxAutoSetting">
+        INSERT INTO fx_auto_settings
+            (user_id, is_auto_enabled, use_dollar_first, max_amount_per_tx, residual_handling)
+        VALUES
+            (#{userId}, #{isAutoEnabled}, #{useDollarFirst}, #{maxAmountPerTx}, #{residualHandling})
+        ON DUPLICATE KEY UPDATE
+            is_auto_enabled   = VALUES(is_auto_enabled),
+            use_dollar_first  = VALUES(use_dollar_first),
+            max_amount_per_tx = VALUES(max_amount_per_tx),
+            residual_handling = VALUES(residual_handling)
+    </insert>
+
+</mapper>
