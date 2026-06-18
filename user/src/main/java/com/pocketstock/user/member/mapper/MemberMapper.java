@@ -14,4 +14,16 @@ public interface MemberMapper {
 
     /** 로그인용 — username으로 회원 조회(없으면 null). */
     Member findByUsername(@Param("username") String username);
+
+    /** id로 회원 조회(없으면 null). 비밀번호 검증 등 인증된 작업에 사용. */
+    Member findById(@Param("id") Long id);
+
+    /** 비밀번호 해시 변경. 변경된 행 수 반환. */
+    int updatePassword(@Param("id") Long id, @Param("passwordHash") String passwordHash);
+
+    /** 아이디 찾기 — 이름+휴대폰으로 회원 조회(없으면 null). */
+    Member findByNameAndPhone(@Param("name") String name, @Param("phone") String phone);
+
+    /** 비밀번호 재설정 — 아이디+휴대폰으로 본인확인 조회(없으면 null). */
+    Member findByUsernameAndPhone(@Param("username") String username, @Param("phone") String phone);
 }
