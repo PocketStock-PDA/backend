@@ -37,9 +37,9 @@ public class InternalAssetService {
         for (Map<String, Object> row : rows) {
             Long id = ((Number) row.get("id")).longValue();
             BigDecimal amount = new BigDecimal(row.get("amount").toString());
-            // ceil(amount / 100) * 100 - amount
-            BigDecimal roundup = amount.divide(BigDecimal.valueOf(100), 0, RoundingMode.CEILING)
-                    .multiply(BigDecimal.valueOf(100))
+            // ceil(amount / 1000) * 1000 - amount
+            BigDecimal roundup = amount.divide(BigDecimal.valueOf(1000), 0, RoundingMode.CEILING)
+                    .multiply(BigDecimal.valueOf(1000))
                     .subtract(amount);
             total = total.add(roundup);
             ids.add(id);
