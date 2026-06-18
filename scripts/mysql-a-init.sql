@@ -56,40 +56,98 @@ CREATE TABLE IF NOT EXISTS terms_agreements (
 );
 
 -- ========== asset ==========
+-- 연동 가능 기관 카탈로그 (카테고리×회사, user 무관 공용). 연동 화면 picker 출처(LINK-001)
+CREATE TABLE IF NOT EXISTS institution_master (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  category VARCHAR(20) NOT NULL,             -- BANK / CARD / SECURITIES / POINT
+  company_code VARCHAR(30) NOT NULL UNIQUE,  -- SHINHAN_BANK / KB_CARD / MIRAE_SEC / NAVER_POINT
+  company_name VARCHAR(40) NOT NULL,
+  logo_url VARCHAR(255) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INT DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- user <-> 회사 커넥션 노드 (연동상태·새로고침·연결끊기 단위). 자식(linked_*)이 매달림
 CREATE TABLE IF NOT EXISTS linked_institutions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
-  company VARCHAR(20),
-  institution_type VARCHAR(20),
-  link_status VARCHAR(20),
+  institution_master_id BIGINT NOT NULL,    -- 어느 회사(카탈로그 참조)
+  link_status VARCHAR(20),                   -- LINKED / AVAILABLE / MAINTENANCE / FAILED
   linked_at DATETIME NULL,
   last_synced_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_inst (user_id, company, institution_type)
+  UNIQUE KEY uq_inst (user_id, institution_master_id),
+  INDEX idx_li_master (institution_master_id)
 );
 
-CREATE TABLE IF NOT EXISTS linked_accounts (
+-- 은행 계좌(예금/적금/입출금) 잔액 사본. 예적금만 interest_rate/start_date/maturity_date 채움
+CREATE TABLE IF NOT EXISTS linked_bank_accounts (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
-  institution_id BIGINT,
-  account_type VARCHAR(20),
-  account_no_enc VARBINARY(255),
+  institution_id BIGINT NOT NULL,           -- → linked_institutions
+  account_type VARCHAR(20),                  -- DEPOSIT(예금) / SAVINGS(적금) / DEMAND(입출금)
+  account_name VARCHAR(60),                  -- 상품 표시명 (KB Star 정기예금)
+  account_no_enc VARBINARY(255),             -- AES-256 (SEC-001). 이체(잔돈수집)용
   balance DECIMAL(18,4),
-  currency VARCHAR(3),
-  interest_rate DECIMAL(7,4) NULL,
-  maturity_date DATE NULL,
+  currency VARCHAR(3),                        -- KRW / USD
+  interest_rate DECIMAL(7,4) NULL,           -- 예적금만 (계약 약정 금리, 가입기간별 상이)
+  start_date DATE NULL,                      -- 예적금만 (가입일)
+  maturity_date DATE NULL,                   -- 예적금만 (만기일)
   is_dormant BOOLEAN DEFAULT FALSE,
   last_synced_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_la_user (user_id), INDEX idx_la_inst (institution_id)
+  INDEX idx_lba_user (user_id), INDEX idx_lba_inst (institution_id)
+);
+
+-- 보유 카드 사본(메타만, lean). 라운드업 ON/OFF는 collection_settings(DB-B)가 관리
+CREATE TABLE IF NOT EXISTS linked_cards (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  institution_id BIGINT NOT NULL,           -- → linked_institutions (카드사)
+  card_name VARCHAR(60),
+  card_type VARCHAR(10),                     -- CREDIT(신용) / CHECK(체크)
+  masked_no VARCHAR(20),                     -- 1234-****-****-5678
+  payment_account_id BIGINT NULL,            -- → linked_bank_accounts (결제/출금 계좌)
+  last_synced_at DATETIME,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_lc_user (user_id), INDEX idx_lc_inst (institution_id)
+);
+
+-- 외부(3rd-party) 포인트 잔액 사본 (네이버·토스). 마이신한포인트(1st-party)는 별개
+CREATE TABLE IF NOT EXISTS linked_points (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  institution_id BIGINT NOT NULL,           -- → linked_institutions (포인트사)
+  point_name VARCHAR(40),                    -- 네이버포인트 / 토스포인트
+  balance BIGINT,                            -- 포인트 잔액 (1P=1원, 정수)
+  last_synced_at DATETIME,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_lp_user (user_id), INDEX idx_lp_inst (institution_id)
+);
+
+-- 타 증권사 예수금(현금) 사본. 보유 종목은 external_holdings (2계층 패턴)
+CREATE TABLE IF NOT EXISTS linked_securities (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  institution_id BIGINT NOT NULL,           -- → linked_institutions (증권사)
+  deposit_cash DECIMAL(18,4),                -- 예수금(현금 잔액)
+  currency VARCHAR(3),                        -- KRW / USD (통화별 row)
+  last_synced_at DATETIME,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_lsec_user (user_id), INDEX idx_lsec_inst (institution_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
-  linked_account_id BIGINT,
+  card_id BIGINT,                            -- → linked_cards (구 linked_account_id)
   merchant_name VARCHAR(100),
   mcc VARCHAR(10),
   category VARCHAR(40),
@@ -98,6 +156,7 @@ CREATE TABLE IF NOT EXISTS card_transactions (
   is_cancelled BOOLEAN DEFAULT FALSE,
   is_roundup_collected BOOLEAN NOT NULL DEFAULT FALSE,
   roundup_collected_at DATETIME NULL,
+  roundup_amount DECIMAL(18,4) NULL,         -- 이 거래 라운드업 금액(미수확 NULL)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_ct_user (user_id), INDEX idx_ct_paid (paid_at)
 );
@@ -116,13 +175,13 @@ CREATE TABLE IF NOT EXISTS spending_analysis (
 CREATE TABLE IF NOT EXISTS external_holdings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
-  broker_name VARCHAR(40),
+  institution_id BIGINT,                     -- → linked_institutions (증권사, 구 broker_name 정규화)
   stock_code VARCHAR(20),
   stock_name VARCHAR(100),
   quantity DECIMAL(18,6),
   eval_amount DECIMAL(18,4),
   synced_at DATETIME,
-  INDEX idx_eh_user (user_id)
+  INDEX idx_eh_user (user_id), INDEX idx_eh_inst (institution_id)
 );
 
 -- ========== budget ==========
@@ -205,16 +264,7 @@ CREATE TABLE IF NOT EXISTS peer_benchmarks (
   UNIQUE KEY uq_pb (age_band, gender_band, asset_band, asset_category)
 );
 
-CREATE TABLE IF NOT EXISTS rebalancing_products (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  product_type VARCHAR(20),
-  product_name VARCHAR(100),
-  provider VARCHAR(40),
-  interest_rate DECIMAL(7,4) NULL,
-  benefit_desc VARCHAR(500),
-  is_active BOOLEAN DEFAULT TRUE,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- rebalancing_products 제거(2026-06-18): 갈아타기(REBAL-005·006)·대출 폐지로 삭제
 
 CREATE TABLE IF NOT EXISTS stock_events (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -299,12 +349,21 @@ CREATE TABLE IF NOT EXISTS notification_settings (
 ALTER TABLE user_auth_methods    ADD CONSTRAINT fk_uam_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE account_passwords    ADD CONSTRAINT fk_ap_user    FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE terms_agreements     ADD CONSTRAINT fk_terms_user FOREIGN KEY (user_id) REFERENCES users(id);
-ALTER TABLE linked_accounts      ADD CONSTRAINT fk_la_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
-ALTER TABLE card_transactions    ADD CONSTRAINT fk_ct_la      FOREIGN KEY (linked_account_id) REFERENCES linked_accounts(id);
+ALTER TABLE linked_institutions  ADD CONSTRAINT fk_li_master  FOREIGN KEY (institution_master_id) REFERENCES institution_master(id);
+ALTER TABLE linked_bank_accounts ADD CONSTRAINT fk_lba_inst   FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
+ALTER TABLE linked_cards         ADD CONSTRAINT fk_lc_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
+ALTER TABLE linked_cards         ADD CONSTRAINT fk_lc_payacc  FOREIGN KEY (payment_account_id) REFERENCES linked_bank_accounts(id);
+ALTER TABLE linked_points        ADD CONSTRAINT fk_lp_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
+ALTER TABLE linked_securities    ADD CONSTRAINT fk_lsec_inst  FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
+ALTER TABLE external_holdings    ADD CONSTRAINT fk_eh_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
+ALTER TABLE card_transactions    ADD CONSTRAINT fk_ct_card    FOREIGN KEY (card_id)           REFERENCES linked_cards(id);
 ALTER TABLE portfolio_items      ADD CONSTRAINT fk_pi_pf      FOREIGN KEY (portfolio_id)      REFERENCES recommended_portfolios(id);
 -- cross-domain (user_id → users, 같은 DB A)
 ALTER TABLE linked_institutions     ADD CONSTRAINT fk_li_user   FOREIGN KEY (user_id) REFERENCES users(id);
-ALTER TABLE linked_accounts         ADD CONSTRAINT fk_la_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE linked_bank_accounts    ADD CONSTRAINT fk_lba_user  FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE linked_cards            ADD CONSTRAINT fk_lc_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE linked_points           ADD CONSTRAINT fk_lp_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE linked_securities       ADD CONSTRAINT fk_lsec_user FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE card_transactions       ADD CONSTRAINT fk_ct_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE spending_analysis       ADD CONSTRAINT fk_sa_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE external_holdings       ADD CONSTRAINT fk_eh_user   FOREIGN KEY (user_id) REFERENCES users(id);
