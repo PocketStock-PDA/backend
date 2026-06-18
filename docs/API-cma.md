@@ -167,11 +167,14 @@
 
 **Request Body**
 
+소스(sourceType)별 적립 ON/OFF 및 끝전 커팅 기준(threshold) 설정. `sourceRefId`는 필수. `threshold`는 `ACCOUNT` 타입에만 적용되며 1000 / 5000 / 10000 중 하나, null이면 기존값 유지(신규 등록 시 기본값 10000).
+
 ```json
 {
   "settings": [
-  {"type": "CARD_ROUNDUP", "enabled": true},
-  {"type": "ACCOUNT_ENDPENNY", "enabled": false}
+  {"sourceType": "ACCOUNT", "sourceRefId": 1, "enabled": true, "threshold": 5000},
+  {"sourceType": "CARD", "sourceRefId": 1, "enabled": true, "threshold": null},
+  {"sourceType": "POINT", "sourceRefId": 1, "enabled": false, "threshold": null}
   ]
  }
 ```
@@ -191,7 +194,7 @@
 
 ### GET `/api/cma/collect/history`
 
-적립 이력 조회<br> Query: page (number, 선택), size (number, 선택)
+적립 이력 조회 (txType=COLLECT 거래만 필터링)<br> Query: page (number, 선택, 기본값 0), size (number, 선택, 기본값 20, 최대 100)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -203,18 +206,18 @@
   "success": true,
   "code": "SUCCESS",
   "message": "적립 이력 조회 성공",
-  "data": {
-  "history": [
-  {
-  "type": "CARD_ROUNDUP",
-  "amount": 450,
-  "collectedAt": "2025-06-10T09:00:00"
-  }
-  ],
-  "page": 0,
-  "totalElements": 42
- }
- }
+  "data": [
+    {
+      "id": 2001,
+      "txType": "COLLECT",
+      "sourceType": "CARD",
+      "currency": "KRW",
+      "amount": 450,
+      "balanceAfter": 1258430,
+      "createdAt": "2025-06-10T09:00:00"
+    }
+  ]
+}
 ```
 
 ---
@@ -245,11 +248,13 @@ CMA 잔액·성과율 (원화RP/외화RP) 조회
  }
 ```
 
+> ⚠️ **TODO (환전 도메인 의존)**: `totalKrwEquivalent`는 위 예시처럼 USD 잔액을 환율로 환산해 KRW와 합산한 값이어야 하지만, 환율 조회/환전 API(`/api/exchange/*`, `docs/API-exchange.md` 참고)가 아직 구현되지 않아 **현재 구현(`CmaQueryService.getBalance()`)은 KRW 잔액만 반환하고 USD는 합산하지 않는다.** Exchange 도메인 구현 후 환율을 곱해 USD 잔액을 KRW로 환산·합산하는 로직을 추가해야 함.
+
 ---
 
 ### GET `/api/cma/transactions`
 
-CMA 계좌내역 (입금·출금·이자) 조회<br> Query: type (COLLECT | BANK_IN | SAVINGS | DORMANT | SELL_RETURN | INTEREST | FX_IN | FX_OUT | BUY_TRANSFER | REVERT, 선택), page (number, 선택), size (number, 선택)
+CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | BANK_IN | SAVINGS | DORMANT | SELL_RETURN | INTEREST | FX_IN | FX_OUT | BUY_TRANSFER | REVERT, 선택), from (date, 선택), to (date, 선택), page (number, 선택, 기본값 0), size (number, 선택, 기본값 20, 최대 100)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -260,21 +265,19 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: type (COLLECT | BANK
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "CMA 계좌내역 조회 성공",
-  "data": {
-  "transactions": [
-  {
-  "type": "COLLECT",
-  "amount": 8430,
-  "balance": 1258430,
-  "description": "잔돈 모으기",
-  "createdAt": "2025-06-10T09:00:00"
-  }
-  ],
-  "page": 0,
-  "totalElements": 120
- }
- }
+  "message": "계좌내역 조회 성공",
+  "data": [
+    {
+      "id": 1001,
+      "txType": "COLLECT",
+      "sourceType": "CARD_ROUNDUP",
+      "currency": "KRW",
+      "amount": 8430,
+      "balanceAfter": 1258430,
+      "createdAt": "2025-06-10T09:00:00"
+    }
+  ]
+}
 ```
 
 ---
@@ -295,18 +298,18 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: type (COLLECT | BANK
   "success": true,
   "code": "SUCCESS",
   "message": "자금 이동 이력 조회 성공",
-  "data": {
-  "transfers": [
-  {
-  "direction": "CMA_TO_INVEST",
-  "amount": 100000,
-  "transferredAt": "2025-06-12T14:00:00"
-  }
-  ],
-  "page": 0,
-  "totalElements": 10
- }
- }
+  "data": [
+    {
+      "id": 3001,
+      "txType": "BUY_TRANSFER",
+      "sourceType": null,
+      "currency": "KRW",
+      "amount": 100000,
+      "balanceAfter": 1158430,
+      "createdAt": "2025-06-12T14:00:00"
+    }
+  ]
+}
 ```
 
 ---

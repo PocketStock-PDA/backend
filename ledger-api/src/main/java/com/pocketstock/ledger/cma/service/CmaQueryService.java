@@ -9,6 +9,7 @@ import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
+import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
 import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
@@ -36,6 +37,7 @@ public class CmaQueryService {
             "CARD",    "SOL트래블",
             "POINT",   "마이신한포인트"
     );
+    private static final BigDecimal DEFAULT_THRESHOLD = BigDecimal.valueOf(10000);
 
     private final CmaAccountMapper accountMapper;
     private final CmaBalanceMapper balanceMapper;
@@ -100,16 +102,74 @@ public class CmaQueryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public CmaBalanceResponse getBalance(Long userId) {
+        CmaAccount account = accountMapper.findByUserId(userId);
+        if (account == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌를 찾을 수 없습니다.");
+        }
+
+        List<CmaBalance> balances = balanceMapper.findByAccountId(account.getId());
+
+        List<CmaBalanceResponse.BalanceItem> items = balances.stream()
+                .map(b -> new CmaBalanceResponse.BalanceItem(
+                        b.getCurrency(),
+                        b.getBalance(),
+                        b.getInterestRate() != null ? b.getInterestRate() : BigDecimal.ZERO,
+                        "KRW".equals(b.getCurrency()) ? "KRW_RP" : "USD_RP"
+                ))
+                .toList();
+
+        // TODO: 환전 도메인(/api/exchange/*) 구현 후 USD 잔액을 환율로 환산해 합산해야 함 (docs/API-cma.md 참고)
+        BigDecimal totalKrw = balances.stream()
+                .filter(b -> "KRW".equals(b.getCurrency()))
+                .map(CmaBalance::getBalance)
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
+
+        return new CmaBalanceResponse(items, totalKrw);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CmaTransactionResponse> getCollectHistory(Long userId, int page, int size) {
+        return transactionMapper.findCollectHistory(userId, page * size, size)
+                .stream()
+                .map(CmaTransactionResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CmaTransactionResponse> getTransfers(Long userId, int page, int size) {
+        return transactionMapper.findTransfers(userId, page * size, size)
+                .stream()
+                .map(CmaTransactionResponse::from)
+                .toList();
+    }
+
     private BigDecimal calcAccountAmount(Long userId, List<CollectionSetting> settings) {
-        List<Long> enabledIds = settings.stream()
+        List<CollectionSetting> enabledSettings = settings.stream()
                 .filter(s -> "ACCOUNT".equals(s.getSourceType()) && Boolean.TRUE.equals(s.getIsEnabled()))
+                .toList();
+        if (enabledSettings.isEmpty()) return BigDecimal.ZERO;
+
+        List<Long> enabledIds = enabledSettings.stream()
                 .map(CollectionSetting::getSourceRefId)
                 .toList();
-        if (enabledIds.isEmpty()) return BigDecimal.ZERO;
 
         List<LinkedAccountSummary> accounts = assetFeignClient.getLinkedAccounts(userId, enabledIds);
+
+        // 계좌별로 해당 설정의 threshold를 적용해 끝전 계산
+        Map<Long, BigDecimal> thresholdByRefId = enabledSettings.stream()
+                .collect(Collectors.toMap(
+                        CollectionSetting::getSourceRefId,
+                        s -> s.getThreshold() != null ? s.getThreshold() : DEFAULT_THRESHOLD
+                ));
+
         return accounts.stream()
-                .map(a -> a.balance().remainder(BigDecimal.valueOf(10_000)))
+                .map(a -> {
+                    BigDecimal threshold = thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD);
+                    return a.balance().remainder(threshold);
+                })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
