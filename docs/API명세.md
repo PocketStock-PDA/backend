@@ -38,8 +38,8 @@
 | 회원·인증 | 비밀번호 찾기/재설정 | POST | `/api/users/reset-password` |  | A·우정인 | ✅ |
 | 회원·인증 | 약관 동의 등록 | POST | `/api/users/terms` |  | A·우정인 | ✅ |
 | 회원·인증 | PIN/패턴 설정 | POST | `/api/users/auth-method` |  | A·우정인 |  |
-| 회원·인증 | 계좌 비밀번호 설정 | POST | `/api/users/account-password` |  | A·우정인 |  |
-| 회원·인증 | 거래 인증(계좌비번 검증, 30분 유지) | POST | `/api/users/account-password/verify` |  | A·우정인 |  |
+| 회원·인증 | 계좌 비밀번호 설정 | POST | `/api/users/account-password` |  | A·우정인 | ✅ |
+| 회원·인증 | 거래 인증(계좌비번 검증, 30분 유지) | POST | `/api/users/account-password/verify` |  | A·우정인 | ✅ |
 | 회원·인증 | 회원정보(비밀번호) 수정 | PUT | `/api/users/me` |  | A·우정인 | ✅ |
 
 ## Asset

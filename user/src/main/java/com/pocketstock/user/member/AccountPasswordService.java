@@ -1,0 +1,87 @@
+package com.pocketstock.user.member;
+
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.common.exception.ErrorCode;
+import com.pocketstock.user.member.domain.AccountPassword;
+import com.pocketstock.user.member.dto.SetAccountPasswordRequest;
+import com.pocketstock.user.member.dto.VerifyAccountPasswordRequest;
+import com.pocketstock.user.member.dto.VerifyAccountPasswordResponse;
+import com.pocketstock.user.member.mapper.AccountPasswordMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.regex.Pattern;
+
+/**
+ * 계좌(거래) 비밀번호 설정 및 거래 인증.
+ * 거래 인증 성공 상태는 Redis에 30분 TTL로 저장하며, 주문/이체 등에서 이 키로 인증 여부를 확인한다.
+ */
+@Service
+@RequiredArgsConstructor
+public class AccountPasswordService {
+
+    /** 계좌 비밀번호 형식 — 숫자 4자리. */
+    private static final Pattern FORMAT = Pattern.compile("^\\d{4}$");
+
+    /** 거래 인증 상태 키 규약: txn-auth:{userId} (주문/이체 도메인과 공유). */
+    private static final String TXN_AUTH_KEY = "txn-auth:";
+    private static final Duration TXN_AUTH_TTL = Duration.ofMinutes(30);
+
+    private final AccountPasswordMapper accountPasswordMapper;
+    private final PasswordEncoder passwordEncoder;
+    private final StringRedisTemplate redis;
+
+    /** 계좌 비밀번호 설정/변경 — 인증 필요. */
+    @Transactional
+    public void set(Long userId, SetAccountPasswordRequest req) {
+        requireAuth(userId);
+        String raw = req == null ? null : req.accountPassword();
+        if (!StringUtils.hasText(raw) || !FORMAT.matcher(raw).matches()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "계좌 비밀번호는 숫자 4자리여야 합니다.");
+        }
+
+        AccountPassword ap = AccountPassword.builder()
+                .userId(userId)
+                .passwordHash(passwordEncoder.encode(raw))
+                .build();
+        accountPasswordMapper.upsert(ap);
+    }
+
+    /** 거래 인증 — 계좌 비밀번호 대조 후 성공 시 30분 인증 상태 기록. */
+    public VerifyAccountPasswordResponse verify(Long userId, VerifyAccountPasswordRequest req) {
+        requireAuth(userId);
+        String raw = req == null ? null : req.accountPassword();
+        if (!StringUtils.hasText(raw)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "계좌 비밀번호를 입력해 주세요.");
+        }
+
+        AccountPassword ap = accountPasswordMapper.findByUserId(userId);
+        if (ap == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "계좌 비밀번호가 설정되어 있지 않습니다.");
+        }
+        if (Boolean.TRUE.equals(ap.getIsLocked())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "계좌 비밀번호가 잠겨 있습니다.");
+        }
+        if (!passwordEncoder.matches(raw, ap.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "계좌 비밀번호가 일치하지 않습니다.");
+        }
+
+        LocalDateTime verifiedAt = LocalDateTime.now();
+        LocalDateTime expiresAt = verifiedAt.plus(TXN_AUTH_TTL);
+        redis.opsForValue().set(TXN_AUTH_KEY + userId, verifiedAt.toString(), TXN_AUTH_TTL);
+        return new VerifyAccountPasswordResponse(verifiedAt, expiresAt);
+    }
+
+    private void requireAuth(Long userId) {
+        if (userId == null) {
+            // JwtAuthFilter는 요청을 막지 않으므로(토큰 없으면 attribute 미설정) 여기서 인증을 강제한다.
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증이 필요합니다.");
+        }
+    }
+}
