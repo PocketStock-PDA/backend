@@ -82,7 +82,11 @@ public class MemberService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
         }
 
-        memberMapper.updatePassword(userId, passwordEncoder.encode(req.newPassword()));
+        int updated = memberMapper.updatePassword(userId, passwordEncoder.encode(req.newPassword()));
+        if (updated == 0) {
+            // SELECT~UPDATE 사이 회원이 soft-delete된 경우 등 — 0행 갱신을 성공으로 처리하지 않는다.
+            throw new BusinessException(ErrorCode.NOT_FOUND, "회원을 찾을 수 없습니다.");
+        }
     }
 
     /**
@@ -125,7 +129,11 @@ public class MemberService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "기존 비밀번호와 다른 비밀번호를 사용해야 합니다.");
         }
 
-        memberMapper.updatePassword(member.getId(), passwordEncoder.encode(req.newPassword()));
+        int updated = memberMapper.updatePassword(member.getId(), passwordEncoder.encode(req.newPassword()));
+        if (updated == 0) {
+            // SELECT~UPDATE 사이 회원이 soft-delete된 경우 등 — 0행 갱신을 성공으로 처리하지 않는다.
+            throw new BusinessException(ErrorCode.NOT_FOUND, "일치하는 회원 정보가 없습니다.");
+        }
     }
 
     /** 아이디 마스킹 — 앞 2·뒤 3자만 노출하고 가운데는 고정 ***(길이 노출 최소화). 짧으면 첫 글자만. */
