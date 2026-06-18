@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
  * 실제 잔액 변동은 CMA(원화풀/달러풀)에 있고, 여기는 "환전 행위"만 기록한다.
  *
  * <p>{@code exchangeRate}는 스프레드·우대가 내재된 적용환율, {@code fee}=0(비용은 환율 내재).
- * MVP는 같은 DB B 로컬 트랜잭션으로 즉시 체결 → {@code status='DONE'}.
+ * MVP는 같은 DB B 로컬 트랜잭션으로 즉시 체결 → {@code status='COMPLETED'}.
  */
 @Getter
 @Setter
@@ -31,7 +31,7 @@ public class FxTransaction {
     private BigDecimal fee;          // 0 (비용은 환율 내재)
     private String triggerType;      // MANUAL / AUTO / RESIDUAL
     private Long refOrderId;         // AUTO 환전 시 연계 매수주문
-    private String status;           // DONE / FAILED
+    private String status;           // REQUESTED / COMPLETED / FAILED
     private String idempotencyKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
