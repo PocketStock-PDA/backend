@@ -120,6 +120,7 @@ public class CmaQueryService {
                 ))
                 .toList();
 
+        // TODO: 환전 도메인(/api/exchange/*) 구현 후 USD 잔액을 환율로 환산해 합산해야 함 (docs/API-cma.md 참고)
         BigDecimal totalKrw = balances.stream()
                 .filter(b -> "KRW".equals(b.getCurrency()))
                 .map(CmaBalance::getBalance)
