@@ -6,8 +6,8 @@
 ## 실행
 
 ```bash
-# LS 키는 application-local.yml(gitignore)에서 주입되므로 local 프로파일 필수
-./gradlew :ledger-api:bootRun --args='--spring.profiles.active=local'
+# bootRun은 local 프로파일이 기본 — LS 키 등은 application-local.yml(gitignore)에서 주입된다
+./gradlew :ledger-api:bootRun
 ```
 
 접속: <http://localhost:8082/dev>
