@@ -249,7 +249,7 @@ CMA 잔액·성과율 (원화RP/외화RP) 조회
 
 ### GET `/api/cma/transactions`
 
-CMA 계좌내역 (입금·출금·이자) 조회<br> Query: type (COLLECT | BANK_IN | SAVINGS | DORMANT | SELL_RETURN | INTEREST | FX_IN | FX_OUT | BUY_TRANSFER | REVERT, 선택), page (number, 선택), size (number, 선택)
+CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | BANK_IN | SAVINGS | DORMANT | SELL_RETURN | INTEREST | FX_IN | FX_OUT | BUY_TRANSFER | REVERT, 선택), from (date, 선택), to (date, 선택), page (number, 선택, 기본값 0), size (number, 선택, 기본값 20, 최대 100)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -260,21 +260,19 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: type (COLLECT | BANK
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "CMA 계좌내역 조회 성공",
-  "data": {
-  "transactions": [
-  {
-  "type": "COLLECT",
-  "amount": 8430,
-  "balance": 1258430,
-  "description": "잔돈 모으기",
-  "createdAt": "2025-06-10T09:00:00"
-  }
-  ],
-  "page": 0,
-  "totalElements": 120
- }
- }
+  "message": "계좌내역 조회 성공",
+  "data": [
+    {
+      "id": 1001,
+      "txType": "COLLECT",
+      "sourceType": "CARD_ROUNDUP",
+      "currency": "KRW",
+      "amount": 8430,
+      "balanceAfter": 1258430,
+      "createdAt": "2025-06-10T09:00:00"
+    }
+  ]
+}
 ```
 
 ---
