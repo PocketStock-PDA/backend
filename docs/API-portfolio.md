@@ -360,9 +360,11 @@ ISA 계좌 가입 안내
 
 ## 카드추천
 
-### GET `/api/portfolio/cards/recommendations`
+### △ GET `/api/portfolio/cards/recommendations`
 
 소비 기반 맞춤 카드 추천
+
+> ⚠️ TODO: 사용자가 이미 보유한 카드 제외 필터 미구현 (`linked_accounts.card_id` 연결 필요)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
