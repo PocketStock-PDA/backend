@@ -111,6 +111,15 @@
   <div class="muted">상단 5번 연결 후 /topic/stock/trade/{code} 구독 → 국내 실시간 체결가(통합 체결, 현재가·등락·체결량) push.</div>
 </fieldset>
 
+<fieldset>
+  <legend>9) 실시간 환율 USD/KRW (LS · CUR)</legend>
+  <button onclick="wsSubscribeCurrency()">환율 구독</button>
+  <button onclick="wsUnsubscribeCurrency()">구독 해제</button>
+  <div id="curView"></div>
+  <div class="muted">상단 5번 연결 후 /topic/currency/usd-krw 구독 → LS 실시간(CUR) 현물USD 환율 push.
+    종목코드 없는 단일 토픽. 외환시장 개장시간(평일 주간)에 데이터 수신.</div>
+</fieldset>
+
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script>
 const TOKEN_KEY = 'ps_dev_token';
@@ -294,6 +303,8 @@ function wsDisconnect() {
   wsUnsubscribe();
   wsUnsubscribeForeign();
   wsUnsubscribeForeignTrade();
+  wsUnsubscribeStockTrade();
+  wsUnsubscribeCurrency();
   if (stompClient) { stompClient.deactivate(); stompClient = null; wsState('미연결'); }
 }
 
@@ -385,6 +396,30 @@ function renderStockTrade(d) {
       <tr><th>시/고/저</th><td>${Number(d.openPrice).toLocaleString()} / ${Number(d.highPrice).toLocaleString()} / ${Number(d.lowPrice).toLocaleString()}</td></tr>
       <tr><th>체결량/누적</th><td>${side} ${Number(d.lastTradeVolume).toLocaleString()} / ${Number(d.volume).toLocaleString()}</td></tr>
       <tr><th>체결강도</th><td>${Number(d.tradeStrength)}</td></tr>
+    </table>`;
+}
+
+// ---- 9) 실시간 환율 USD/KRW (LS CUR) ----
+let currencySub = null;
+
+function wsSubscribeCurrency() {
+  if (!stompClient || !stompClient.connected) { wsState('먼저 연결하세요'); return; }
+  if (currencySub) currencySub.unsubscribe();
+  currencySub = stompClient.subscribe('/topic/currency/usd-krw', msg => renderCurrency(JSON.parse(msg.body)));
+  wsState('구독 중: /topic/currency/usd-krw');
+}
+
+function wsUnsubscribeCurrency() {
+  if (currencySub) { currencySub.unsubscribe(); currencySub = null; wsState('환율 구독 해제'); }
+}
+
+function renderCurrency(d) {
+  const cls = Number(d.change) > 0 ? 'up' : (Number(d.change) < 0 ? 'down' : '');
+  document.getElementById('curView').innerHTML = `
+    <table>
+      <tr><th>통화</th><td>${d.baseCurrency}/${d.targetCurrency}</td></tr>
+      <tr><th>환율</th><td class="${cls}">${Number(d.exchangeRate).toLocaleString()} (${Number(d.change)})</td></tr>
+      <tr><th>수신시각</th><td>${d.updatedAt}</td></tr>
     </table>`;
 }
 

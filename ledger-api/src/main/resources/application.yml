@@ -43,6 +43,12 @@ kis:
     app-key: ${KIS_APP_KEY:}
     app-secret: ${KIS_APP_SECRET:}
 
+# 환전 정책 — 적용환율 = 매매기준율 × (1 ± spread×(1−preferential-rate)). 비용은 환율 내재(수수료 0). (backend#54)
+exchange:
+  spread:
+    USD: 0.0096          # 전신환(송금) 스프레드 0.96% — 신한 고시 기준
+  preferential-rate: 0.90 # 환율 우대율 90%(기본70+계좌10+이벤트10), 변동 가능
+
 feign:
   core-api:
     url: ${CORE_API_URL:http://localhost:8081}
