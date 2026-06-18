@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   ci CHAR(88) UNIQUE,
   birth_date DATE,
   gender VARCHAR(10),
+  device_id VARCHAR(255) NULL,        -- 간편(PIN) 로그인 기기 식별자(사용자당 1기기, 최근 로그인 기준)
   status VARCHAR(20) DEFAULT 'ACTIVE',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS user_auth_methods (
   is_active BOOLEAN DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_uam_user_type (user_id, method_type),  -- 사용자당 방식별 1건(upsert 기준)
   INDEX idx_uam_user (user_id)
 );
 
