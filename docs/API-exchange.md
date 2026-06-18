@@ -4,12 +4,14 @@
 
 ## 환전
 
-### GET `/api/exchange/rate`
+### GET `/api/exchange/rate` ✅ 구현완료
 
-환율 조회 (USD/KRW, 예상 환전금액)<br> Query: amount (number, 선택) - 환전 예상 금액 (KRW) | LS TR: CUR
+환율 조회 (USD/KRW, 매수·매도 적용환율) | LS TR: CUR
+
+> **구현 메모**: LS CUR 실시간 틱을 Redis 캐시(SSOT)에서 읽어 반환. `baseRate`=매매기준율, `buyRate`/`sellRate`=스프레드·우대 내재 **적용환율**(= 기준율 × (1 ± s×(1−p)), s=전신환 0.96%·p=우대 90%). 양방향 UI라 추정금액은 클라가 환산(`KRW→USD = krw÷buyRate`, `USD→KRW = usd×sellRate`). 별도 수수료 없음(비용 환율 내재, backend#54). 콜드스타트(첫 틱 미수신) 시 **502**(EXTERNAL_API_ERROR). `updatedAt`으로 staleness 판단.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 Unauthorized / 502 Bad Gateway
 
 **Response Body**
 
@@ -21,9 +23,12 @@
   "data": {
   "baseCurrency": "USD",
   "targetCurrency": "KRW",
-  "exchangeRate": 1382.50,
-  "estimatedKrw": 1382500,
-  "updatedAt": "2025-06-15T10:00:00"
+  "baseRate": 1535.40,
+  "buyRate": 1536.87,
+  "sellRate": 1533.93,
+  "preferentialRate": 0.90,
+  "change": -2.30,
+  "updatedAt": "2026-06-18T23:38:06.123"
  }
  }
 ```
@@ -145,9 +150,24 @@
 
 ---
 
-### PUT `/api/exchange/auto-settings`
+### GET `/api/exchange/auto-settings` ✅ 구현완료
 
-자동환전 설정 (달러우선·한도·잔돈)
+자동환전 설정 조회 (1인 1행, 미설정 시 기본값)
+
+> **구현 메모**: 미설정 사용자는 기본값(`autoEnabled=false, useDollarFirst=true`) 반환.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**: 아래 PUT 응답과 동일 구조
+
+---
+
+### PUT `/api/exchange/auto-settings` ✅ 구현완료
+
+자동환전 설정 (달러우선·1회한도·외화잔돈)
+
+> **구현 메모**: `fx_auto_settings` 1인 1행 upsert. null 필드는 기본값(autoEnabled=false, useDollarFirst=true)으로 정규화. `maxAmountPerTx`=1회 환전 한도(원, null=무제한), `residualHandling`=외화잔돈 처리(TO_KRW/KEEP_USD).
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -156,10 +176,10 @@
 
 ```json
 {
-  "enabled": true,
-  "priority": "USD_FIRST",
-  "dailyLimit": 500000,
-  "useRoundUp": true
+  "autoEnabled": true,
+  "useDollarFirst": true,
+  "maxAmountPerTx": 100000,
+  "residualHandling": "TO_KRW"
  }
 ```
 
@@ -171,21 +191,24 @@
   "code": "SUCCESS",
   "message": "자동환전 설정 완료",
   "data": {
-  "enabled": true,
-  "priority": "USD_FIRST",
-  "dailyLimit": 500000
+  "autoEnabled": true,
+  "useDollarFirst": true,
+  "maxAmountPerTx": 100000,
+  "residualHandling": "TO_KRW"
  }
  }
 ```
 
 ---
 
-### GET `/api/exchange/history`
+### GET `/api/exchange/history` ✅ 구현완료
 
-환전 이력 조회<br> Query: page (number, 선택), size (number, 선택)
+환전 이력 조회<br> Query: page (number, 선택, 기본 0), size (number, 선택, 기본 20·최대 100)
+
+> **구현 메모**: `fx_transactions` 최신순 페이징. KRW/USD 금액은 방향과 무관하게 통화 기준으로 정규화(`krwAmount`/`usdAmount`). `type`=`{from}_TO_{to}`, `rate`=적용환율, `triggerType`=MANUAL/AUTO/RESIDUAL.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
 
 **Response Body**
 
@@ -199,10 +222,11 @@
   {
   "type": "KRW_TO_USD",
   "krwAmount": 100000,
-  "usdAmount": 72.33,
-  "trigger_type": "MANUAL",
-    "rate": 1382.50,
-  "exchangedAt": "2025-06-15T10:30:00"
+  "usdAmount": 65.07,
+  "triggerType": "MANUAL",
+  "rate": 1536.87,
+  "status": "DONE",
+  "exchangedAt": "2026-06-18T10:30:00"
   }
   ],
   "page": 0,
