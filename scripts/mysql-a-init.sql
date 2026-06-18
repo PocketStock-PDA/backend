@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
   status VARCHAR(20) DEFAULT 'ACTIVE',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted_at DATETIME NULL
+  deleted_at DATETIME NULL,
+  UNIQUE KEY uq_users_device (device_id)   -- 기기 1대=계정 1명(NULL은 다중 허용)
 );
 
 CREATE TABLE IF NOT EXISTS user_auth_methods (

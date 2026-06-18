@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
@@ -36,6 +37,7 @@ public class AuthService {
     private final StringRedisTemplate redis;
 
     /** ID/PW 로그인 — 검증 성공 시 기기 등록 후 access/refresh 토큰 발급. */
+    @Transactional   // 기기 등록(clear→update)을 한 트랜잭션으로 묶어 부분 실패를 방지
     public LoginResponse login(LoginRequest req, String deviceId) {
         if (!StringUtils.hasText(req.username()) || !StringUtils.hasText(req.password())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "아이디와 비밀번호는 필수입니다.");
@@ -76,8 +78,7 @@ public class AuthService {
         String failKey = PIN_FAIL_PREFIX + userId;
 
         // 무차별 대입 방어 — 윈도우 내 시도 초과 시 차단
-        String cnt = redis.opsForValue().get(failKey);
-        if (cnt != null && Integer.parseInt(cnt) >= MAX_PIN_ATTEMPTS) {
+        if (currentPinFailures(failKey) >= MAX_PIN_ATTEMPTS) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "간편 로그인 시도 횟수를 초과했습니다. 아이디로 로그인해 주세요.");
         }
 
@@ -102,6 +103,19 @@ public class AuthService {
         }
         memberMapper.clearDeviceId(deviceId);
         memberMapper.updateDeviceId(userId, deviceId);
+    }
+
+    /** 현재 PIN 실패 횟수 — 값이 비었거나 손상되면 0으로 간주(파싱 예외로 인증 API가 죽지 않게). */
+    private int currentPinFailures(String failKey) {
+        String cnt = redis.opsForValue().get(failKey);
+        if (cnt == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(cnt);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     /** PIN 실패 누적 — 첫 실패에 윈도우 TTL을 건다. */
