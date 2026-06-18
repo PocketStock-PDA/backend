@@ -11,6 +11,14 @@
         LIMIT 1
     </select>
 
+    <select id="findLatestBalance" resultType="java.math.BigDecimal">
+        SELECT balance_after
+        FROM deposit_transactions
+        WHERE user_id = #{userId} AND currency = #{currency}
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
     <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.DepositTransaction"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO deposit_transactions
