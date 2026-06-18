@@ -37,6 +37,7 @@ public class CmaQueryService {
             "CARD",    "SOL트래블",
             "POINT",   "마이신한포인트"
     );
+    private static final BigDecimal DEFAULT_THRESHOLD = BigDecimal.valueOf(10000);
 
     private final CmaAccountMapper accountMapper;
     private final CmaBalanceMapper balanceMapper;
@@ -157,16 +158,16 @@ public class CmaQueryService {
         List<LinkedAccountSummary> accounts = assetFeignClient.getLinkedAccounts(userId, enabledIds);
 
         // 계좌별로 해당 설정의 threshold를 적용해 끝전 계산
-        java.util.Map<Long, Integer> thresholdByRefId = enabledSettings.stream()
-                .collect(java.util.stream.Collectors.toMap(
+        Map<Long, BigDecimal> thresholdByRefId = enabledSettings.stream()
+                .collect(Collectors.toMap(
                         CollectionSetting::getSourceRefId,
-                        s -> s.getThreshold() != null ? s.getThreshold() : 10000
+                        s -> s.getThreshold() != null ? s.getThreshold() : DEFAULT_THRESHOLD
                 ));
 
         return accounts.stream()
                 .map(a -> {
-                    int threshold = thresholdByRefId.getOrDefault(a.id(), 10000);
-                    return a.balance().remainder(BigDecimal.valueOf(threshold));
+                    BigDecimal threshold = thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD);
+                    return a.balance().remainder(threshold);
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
