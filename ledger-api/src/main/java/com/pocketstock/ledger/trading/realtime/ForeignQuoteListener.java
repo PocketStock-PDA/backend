@@ -8,9 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.pocketstock.ledger.trading.support.MarketFields.dec;
 
 /**
  * KIS HDFSASP0(해외 실시간호가) 데이터 프레임을 {@link ForeignQuoteResponse}로 매핑해
@@ -66,11 +67,5 @@ public class ForeignQuoteListener implements KisRealtimeListener {
                 dec(f[7]));      // BVOL 매수총잔량
 
         messagingTemplate.convertAndSend(TOPIC_PREFIX + realtimeCode, payload);
-    }
-
-    /** KIS 숫자 필드(문자/공백 가능) → BigDecimal. 빈 값은 0. */
-    private BigDecimal dec(String s) {
-        String t = (s == null) ? "" : s.trim();
-        return t.isEmpty() ? BigDecimal.ZERO : new BigDecimal(t);
     }
 }

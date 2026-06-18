@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
+import static com.pocketstock.ledger.trading.support.MarketFields.dec;
+import static com.pocketstock.ledger.trading.support.MarketFields.lng;
+
 /**
  * KIS HDFSCNT0(해외 실시간지연체결가) 데이터 프레임을 {@link ForeignTradeResponse}로 매핑해
  * {@code /topic/foreign/transaction/{RSYM}}로 push 한다.
@@ -58,18 +61,6 @@ public class ForeignTradeListener implements KisRealtimeListener {
                 dec(f[24]));     // STRN 체결강도 → tradeStrength
 
         messagingTemplate.convertAndSend(TOPIC_PREFIX + realtimeCode, payload);
-    }
-
-    /** KIS 숫자 필드(문자/공백 가능) → BigDecimal. 빈 값은 0. */
-    private BigDecimal dec(String s) {
-        String t = (s == null) ? "" : s.trim();
-        return t.isEmpty() ? BigDecimal.ZERO : new BigDecimal(t);
-    }
-
-    /** KIS 수량 필드 → long. 빈 값은 0. */
-    private long lng(String s) {
-        String t = (s == null) ? "" : s.trim();
-        return t.isEmpty() ? 0L : new BigDecimal(t).longValue();
     }
 
     /** SIGN(4하한·5하락)이면 음수로. 절대값으로 오는 전일대비에 방향을 적용. */

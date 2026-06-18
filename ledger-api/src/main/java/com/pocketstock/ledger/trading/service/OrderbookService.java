@@ -11,12 +11,15 @@ import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse.Level;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.support.OverseasExchangeCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.pocketstock.ledger.trading.support.MarketFields.dec;
 
 /**
  * 호가 조회. 국내=LS t8450(통합), 해외=KIS 현재가호가(HHDFS76200100).
@@ -67,7 +70,7 @@ public class OrderbookService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
         }
 
-        String excd = resolveExcd(stock);
+        String excd = OverseasExchangeCode.of(stock);
         KisAskingPriceResponse res = kisMarketClient.getOverseasOrderbook(excd, stock.getStockCode());
         KisAskingPriceResponse.Output1 o1 = res.output1();
         KisAskingPriceResponse.Output2 o2 = res.output2();
@@ -102,23 +105,4 @@ public class OrderbookService {
         return levels;
     }
 
-    /** 거래소코드(EXCD): rt_symbol 앞 3자리 우선(예 NASAAPL→NAS), 없으면 exchange 매핑. */
-    private String resolveExcd(TradableStock stock) {
-        String rt = stock.getRtSymbol();
-        if (rt != null && rt.length() >= 3) {
-            return rt.substring(0, 3);
-        }
-        return switch (stock.getExchange()) {
-            case "NASDAQ" -> "NAS";
-            case "NYSE" -> "NYS";
-            case "AMEX" -> "AMS";
-            default -> throw new BusinessException(ErrorCode.INVALID_INPUT,
-                    "해외 거래소 매핑 불가: " + stock.getExchange());
-        };
-    }
-
-    private BigDecimal dec(String s) {
-        String t = (s == null) ? "" : s.trim();
-        return t.isEmpty() ? BigDecimal.ZERO : new BigDecimal(t);
-    }
 }
