@@ -30,14 +30,14 @@
 | 회원·인증 | 신한인증서 난수문자 인증요청 | POST | `/api/auth/shinhan-cert/request` |  | A·우정인 |  |
 | 회원·인증 | 신한인증서 인증확인 | POST | `/api/auth/shinhan-cert/verify` |  | A·우정인 |  |
 | 회원·인증 | ID/PW 로그인(JWT 발급) | POST | `/api/auth/login` |  | A·우정인 | ✅ |
-| 회원·인증 | PIN/패턴 간편 로그인 | POST | `/api/auth/login/pin` |  | A·우정인 |  |
+| 회원·인증 | PIN/패턴 간편 로그인 | POST | `/api/auth/login/pin` |  | A·우정인 | ✅ |
 | 회원·인증 | 신한 SSO 로그인(슈퍼SOL 진입) | POST | `/api/auth/login/sso` |  | A·우정인 |  |
 | 회원·인증 | 토큰 재발급(Refresh) | POST | `/api/auth/refresh` |  | A·우정인 | ✅ |
 | 회원·인증 | 로그아웃 | POST | `/api/auth/logout` |  | A·우정인 | ✅ |
 | 회원·인증 | 아이디 찾기 | POST | `/api/users/find-username` |  | A·우정인 | ✅ |
 | 회원·인증 | 비밀번호 찾기/재설정 | POST | `/api/users/reset-password` |  | A·우정인 | ✅ |
 | 회원·인증 | 약관 동의 등록 | POST | `/api/users/terms` |  | A·우정인 | ✅ |
-| 회원·인증 | PIN/패턴 설정 | POST | `/api/users/auth-method` |  | A·우정인 |  |
+| 회원·인증 | PIN/패턴 설정 | POST | `/api/users/auth-method` |  | A·우정인 | ✅ |
 | 회원·인증 | 계좌 비밀번호 설정 | POST | `/api/users/account-password` |  | A·우정인 | ✅ |
 | 회원·인증 | 거래 인증(계좌비번 검증, 30분 유지) | POST | `/api/users/account-password/verify` |  | A·우정인 | ✅ |
 | 회원·인증 | 회원정보(비밀번호) 수정 | PUT | `/api/users/me` |  | A·우정인 | ✅ |

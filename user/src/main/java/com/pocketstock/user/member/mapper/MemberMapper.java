@@ -26,4 +26,13 @@ public interface MemberMapper {
 
     /** 비밀번호 재설정 — 아이디+휴대폰으로 본인확인 조회(없으면 null). */
     Member findByUsernameAndPhone(@Param("username") String username, @Param("phone") String phone);
+
+    /** PIN 로그인 — device_id로 회원 조회(없으면 null). */
+    Member findByDeviceId(@Param("deviceId") String deviceId);
+
+    /** 기기 등록 전, 동일 device_id를 가진 기존 소유자에서 분리(기기 1대=계정 1명 보장). */
+    int clearDeviceId(@Param("deviceId") String deviceId);
+
+    /** 기기 등록 — 로그인 사용자에 device_id 부여. */
+    int updateDeviceId(@Param("id") Long id, @Param("deviceId") String deviceId);
 }
