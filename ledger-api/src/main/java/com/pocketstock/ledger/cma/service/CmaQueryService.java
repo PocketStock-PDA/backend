@@ -9,6 +9,7 @@ import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
+import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
 import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
@@ -95,6 +96,49 @@ public class CmaQueryService {
 
         return transactionMapper.findByUserIdAndFilter(
                         userId, txType, null, fromDt, toDt, page * size, size)
+                .stream()
+                .map(CmaTransactionResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CmaBalanceResponse getBalance(Long userId) {
+        CmaAccount account = accountMapper.findByUserId(userId);
+        if (account == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌를 찾을 수 없습니다.");
+        }
+
+        List<CmaBalance> balances = balanceMapper.findByAccountId(account.getId());
+
+        List<CmaBalanceResponse.BalanceItem> items = balances.stream()
+                .map(b -> new CmaBalanceResponse.BalanceItem(
+                        b.getCurrency(),
+                        b.getBalance(),
+                        b.getInterestRate() != null ? b.getInterestRate() : BigDecimal.ZERO,
+                        "KRW".equals(b.getCurrency()) ? "KRW_RP" : "USD_RP"
+                ))
+                .toList();
+
+        BigDecimal totalKrw = balances.stream()
+                .filter(b -> "KRW".equals(b.getCurrency()))
+                .map(CmaBalance::getBalance)
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
+
+        return new CmaBalanceResponse(items, totalKrw);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CmaTransactionResponse> getCollectHistory(Long userId, int page, int size) {
+        return transactionMapper.findCollectHistory(userId, page * size, size)
+                .stream()
+                .map(CmaTransactionResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CmaTransactionResponse> getTransfers(Long userId, int page, int size) {
+        return transactionMapper.findTransfers(userId, page * size, size)
                 .stream()
                 .map(CmaTransactionResponse::from)
                 .toList();
