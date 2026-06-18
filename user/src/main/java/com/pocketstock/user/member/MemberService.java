@@ -31,6 +31,7 @@ public class MemberService {
 
     private final MemberMapper memberMapper;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
 
     /**
      * 아이디 중복 확인.
@@ -87,6 +88,9 @@ public class MemberService {
             // SELECT~UPDATE 사이 회원이 soft-delete된 경우 등 — 0행 갱신을 성공으로 처리하지 않는다.
             throw new BusinessException(ErrorCode.NOT_FOUND, "회원을 찾을 수 없습니다.");
         }
+
+        // 비밀번호 변경 성공 → 기존 모든 세션(refresh token) 강제 만료(탈취 세션 차단).
+        refreshTokenService.revokeAllByUser(userId);
     }
 
     /**
@@ -134,6 +138,9 @@ public class MemberService {
             // SELECT~UPDATE 사이 회원이 soft-delete된 경우 등 — 0행 갱신을 성공으로 처리하지 않는다.
             throw new BusinessException(ErrorCode.NOT_FOUND, "일치하는 회원 정보가 없습니다.");
         }
+
+        // 비밀번호 재설정 성공 → 기존 모든 세션(refresh token) 강제 만료(탈취 세션 차단).
+        refreshTokenService.revokeAllByUser(member.getId());
     }
 
     /** 아이디 마스킹 — 앞 2·뒤 3자만 노출하고 가운데는 고정 ***(길이 노출 최소화). 짧으면 첫 글자만. */
