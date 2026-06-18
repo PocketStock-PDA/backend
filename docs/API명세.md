@@ -156,13 +156,13 @@
 
 | 대분류 | Description | Method | URI | LS TR코드                 | 담당 | 완료 |
 |---|---|---|---|-------------------------|---|---|
-| 환전 | 환율 조회(USD/KRW, 예상 환전금액) | GET | `/api/exchange/rate` | CUR 기반(시세 캐시) [LS 실전]   | B·김준형 |  |
-| 환전 | 실시간 환율(USD/KRW) | WS | `/topic/currency/usd-krw` | CUR (현물USD 실시간) [LS 실전] | B·김준형 |  |
+| 환전 | 환율 조회(USD/KRW, 예상 환전금액) | GET | `/api/exchange/rate` | CUR 기반(시세 캐시) [LS 실전]   | B·김준형 | ✅ |
+| 환전 | 실시간 환율(USD/KRW) | WS | `/topic/currency/usd-krw` | CUR (현물USD 실시간) [LS 실전] | B·김준형 | ✅ |
 | 환전 | 환전 가능여부·가능금액 검증 | GET | `/api/exchange/validate` |                         | B·김준형 |  |
-| 환전 | 원화→달러 환전 | POST | `/api/exchange/krw-to-usd` |                         | B·김준형 |  |
-| 환전 | 달러→원화 환전 | POST | `/api/exchange/usd-to-krw` |                         | B·김준형 |  |
-| 환전 | 자동환전 설정(달러우선·한도·잔돈) | PUT | `/api/exchange/auto-settings` |                         | B·김준형 |  |
-| 환전 | 환전 이력 조회 | GET | `/api/exchange/history` |                         | B·김준형 |  |
+| 환전 | 원화→달러 환전 | POST | `/api/exchange/krw-to-usd` |                         | B·김준형 | ✅ |
+| 환전 | 달러→원화 환전 | POST | `/api/exchange/usd-to-krw` |                         | B·김준형 | ✅ |
+| 환전 | 자동환전 설정(달러우선·한도·잔돈) | PUT | `/api/exchange/auto-settings` |                         | B·김준형 | ✅ |
+| 환전 | 환전 이력 조회 | GET | `/api/exchange/history` |                         | B·김준형 | ✅ |
 
 ## Notification
 
