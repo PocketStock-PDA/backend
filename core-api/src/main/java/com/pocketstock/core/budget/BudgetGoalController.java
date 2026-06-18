@@ -5,6 +5,7 @@ import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.core.budget.dto.AutoBudgetGoalResponse;
 import com.pocketstock.core.budget.dto.BudgetGoalRequest;
+import com.pocketstock.core.budget.dto.CalendarResponse;
 import jakarta.validation.Valid;
 import com.pocketstock.core.budget.dto.BudgetGoalSummary;
 import com.pocketstock.user.security.CurrentUserId;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -22,6 +24,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class BudgetGoalController {
 
     private final BudgetGoalService budgetGoalService;
+
+    @GetMapping("/calendar")
+    public ResponseEntity<ApiResponse<CalendarResponse>> getCalendar(
+            @CurrentUserId Long userId,
+            @RequestParam int year,
+            @RequestParam int month) {
+
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        CalendarResponse data = budgetGoalService.getCalendar(userId, year, month);
+        return ResponseEntity.ok(ApiResponse.ok("파도 캘린더 조회 성공", data));
+    }
 
     @GetMapping("/goals")
     public ResponseEntity<ApiResponse<BudgetGoalSummary>> getGoals(
