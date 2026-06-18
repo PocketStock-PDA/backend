@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace = 인터페이스 풀패키지명(user 모듈)과 정확히 일치 -->
+<mapper namespace="com.pocketstock.user.member.mapper.AuthMethodMapper">
+
+    <select id="findByUserIdAndType" resultType="com.pocketstock.user.member.domain.AuthMethod">
+        SELECT id, user_id, method_type, secret_hash, is_active
+        FROM user_auth_methods
+        WHERE user_id = #{userId}
+          AND method_type = #{methodType}
+    </select>
+
+    <!-- (user_id, method_type) UNIQUE — 최초 설정은 INSERT, 재설정은 secret_hash UPDATE -->
+    <insert id="upsert" parameterType="com.pocketstock.user.member.domain.AuthMethod">
+        INSERT INTO user_auth_methods (user_id, method_type, secret_hash)
+        VALUES (#{userId}, #{methodType}, #{secretHash})
+        ON DUPLICATE KEY UPDATE secret_hash = #{secretHash}
+    </insert>
+
+</mapper>
