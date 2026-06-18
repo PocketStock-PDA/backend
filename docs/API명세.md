@@ -15,7 +15,8 @@
 
 ## 📌 범례
 
-- **LS TR코드**: `[LS 모의]`=LS 모의투자 실연동(시세), `[자체 시뮬]`=주문/체결은 자체 시뮬레이션(LS TR은 설계 참조)
+- **TR코드 = 시세 데이터 출처(실전 실연동)**: 국내 `[LS 실전]`, 해외 `[KIS 실전]`.
+- **계좌·예수금·주문·체결·잔고·소수점 원장은 전부 포켓스톡 자체 시뮬**(`[자체 시뮬]`) — 브로커 주문/계좌 API 미사용. 표기된 주문 TR은 설계 참조용.
 
 ## User
 
@@ -89,16 +90,16 @@
 | 시세 | 종목 카테고리 탐색(40대 여성 상위 등) | GET | `/api/trading/stocks/categories` |  | B·김준형 |  |
 | 시세 | 종목 검색(자체 종목마스터) | GET | `/api/trading/stocks/search` |  | B·김준형 | ✅ |
 | 시세 | 종목 상세(마스터+현재가 합성) | GET | `/api/trading/stocks/{stockCode}` |  | B·김준형 | ✅ |
-| 시세 | [국내] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=domestic` | t1102 [LS 모의] | B·김준형 | ✅ |
-| 시세 | [해외] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=overseas` | g3101 [LS 모의] | B·김준형 |  |
-| 시세 | [국내] 호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=domestic` | t8450 (현재가호가) [LS 모의] | B·김준형 | ✅ |
-| 시세 | [해외] 현재가·호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=overseas` | g3106 [LS 모의] | B·김준형 |  |
-| 시세 | [국내] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=domestic` | t3320 (FNG요약) [LS 모의] | B·김준형 |  |
-| 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | g3104 [LS 모의] | B·김준형 |  |
-| 실시간시세 | [국내] 실시간 체결가(소수점·온주) | WS | `/topic/stock/trade/{stockCode}` | US3 (통합 체결) [LS 모의] | B·김준형 |  |
-| 실시간시세 | [국내] 실시간 호가(온주) | WS | `/topic/asking/{stockCode}` | UH1 (통합 호가잔량) [LS 모의] | B·김준형 |  |
-| 실시간시세 | [해외] 실시간 체결가 | WS | `/topic/foreign/transaction/{symbol}` | GSC (해외 체결) [LS 모의] | B·김준형 |  |
-| 실시간시세 | [해외] 실시간 호가(온주) | WS | `/topic/foreign/quote/{symbol}` | GSH (해외 호가) [LS 모의] | B·김준형 |  |
+| 시세 | [국내] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=domestic` | t1102 [LS 실전] | B·김준형 | ✅ |
+| 시세 | [해외] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=overseas` | HHDFS76200200 (해외 현재가상세) [KIS 실전] | B·김준형 | ✅ |
+| 시세 | [국내] 호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=domestic` | t8450 (현재가호가) [LS 실전] | B·김준형 | ✅ |
+| 시세 | [해외] 현재가·호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=overseas` | HHDFS76200100 (해외 현재가호가) [KIS 실전] | B·김준형 | ✅ |
+| 시세 | [국내] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=domestic` | t3320 (FNG요약) [LS 실전] | B·김준형 |  |
+| 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | CTPF1702R (해외 상품기본정보) [KIS 실전] | B·김준형 |  |
+| 실시간시세 | [국내] 실시간 체결가(소수점·온주) | WS | `/topic/stock/trade/{stockCode}` | US3 (통합 체결) [LS 실전] | B·김준형 | ✅ |
+| 실시간시세 | [국내] 실시간 호가(온주) | WS | `/topic/asking/{stockCode}` | UH1 (통합 호가잔량) [LS 실전] | B·김준형 | ✅ |
+| 실시간시세 | [해외] 실시간 체결가 | WS | `/topic/foreign/transaction/{symbol}` | HDFSCNT0 (해외 실시간지연체결가) [KIS 실전] | B·김준형 | ✅ |
+| 실시간시세 | [해외] 실시간 호가(온주) | WS | `/topic/foreign/quote/{symbol}` | HDFSASP0 (해외 실시간호가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | 실시간 체결통보(주문 결과) | WS | `/topic/order-notification` | SC1(국내)·AS1(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 소수점 매수(금액/수량) → LS 합산 온주주문 | POST | `/api/trading/orders/buy` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 소수점 매도(금액/전량) → LS 합산 온주주문 | POST | `/api/trading/orders/sell` | CSPAT00601(국내)·COSMT00300(해외) [자체 시뮬] | B·김준형 |  |
