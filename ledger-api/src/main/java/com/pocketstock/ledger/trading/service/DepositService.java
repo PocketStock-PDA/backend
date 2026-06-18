@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 
 /**
  * 예수금 원장(append-only) 공통 처리. 잔액은 행마다 balance_after 스냅샷으로 보관.
- * ※ 현재 KRW(국내 위탁) 기준. 해외(USD)는 추후.
+ * 통화별(국내 KRW·해외 USD) 잔액을 각각 누적한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -21,7 +21,13 @@ public class DepositService {
     /** 유저 KRW 예수금 잔액(없으면 0). */
     @Transactional(readOnly = true)
     public BigDecimal getKrwBalance(Long userId) {
-        BigDecimal balance = depositMapper.findLatestKrwBalance(userId);
+        return getBalance(userId, "KRW");
+    }
+
+    /** 유저 예수금 잔액(통화별, 없으면 0). 해외(USD)·국내(KRW) 공통. */
+    @Transactional(readOnly = true)
+    public BigDecimal getBalance(Long userId, String currency) {
+        BigDecimal balance = depositMapper.findLatestBalance(userId, currency);
         return balance != null ? balance : BigDecimal.ZERO;
     }
 
@@ -32,7 +38,7 @@ public class DepositService {
     @Transactional
     public BigDecimal record(Long userId, Long accountId, String txType, BigDecimal signedAmount,
                              String currency, String refType, Long refId) {
-        BigDecimal after = getKrwBalance(userId).add(signedAmount);
+        BigDecimal after = getBalance(userId, currency).add(signedAmount);
         depositMapper.insert(DepositTransaction.builder()
                 .userId(userId)
                 .accountId(accountId)
