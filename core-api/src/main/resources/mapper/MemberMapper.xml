@@ -27,4 +27,35 @@
           AND deleted_at IS NULL
     </select>
 
+    <select id="findById" resultType="com.pocketstock.user.member.domain.Member">
+        SELECT id, username, password_hash, name, phone, birth_date, gender
+        FROM users
+        WHERE id = #{id}
+          AND deleted_at IS NULL
+    </select>
+
+    <update id="updatePassword">
+        UPDATE users
+        SET password_hash = #{passwordHash}
+        WHERE id = #{id}
+          AND deleted_at IS NULL
+    </update>
+
+    <select id="findByNameAndPhone" resultType="com.pocketstock.user.member.domain.Member">
+        SELECT id, username, password_hash, name, phone, birth_date, gender
+        FROM users
+        WHERE name = #{name}
+          AND phone = #{phone}
+          AND deleted_at IS NULL
+        LIMIT 1
+    </select>
+
+    <select id="findByUsernameAndPhone" resultType="com.pocketstock.user.member.domain.Member">
+        SELECT id, username, password_hash, name, phone, birth_date, gender
+        FROM users
+        WHERE username = #{username}
+          AND phone = #{phone}
+          AND deleted_at IS NULL
+    </select>
+
 </mapper>
