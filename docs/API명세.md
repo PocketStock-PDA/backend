@@ -72,11 +72,11 @@
 | 잔돈수집 | 계좌 끝전 적립 | POST | `/api/cma/collect/account` |  | C·강문군 |  |
 | 잔돈수집 | 카드 라운드업 적립 | POST | `/api/cma/collect/card` |  | C·강문군 |  |
 | 잔돈수집 | 포인트 전환 적립 | POST | `/api/cma/collect/point` |  | C·강문군 |  |
-| 잔돈수집 | 적립 소스 설정(카드/계좌별 ON/OFF) | PUT | `/api/cma/collect/settings` |  | C·강문군 |  |
-| 잔돈수집 | 적립 이력 조회 | GET | `/api/cma/collect/history` |  | C·강문군 |  |
-| CMA | CMA 잔액·성과율(원화RP/외화RP) 조회 | GET | `/api/cma/balance` |  | C·강문군 |  |
+| 잔돈수집 | 적립 소스 설정(카드/계좌별 ON/OFF) | PUT | `/api/cma/collect/settings` |  | C·강문군 | ✅ |
+| 잔돈수집 | 적립 이력 조회 | GET | `/api/cma/collect/history` |  | C·강문군 | ✅ |
+| CMA | CMA 잔액·성과율(원화RP/외화RP) 조회 | GET | `/api/cma/balance` |  | C·강문군 | ✅ |
 | CMA | CMA 계좌내역(입금·출금·이자) 조회 | GET | `/api/cma/transactions` |  | C·강문군 | ✅ |
-| 자금이체 | 자금 이동 이력 조회 | GET | `/api/cma/transfers` |  | C·강문군 |  |
+| 자금이체 | 자금 이동 이력 조회 | GET | `/api/cma/transfers` |  | C·강문군 | ✅ |
 | 자동충전 | 부족금액 자동충전 설정 조회 | GET | `/api/cma/auto-charge-settings` |  | C·강문군 |  |
 | 자동충전 | 부족금액 자동충전 설정(ON/OFF·1회한도·대상계좌) | PUT | `/api/cma/auto-charge-settings` |  | C·강문군 |  |
 
