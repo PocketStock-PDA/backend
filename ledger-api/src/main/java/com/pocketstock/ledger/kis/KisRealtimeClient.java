@@ -147,7 +147,8 @@ public class KisRealtimeClient implements RealtimeUpstream {
             String trId = parts[1];
             KisRealtimeListener listener = listeners.get(trId);
             if (listener != null) {
-                listener.onData(parts[3].split("\\^"));
+                // limit -1: 후행 빈 필드 보존(없으면 끝 빈 칸이 잘려 필드 수 가드에 걸려 정상 틱이 드롭됨)
+                listener.onData(parts[3].split("\\^", -1));
             }
         } catch (Exception e) {
             log.warn("KIS 실시간 메시지 처리 실패: {}", e.getMessage());
