@@ -139,6 +139,21 @@ CREATE TABLE IF NOT EXISTS holdings (
   UNIQUE KEY uq_hold (account_id, stock_code)
 );
 
+-- 웰컴 보상(온보딩 완료 후 첫 주식 선물) 지급 이력. user_id UNIQUE = 1인 1회.
+CREATE TABLE IF NOT EXISTS welcome_rewards (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  account_id BIGINT NOT NULL,
+  stock_code VARCHAR(20) NOT NULL,
+  market VARCHAR(10) NOT NULL,             -- DOMESTIC | OVERSEAS
+  quantity DECIMAL(18,6) NOT NULL,         -- 지급 소수점 수량
+  grant_price DECIMAL(18,4) NOT NULL,      -- 지급시점 현재가(종목통화)
+  budget_krw INT NOT NULL,                 -- 지급 예산(원) = 1000
+  currency VARCHAR(3) NOT NULL,            -- KRW | USD
+  granted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_welcome_user (user_id)
+);
+
 CREATE TABLE IF NOT EXISTS trading_rounds (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   market VARCHAR(10) NOT NULL,
