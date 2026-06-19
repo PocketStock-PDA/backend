@@ -1,0 +1,54 @@
+-- 페르소나 시드 데이터 — 임혜진 (DB B / pocketstock_ledger)
+-- docker-entrypoint-initdb.d/03-persona-seed.sql 로 마운트 → 볼륨 초기화 시 자동 실행
+USE pocketstock_ledger;
+SET NAMES utf8mb4;
+
+-- tradable_stocks: INSERT IGNORE — 02-seed.sql(tradable_stocks_seed)과 중복 방지
+INSERT IGNORE INTO tradable_stocks (id,stock_code,exchange,standard_code,stock_name,english_name,rt_symbol,currency,sec_type,is_fractional,is_active,logo_url,created_at,updated_at) VALUES
+(1,'005930','KOSPI','KR7005930003','삼성전자','Samsung Electronics',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
+(2,'000660','KOSPI','KR7000660001','SK하이닉스','SK Hynix',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
+(3,'066570','KOSPI','KR7066570003','LG전자','LG Electronics',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
+(4,'035420','KOSPI','KR7035420009','NAVER','NAVER Corporation',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
+(5,'051910','KOSPI','KR7051910008','LG화학','LG Chem',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00');
+
+INSERT INTO cma_accounts (id,user_id,account_no_enc,status,opened_at,created_at,updated_at) VALUES
+(1,1,NULL,'ACTIVE','2026-01-20 10:00:00','2026-01-20 10:00:00','2026-01-20 10:00:00');
+
+INSERT INTO cma_balances (id,cma_account_id,currency,balance,interest_rate,created_at,updated_at) VALUES
+(1,1,'KRW',404990.0000,3.5000,'2026-01-20 10:00:00','2026-05-31 23:59:30');
+
+INSERT INTO collection_settings (id,user_id,source_type,source_ref_id,is_enabled,threshold,created_at,updated_at) VALUES
+(1,1,'ACCOUNT',1,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00'),
+(2,1,'CARD',1,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00'),
+(3,1,'CARD',2,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00'),
+(4,1,'POINT',1,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00');
+
+INSERT INTO cma_auto_charge_settings (id,user_id,is_enabled,source_account_ref,max_charge_per_tx,created_at,updated_at) VALUES
+(1,1,FALSE,NULL,NULL,'2026-01-20 10:00:00','2026-01-20 10:00:00');
+
+INSERT INTO cma_transactions (id,user_id,cma_account_id,currency,tx_type,source_type,amount,balance_after,ref_type,ref_id,idempotency_key,created_at) VALUES
+(1,1,1,'KRW','DEPOSIT','MANUAL',340000.0000,340000.0000,NULL,NULL,'cma-manual-deposit-20260120','2026-01-20 10:30:00'),
+(2,1,1,'KRW','COLLECT','CARD',8340.0000,348340.0000,NULL,NULL,'cma-card-roundup-202602','2026-02-28 23:59:00'),
+(3,1,1,'KRW','INTEREST','SYSTEM',1250.0000,349590.0000,NULL,NULL,'cma-interest-202602','2026-02-28 23:59:30'),
+(4,1,1,'KRW','COLLECT','ACCOUNT',5600.0000,355190.0000,NULL,NULL,'cma-acct-roundup-202603','2026-03-31 23:59:00'),
+(5,1,1,'KRW','COLLECT','CARD',11200.0000,366390.0000,NULL,NULL,'cma-card-roundup-202603','2026-03-31 23:59:10'),
+(6,1,1,'KRW','INTEREST','SYSTEM',2100.0000,368490.0000,NULL,NULL,'cma-interest-202603','2026-03-31 23:59:30'),
+(7,1,1,'KRW','COLLECT','CARD',5200.0000,373690.0000,NULL,NULL,'cma-card-roundup-202604','2026-04-30 23:59:00'),
+(8,1,1,'KRW','COLLECT','POINT',15000.0000,388690.0000,NULL,NULL,'cma-point-transfer-202604','2026-04-30 23:59:10'),
+(9,1,1,'KRW','INTEREST','SYSTEM',2800.0000,391490.0000,NULL,NULL,'cma-interest-202604','2026-04-30 23:59:30'),
+(10,1,1,'KRW','COLLECT','CARD',6100.0000,397590.0000,NULL,NULL,'cma-card-roundup-202605','2026-05-31 23:59:00'),
+(11,1,1,'KRW','COLLECT','ACCOUNT',4300.0000,401890.0000,NULL,NULL,'cma-acct-roundup-202605','2026-05-31 23:59:10'),
+(12,1,1,'KRW','INTEREST','SYSTEM',3100.0000,404990.0000,NULL,NULL,'cma-interest-202605','2026-05-31 23:59:30');
+
+INSERT INTO securities_accounts (id,user_id,market,account_no_enc,status,is_fractional_enabled,opened_at,created_at,updated_at) VALUES
+(1,1,'DOMESTIC',NULL,'ACTIVE',TRUE,'2026-02-10 09:00:00','2026-02-10 09:00:00','2026-02-10 09:00:00');
+
+INSERT INTO deposit_transactions (id,user_id,account_id,tx_type,amount,currency,balance_after,ref_type,ref_id,idempotency_key,created_at) VALUES
+(1,1,1,'DEPOSIT',500000.0000,'KRW',500000.0000,NULL,NULL,'sec-init-deposit-20260210','2026-02-10 09:05:00'),
+(2,1,1,'BUY',-352500.0000,'KRW',147500.0000,NULL,NULL,'sec-buy-005930-5sh-20260210','2026-02-10 09:10:00');
+
+INSERT INTO holdings (id,user_id,account_id,stock_code,quantity,avg_buy_price,currency,created_at,updated_at) VALUES
+(1,1,1,'005930',5.000000,70500.0000,'KRW','2026-02-10 09:10:00','2026-02-10 09:10:00');
+
+INSERT INTO auto_invest_settings (id,user_id,is_enabled,is_paused,keep_collecting_on_pause,created_at,updated_at) VALUES
+(1,1,FALSE,FALSE,TRUE,'2026-01-20 10:00:00','2026-01-20 10:00:00');
