@@ -30,7 +30,7 @@ public class CmaAccountNoCipher {
     private final SecureRandom random = new SecureRandom();
 
     public CmaAccountNoCipher(
-            @Value("${account.cipher.secret:pocketstock-local-account-cipher-secret}") String secret) {
+            @Value("${account.cipher.secret}") String secret) {   // 기본값 없음 — 미주입 시 부팅 실패(fail-fast)
         this.key = new SecretKeySpec(sha256(secret), "AES");
     }
 

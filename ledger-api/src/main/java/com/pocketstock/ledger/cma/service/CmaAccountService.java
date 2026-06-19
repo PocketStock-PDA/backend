@@ -1,5 +1,7 @@
 package com.pocketstock.ledger.cma.service;
 
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.dto.response.CmaAccountResponse;
@@ -14,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * CMA 계좌 개설 — 서비스 진입 게이트 계좌.
@@ -51,15 +52,20 @@ public class CmaAccountService {
             seedKrwWallet(account.getId());
             return toResponse(account);
         } catch (DuplicateKeyException e) {
-            // 동시 첫 호출 경합 — 다른 트랜잭션이 먼저 생성한 계좌를 재조회해 반환(멱등 보장)
-            return toResponse(accountMapper.findByUserId(userId));
+            // 동시 첫 호출 경합 — 다른 트랜잭션이 먼저 생성. 잠금 읽기로 커밋된 행을 확실히 조회
+            // (REPEATABLE READ 일반 SELECT는 시작 스냅샷만 봐 null이 날 수 있어 FOR UPDATE 사용)
+            CmaAccount account = accountMapper.findByUserIdForUpdate(userId);
+            if (account == null) {
+                throw new BusinessException(ErrorCode.CONFLICT, "CMA 계좌 개설 경합 처리에 실패했습니다.");
+            }
+            return toResponse(account);
         }
     }
 
     private CmaAccount createAccount(Long userId) {
         CmaAccount account = new CmaAccount();
         account.setUserId(userId);
-        account.setAccountNoEnc(cipher.encrypt(generateAccountNo()));
+        account.setAccountNoEnc(cipher.encrypt(generateAccountNo(userId)));
         account.setStatus(STATUS_ACTIVE);
         account.setOpenedAt(LocalDateTime.now());
         accountMapper.insert(account);   // useGeneratedKeys → id 채움
@@ -75,10 +81,12 @@ public class CmaAccountService {
         balanceMapper.insertBalance(krw);
     }
 
-    /** 5자리 베이스 + CMA 접미사 (예: 98765-90) */
-    private String generateAccountNo() {
-        String base = String.format("%05d", ThreadLocalRandom.current().nextInt(10000, 100000));
-        return base + "-" + CMA_SUFFIX;
+    /**
+     * 계좌번호 생성 — user_id(UNIQUE)에서 파생해 전역 유일 보장(랜덤 충돌 방지). 표시용(데모) 형식.
+     * 예: userId=1 → 00000001-90
+     */
+    private String generateAccountNo(Long userId) {
+        return String.format("%08d", userId) + "-" + CMA_SUFFIX;
     }
 
     private CmaAccountResponse toResponse(CmaAccount account) {
