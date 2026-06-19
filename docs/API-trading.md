@@ -991,3 +991,72 @@
  ]
  }
 ```
+
+---
+
+## 증권 캘린더
+
+> 사용자가 **보유한 종목** 기준으로 필터된 이벤트(배당락일·실적발표 등). 전체 시장 캘린더가 아님.
+
+### GET `/api/trading/calendar`
+
+보유 종목 증권 캘린더 (월별 일정) 조회<br> Query: `year` (number, 필수), `month` (number, 필수)
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "증권 캘린더 조회 성공",
+  "data": {
+    "year": 2026,
+    "month": 6,
+    "events": [
+      {
+        "date": "2026-06-27",
+        "type": "DIVIDEND",
+        "title": "삼성전자 배당락일",
+        "stockCode": "005930"
+      },
+      {
+        "date": "2026-06-28",
+        "type": "DIVIDEND",
+        "title": "LG전자 배당락일",
+        "stockCode": "066570"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### GET `/api/trading/calendar/events`
+
+특정 날짜 보유 종목 주요일정 조회<br> Query: `date` (string, 선택) — 예: 2026-06-27, 미지정 시 오늘
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "종목 주요일정 조회 성공",
+  "data": [
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "date": "2026-06-27",
+      "eventType": "DIVIDEND",
+      "description": "주당 배당금 361원"
+    }
+  ]
+}
+```

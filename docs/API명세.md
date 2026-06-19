@@ -116,26 +116,18 @@
 | 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | B·김준형 |  |
 | 보상 | 가입보상 종목 선택·지급 | POST | `/api/trading/rewards/signup` |  | B·김준형 |  |
 | 보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 |  |
+| 증권캘린더 | 보유 종목 증권 캘린더(월별 일정) 조회 | GET | `/api/trading/calendar` |  | D·김서현 |  |
+| 증권캘린더 | 보유 종목 주요일정(배당·실적) 조회 | GET | `/api/trading/calendar/events` |  | D·김서현 |  |
 
 > 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
 
-## Portfolio
+## Recommendations
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 종목추천 | 추천 포트폴리오 조회(또래2+우량주2) | GET | `/api/portfolio/recommendations` |  | D·김서현 |  |
-| 종목추천 | 추천 종목 새로고침 | POST | `/api/portfolio/recommendations/refresh` |  | D·김서현 |  |
-| 종목추천 | 보유 포트폴리오 현황(비중·수익률) | GET | `/api/portfolio/holdings` |  | D·김서현 |  |
-| 자산리밸런싱 | 종합 자산 분석(자산구성) | GET | `/api/portfolio/rebalancing/analysis` |  | D·김서현 |  |
-| 자산리밸런싱 | 순자산(자산-부채) 조회 | GET | `/api/portfolio/rebalancing/networth` |  | D·김서현 |  |
-| 자산리밸런싱 | 또래(연령·성별) 비중 비교 | GET | `/api/portfolio/rebalancing/peer` |  | D·김서현 |  |
-| 자산리밸런싱 | 원클릭 리밸런싱 실행 | POST | `/api/portfolio/rebalancing/execute` |  | D·김서현 |  |
-| 자산리밸런싱 | 예/적금 갈아타기 추천 | GET | `/api/portfolio/rebalancing/products` |  | D·김서현 |  |
-| 자산리밸런싱 | ISA 계좌 가입 안내 | GET | `/api/portfolio/rebalancing/isa` |  | D·김서현 |  |
-| 증권캘린더 | 증권 캘린더(월별 일정) 조회 | GET | `/api/portfolio/calendar` |  | D·김서현 |  |
-| 증권캘린더 | 종목 주요일정(배당·실적) 조회 | GET | `/api/portfolio/calendar/events` |  | D·김서현 |  |
-| 증권캘린더 | 캘린더 추천 종목 | GET | `/api/portfolio/calendar/recommendations` |  | D·김서현 |  |
-| 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/portfolio/cards/recommendations` |  | D·김서현 |  |
+| 종목추천 | 추천 종목 조회(또래·소비섹터·만기, type 쿼리로 필터) | GET | `/api/recommendations` |  | D·김서현 |  |
+| 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/recommendations/maturity` |  | D·김서현 |  |
+| 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/recommendations/cards` |  | D·김서현 |  |
 
 ## Budget
 
