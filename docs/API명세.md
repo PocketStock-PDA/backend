@@ -124,18 +124,10 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 종목추천 | 추천 포트폴리오 조회(또래2+우량주2) | GET | `/api/portfolio/recommendations` |  | D·김서현 |  |
-| 종목추천 | 추천 종목 새로고침 | POST | `/api/portfolio/recommendations/refresh` |  | D·김서현 |  |
-| 종목추천 | 보유 포트폴리오 현황(비중·수익률) | GET | `/api/portfolio/holdings` |  | D·김서현 |  |
-| 자산리밸런싱 | 종합 자산 분석(자산구성) | GET | `/api/portfolio/rebalancing/analysis` |  | D·김서현 |  |
-| 자산리밸런싱 | 순자산(자산-부채) 조회 | GET | `/api/portfolio/rebalancing/networth` |  | D·김서현 |  |
-| 자산리밸런싱 | 또래(연령·성별) 비중 비교 | GET | `/api/portfolio/rebalancing/peer` |  | D·김서현 |  |
-| 자산리밸런싱 | 원클릭 리밸런싱 실행 | POST | `/api/portfolio/rebalancing/execute` |  | D·김서현 |  |
-| 자산리밸런싱 | 예/적금 갈아타기 추천 | GET | `/api/portfolio/rebalancing/products` |  | D·김서현 |  |
-| 자산리밸런싱 | ISA 계좌 가입 안내 | GET | `/api/portfolio/rebalancing/isa` |  | D·김서현 |  |
+| 종목추천 | 추천 종목 조회(또래·소비섹터·만기, type 쿼리로 필터) | GET | `/api/portfolio/recommendations` |  | D·김서현 |  |
+| 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/portfolio/recommendations/maturity` |  | D·김서현 |  |
 | 증권캘린더 | 증권 캘린더(월별 일정) 조회 | GET | `/api/portfolio/calendar` |  | D·김서현 |  |
 | 증권캘린더 | 종목 주요일정(배당·실적) 조회 | GET | `/api/portfolio/calendar/events` |  | D·김서현 |  |
-| 증권캘린더 | 캘린더 추천 종목 | GET | `/api/portfolio/calendar/recommendations` |  | D·김서현 |  |
 | 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/portfolio/cards/recommendations` |  | D·김서현 |  |
 
 ## Budget
