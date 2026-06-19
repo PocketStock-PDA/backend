@@ -8,7 +8,9 @@
         SELECT notify_trade     AS notifyTrade,
                notify_goal      AS notifyGoal,
                notify_unfilled  AS notifyUnfilled,
-               notify_marketing AS notifyMarketing
+               notify_marketing AS notifyMarketing,
+               push_token       AS pushToken,
+               platform         AS platform
         FROM notification_settings
         WHERE user_id = #{userId}
     </select>
@@ -34,5 +36,12 @@
             notify_marketing = VALUES(notify_marketing),
             updated_at       = CURRENT_TIMESTAMP
     </insert>
+
+    <update id="clearToken">
+        UPDATE notification_settings
+        SET push_token = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+    </update>
 
 </mapper>
