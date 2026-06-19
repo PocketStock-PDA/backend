@@ -334,7 +334,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE TABLE IF NOT EXISTS notification_settings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL UNIQUE,
-  push_token VARCHAR(255) NULL,
+  push_token TEXT NULL,               -- FCM 토큰 또는 Web Push(VAPID) 구독 JSON(stringify)
   platform VARCHAR(10),
   notify_trade BOOLEAN DEFAULT TRUE,
   notify_goal BOOLEAN DEFAULT TRUE,
