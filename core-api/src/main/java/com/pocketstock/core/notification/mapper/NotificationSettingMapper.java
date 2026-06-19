@@ -23,4 +23,7 @@ public interface NotificationSettingMapper {
             @Param("notifyGoal") boolean notifyGoal,
             @Param("notifyMarketing") boolean notifyMarketing
     );
+
+    /** 만료/무효(410·404) 구독 토큰 정리. */
+    void clearToken(@Param("userId") Long userId);
 }
