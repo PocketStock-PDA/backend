@@ -34,4 +34,10 @@
             updated_at     = NOW()
     </insert>
 
+    <!-- 신규 계좌 지갑 시드: UNIQUE(cma_account_id, currency) 충돌 시 무시해 기존 잔액 보존 -->
+    <insert id="insertBalance" parameterType="com.pocketstock.ledger.cma.domain.CmaBalance">
+        INSERT IGNORE INTO cma_balances (cma_account_id, currency, balance, interest_rate)
+        VALUES (#{cmaAccountId}, #{currency}, #{balance}, #{interestRate})
+    </insert>
+
 </mapper>
