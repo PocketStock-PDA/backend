@@ -328,13 +328,15 @@ CREATE TABLE IF NOT EXISTS notifications (
   ref_id BIGINT NULL,
   sent_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_noti_user (user_id)
+  INDEX idx_noti_user (user_id),
+  -- 알림센터 목록: WHERE user_id=? ORDER BY created_at DESC 를 인덱스로 처리(filesort 제거)
+  INDEX idx_noti_user_created (user_id, created_at)
 );
 
 CREATE TABLE IF NOT EXISTS notification_settings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL UNIQUE,
-  push_token VARCHAR(255) NULL,
+  push_token TEXT NULL,               -- FCM 토큰 또는 Web Push(VAPID) 구독 JSON(stringify)
   platform VARCHAR(10),
   notify_trade BOOLEAN DEFAULT TRUE,
   notify_goal BOOLEAN DEFAULT TRUE,
