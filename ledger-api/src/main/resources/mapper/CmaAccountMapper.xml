@@ -20,6 +20,15 @@
         LIMIT 1
     </select>
 
+    <!-- 잠금 읽기: 동시 개설 경합 catch에서 커밋된 행을 스냅샷 우회로 조회 -->
+    <select id="findByUserIdForUpdate" resultMap="cmaAccount">
+        SELECT id, user_id, account_no_enc, status, opened_at, created_at, updated_at
+        FROM cma_accounts
+        WHERE user_id = #{userId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
     <insert id="insert" parameterType="com.pocketstock.ledger.cma.domain.CmaAccount"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO cma_accounts (user_id, account_no_enc, status, opened_at)
