@@ -328,7 +328,9 @@ CREATE TABLE IF NOT EXISTS notifications (
   ref_id BIGINT NULL,
   sent_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_noti_user (user_id)
+  INDEX idx_noti_user (user_id),
+  -- 알림센터 목록: WHERE user_id=? ORDER BY created_at DESC 를 인덱스로 처리(filesort 제거)
+  INDEX idx_noti_user_created (user_id, created_at)
 );
 
 CREATE TABLE IF NOT EXISTS notification_settings (
