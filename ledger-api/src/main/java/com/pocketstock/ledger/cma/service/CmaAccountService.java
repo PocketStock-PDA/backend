@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * CMA 계좌 개설 — 서비스 진입 게이트 계좌.
@@ -65,7 +66,7 @@ public class CmaAccountService {
     private CmaAccount createAccount(Long userId) {
         CmaAccount account = new CmaAccount();
         account.setUserId(userId);
-        account.setAccountNoEnc(cipher.encrypt(generateAccountNo(userId)));
+        account.setAccountNoEnc(cipher.encrypt(generateAccountNo()));
         account.setStatus(STATUS_ACTIVE);
         account.setOpenedAt(LocalDateTime.now());
         accountMapper.insert(account);   // useGeneratedKeys → id 채움
@@ -82,11 +83,12 @@ public class CmaAccountService {
     }
 
     /**
-     * 계좌번호 생성 — user_id(UNIQUE)에서 파생해 전역 유일 보장(랜덤 충돌 방지). 표시용(데모) 형식.
-     * 예: userId=1 → 00000001-90
+     * 계좌번호 생성 — 난수 기반 opaque(내부 user_id·가입순서를 노출하지 않음). 표시 전용(데모).
+     * 10자리(≈100억) 공간이라 데모 규모에서 충돌은 무시 가능. account_no는 식별키가 아님(식별=PK/user_id).
      */
-    private String generateAccountNo(Long userId) {
-        return String.format("%08d", userId) + "-" + CMA_SUFFIX;
+    private String generateAccountNo() {
+        long base = ThreadLocalRandom.current().nextLong(1_000_000_000L, 10_000_000_000L);
+        return base + "-" + CMA_SUFFIX;
     }
 
     private CmaAccountResponse toResponse(CmaAccount account) {
