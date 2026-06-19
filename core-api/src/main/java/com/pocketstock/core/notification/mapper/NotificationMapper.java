@@ -9,6 +9,14 @@ import java.util.List;
 @Mapper
 public interface NotificationMapper {
 
+    /** 알림 생성(알림함 기록). 타 도메인 이벤트 → create() 경유. */
+    void insert(
+            @Param("userId") Long userId,
+            @Param("type") String type,
+            @Param("title") String title,
+            @Param("body") String body
+    );
+
     List<NotificationRow> findByUser(
             @Param("userId") Long userId,
             @Param("read") Boolean read,
