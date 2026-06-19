@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
@@ -32,9 +34,23 @@ public class NotificationService {
 
     /**
      * 알림 생성 + (수신 설정 허용 시) 웹푸시 발송. 타 도메인(체결·목표 등)이 호출.
+     * 호출자 트랜잭션이 있으면 커밋 성공 후에만 생성·발송한다(롤백 시 알림·푸시 미발생).
      * 발송 실패는 알림 기록을 막지 않는다(알림함엔 항상 남김).
      */
     public void create(Long userId, NotificationType type, String title, String body) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doCreate(userId, type, title, body);
+                }
+            });
+        } else {
+            doCreate(userId, type, title, body);
+        }
+    }
+
+    private void doCreate(Long userId, NotificationType type, String title, String body) {
         notificationMapper.insert(userId, type.name(), title, body);   // 1) 알림함 기록
 
         NotificationSettingRow setting = notificationSettingMapper.findByUserId(userId);
@@ -47,7 +63,11 @@ public class NotificationService {
 
         PushResult result = pushSender.send(token, title, body);     // 2) 발송
         if (result == PushResult.EXPIRED) {
-            notificationSettingMapper.clearToken(userId);            // 만료 구독 정리
+            try {
+                notificationSettingMapper.clearToken(userId);        // 만료 구독 정리 — best-effort
+            } catch (Exception e) {
+                log.warn("만료 구독 토큰 정리 실패(userId={}): {}", userId, e.getMessage());
+            }
         }
     }
 

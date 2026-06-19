@@ -280,38 +280,6 @@ PIN/패턴 간편 로그인
 
 ---
 
-### POST `/api/auth/login/sso`
-
-신한 SSO 로그인 (슈퍼SOL 진입)
-
-- **Request Headers**: 없음 (인증 불필요)
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-
-**Request Body**
-
-```json
-{
-  "ssoToken": "SSO-TOKEN-abc"
- }
-```
-
-**Response Body**
-
-```json
-{
-  "success": true,
-  "code": "SUCCESS",
-  "message": "SSO 로그인 성공",
-  "data": {
-  "accessToken": "eyJhbGci...",
-  "refreshToken": "eyJhbGci...",
-  "expiresIn": 1800
- }
- }
-```
-
----
-
 ### POST `/api/auth/refresh`
 
 토큰 재발급 (Refresh)
