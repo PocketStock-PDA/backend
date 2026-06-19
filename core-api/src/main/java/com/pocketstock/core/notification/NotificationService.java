@@ -12,18 +12,44 @@ import com.pocketstock.core.notification.dto.NotificationSettingsResponse;
 import com.pocketstock.core.notification.dto.PushTokenRequest;
 import com.pocketstock.core.notification.mapper.NotificationMapper;
 import com.pocketstock.core.notification.mapper.NotificationSettingMapper;
+import com.pocketstock.core.notification.push.PushResult;
+import com.pocketstock.core.notification.push.PushSender;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
 
     private final NotificationMapper notificationMapper;
     private final NotificationSettingMapper notificationSettingMapper;
+    private final PushSender pushSender;
+
+    /**
+     * 알림 생성 + (수신 설정 허용 시) 웹푸시 발송. 타 도메인(체결·목표 등)이 호출.
+     * 발송 실패는 알림 기록을 막지 않는다(알림함엔 항상 남김).
+     */
+    public void create(Long userId, NotificationType type, String title, String body) {
+        notificationMapper.insert(userId, type.name(), title, body);   // 1) 알림함 기록
+
+        NotificationSettingRow setting = notificationSettingMapper.findByUserId(userId);
+        if (setting == null) return;                       // 설정 없음 → 푸시 생략
+        if (!type.enabledFor(setting)) return;             // 토글 OFF → 푸시 생략
+
+        String token = setting.getPushToken();
+        if (token == null || token.isBlank()) return;      // 미구독
+        if (!"WEB".equalsIgnoreCase(setting.getPlatform())) return;  // 현재 WEB(VAPID)만 발송
+
+        PushResult result = pushSender.send(token, title, body);     // 2) 발송
+        if (result == PushResult.EXPIRED) {
+            notificationSettingMapper.clearToken(userId);            // 만료 구독 정리
+        }
+    }
 
     public NotificationListResponse getNotifications(Long userId, Boolean read, int page, int size) {
         int offset = page * size;
