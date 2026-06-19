@@ -66,6 +66,7 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
+| 계좌 | CMA 계좌 개설(서비스 진입 게이트, 멱등) | POST | `/api/cma/account` |  | C·강문군 | ✅ |
 | 홈 | 홈 대시보드(CMA잔액+수집가능 잔돈) | GET | `/api/cma/home` |  | C·강문군 | ✅ |
 | 잔돈수집 | 잔돈 모으기 실행(통합) | POST | `/api/cma/collect` |  | C·강문군 |  |
 | 잔돈수집 | 계좌 끝전 적립 | POST | `/api/cma/collect/account` |  | C·강문군 |  |
@@ -83,7 +84,7 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 증권계좌 | 증권계좌 개설(CMA+국내·해외 위탁) | POST | `/api/trading/accounts` |  | B·김준형 | ✅ |
+| 증권계좌 | 종합계좌 개설(국내·해외 위탁) — CMA는 `/api/cma/account` 별도 | POST | `/api/trading/accounts` |  | B·김준형 | ✅ |
 | 증권계좌 | 계좌 상태 조회 | GET | `/api/trading/accounts` |  | B·김준형 | ✅ |
 | 증권계좌 | 예수금/출금가능금액 조회 | GET | `/api/trading/deposit` |  | B·김준형 | ✅ |
 | 시세 | 종목 카테고리 탐색(40대 여성 상위 등) | GET | `/api/trading/stocks/categories` |  | B·김준형 |  |
