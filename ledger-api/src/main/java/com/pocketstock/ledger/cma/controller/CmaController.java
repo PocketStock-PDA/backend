@@ -2,9 +2,11 @@ package com.pocketstock.ledger.cma.controller;
 
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.cma.dto.request.CollectionSettingRequest;
+import com.pocketstock.ledger.cma.dto.response.CmaAccountResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
+import com.pocketstock.ledger.cma.service.CmaAccountService;
 import com.pocketstock.ledger.cma.service.CmaCollectService;
 import com.pocketstock.ledger.cma.service.CmaQueryService;
 import com.pocketstock.user.security.CurrentUserId;
@@ -23,6 +25,13 @@ public class CmaController {
 
     private final CmaQueryService queryService;
     private final CmaCollectService collectService;
+    private final CmaAccountService accountService;
+
+    /** CMA 계좌 개설(멱등) — 온보딩 마지막 단계. 이미 있으면 기존 계좌 반환. */
+    @PostMapping("/account")
+    public ApiResponse<CmaAccountResponse> openAccount(@CurrentUserId Long userId) {
+        return ApiResponse.ok("CMA 계좌 개설 성공", accountService.openOrGet(userId));
+    }
 
     @GetMapping("/home")
     public ApiResponse<CmaHomeResponse> getHome(@CurrentUserId Long userId) {
