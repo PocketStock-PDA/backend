@@ -65,7 +65,7 @@
                amount, balance_after, ref_type, ref_id, idempotency_key, created_at
         FROM cma_transactions
         WHERE user_id = #{userId}
-          AND tx_type IN ('WITHDRAW', 'TRANSFER_OUT')
+          AND tx_type IN ('BUY_TRANSFER', 'SELL_RETURN', 'FX_IN', 'FX_OUT')
         ORDER BY id DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
