@@ -117,18 +117,18 @@
 | 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | B·김준형 |  |
 | 보상 | 가입보상 종목 선택·지급 | POST | `/api/trading/rewards/signup` |  | B·김준형 |  |
 | 보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 |  |
+| 증권캘린더 | 보유 종목 증권 캘린더(월별 일정) 조회 | GET | `/api/trading/calendar` |  | D·김서현 |  |
+| 증권캘린더 | 보유 종목 주요일정(배당·실적) 조회 | GET | `/api/trading/calendar/events` |  | D·김서현 |  |
 
 > 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
 
-## Portfolio
+## Recommendations
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 종목추천 | 추천 종목 조회(또래·소비섹터·만기, type 쿼리로 필터) | GET | `/api/portfolio/recommendations` |  | D·김서현 |  |
-| 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/portfolio/recommendations/maturity` |  | D·김서현 |  |
-| 증권캘린더 | 증권 캘린더(월별 일정) 조회 | GET | `/api/portfolio/calendar` |  | D·김서현 |  |
-| 증권캘린더 | 종목 주요일정(배당·실적) 조회 | GET | `/api/portfolio/calendar/events` |  | D·김서현 |  |
-| 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/portfolio/cards/recommendations` |  | D·김서현 |  |
+| 종목추천 | 추천 종목 조회(또래·소비섹터·만기, type 쿼리로 필터) | GET | `/api/recommendations` |  | D·김서현 |  |
+| 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/recommendations/maturity` |  | D·김서현 |  |
+| 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/recommendations/cards` |  | D·김서현 |  |
 
 ## Budget
 
