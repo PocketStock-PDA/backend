@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.notification.mapper.NotificationSettingMapper">
+
+    <select id="findByUserId" resultType="com.pocketstock.core.notification.dto.NotificationSettingRow">
+        SELECT notify_trade     AS notifyTrade,
+               notify_goal      AS notifyGoal,
+               notify_unfilled  AS notifyUnfilled,
+               notify_marketing AS notifyMarketing,
+               push_token       AS pushToken,
+               platform         AS platform
+        FROM notification_settings
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsertToken">
+        INSERT INTO notification_settings (user_id, push_token, platform)
+        VALUES (#{userId}, #{token}, #{platform})
+        ON DUPLICATE KEY UPDATE
+            push_token = VALUES(push_token),
+            platform   = VALUES(platform),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <insert id="upsertSettings">
+        INSERT INTO notification_settings
+            (user_id, notify_trade, notify_unfilled, notify_goal, notify_marketing)
+        VALUES
+            (#{userId}, #{notifyTrade}, #{notifyUnfilled}, #{notifyGoal}, #{notifyMarketing})
+        ON DUPLICATE KEY UPDATE
+            notify_trade     = VALUES(notify_trade),
+            notify_unfilled  = VALUES(notify_unfilled),
+            notify_goal      = VALUES(notify_goal),
+            notify_marketing = VALUES(notify_marketing),
+            updated_at       = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="clearToken">
+        UPDATE notification_settings
+        SET push_token = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

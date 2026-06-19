@@ -61,6 +61,11 @@ mybatis:
 jwt:
   secret: ${JWT_SECRET}            # 토큰 검증용(공유 JwtProvider) — 필수, core-api와 동일 값
 
+# 계좌번호 암호화 키 — 시크릿은 커밋 금지(환경변수/application-local.yml로 주입). 미주입 시 부팅 실패(fail-fast).
+account:
+  cipher:
+    secret: ${ACCOUNT_CIPHER_SECRET}
+
 management:
   endpoints:
     web:

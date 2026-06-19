@@ -85,7 +85,10 @@
 
 ### POST `/api/notifications/token`
 
-푸시 토큰 등록
+푸시 토큰 등록 (user_id UNIQUE 기준 upsert — 최초 호출 시 설정 row 생성)
+
+> `token`: 모바일은 FCM 토큰, 웹(PWA)은 Web Push(VAPID) 구독을 `JSON.stringify` 한 문자열.
+> `deviceType`: `ANDROID` / `IOS` / `WEB` (platform 컬럼에 저장)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -94,7 +97,7 @@
 
 ```json
 {
-  "token": "FCM-TOKEN-xyz",
+  "token": "FCM-TOKEN-xyz | {\"endpoint\":\"...\",\"keys\":{\"p256dh\":\"...\",\"auth\":\"...\"}}",
   "deviceType": "ANDROID"
  }
 ```
@@ -114,7 +117,7 @@
 
 ### PUT `/api/notifications/settings`
 
-알림 수신 설정
+알림 수신 설정 (`priceAlert` ↔ `notify_unfilled`(미체결) 컬럼 매핑)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
