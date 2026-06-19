@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.notification.mapper.NotificationMapper">
+
+    <insert id="insert">
+        INSERT INTO notifications (user_id, type, title, body)
+        VALUES (#{userId}, #{type}, #{title}, #{body})
+    </insert>
+
+    <select id="findByUser" resultType="com.pocketstock.core.notification.dto.NotificationRow">
+        SELECT id,
+               type,
+               title,
+               body,
+               is_read    AS `read`,
+               created_at AS createdAt
+        FROM notifications
+        WHERE user_id = #{userId}
+        <if test="read != null">
+            AND is_read = #{read}
+        </if>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countByUser" resultType="long">
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE user_id = #{userId}
+        <if test="read != null">
+            AND is_read = #{read}
+        </if>
+    </select>
+
+    <select id="countUnread" resultType="long">
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE user_id = #{userId}
+          AND is_read = FALSE
+    </select>
+
+    <update id="markRead">
+        UPDATE notifications
+        SET is_read = TRUE
+        WHERE id      = #{id}
+          AND user_id = #{userId}
+          AND is_read = FALSE
+    </update>
+
+    <select id="existsByIdAndUser" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM notifications
+            WHERE id      = #{id}
+              AND user_id = #{userId}
+        )
+    </select>
+
+    <update id="markAllRead">
+        UPDATE notifications
+        SET is_read = TRUE
+        WHERE user_id = #{userId}
+          AND is_read = FALSE
+    </update>
+
+</mapper>

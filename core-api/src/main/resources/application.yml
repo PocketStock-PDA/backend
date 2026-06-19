@@ -35,6 +35,13 @@ jwt:
   validity-ms: 1800000          # access token 30분
   refresh-validity-ms: 1209600000  # refresh token 14일
 
+# 웹푸시(VAPID) — 공개키는 프론트와 동일 값 공유(NEXT_PUBLIC_VAPID_PUBLIC_KEY)
+webpush:
+  vapid:
+    public-key: BGxo3FXXkwRcGcvyDI8--Vbu4UmVD14FQlUOkvDx3LS3RNKYMA-B8AvU2PK_2qEnSP_rYK0zC_TnVk51w9yv8Kc
+    private-key: ${VAPID_PRIVATE_KEY}   # 비밀(기본값 없음) — 운영 env 주입, local은 application-local.yml
+    subject: ${VAPID_SUBJECT:mailto:admin@pocketstock.app}
+
 management:
   endpoints:
     web:

@@ -11,6 +11,8 @@ import com.pocketstock.core.budget.dto.CalendarResponse;
 import com.pocketstock.core.budget.dto.CategorySpendingRow;
 import com.pocketstock.core.budget.dto.DailySpendingRow;
 import com.pocketstock.core.budget.mapper.BudgetGoalMapper;
+import com.pocketstock.core.notification.NotificationService;
+import com.pocketstock.core.notification.NotificationType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,7 @@ public class BudgetGoalService {
     private static final DateTimeFormatter PERIOD_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
 
     private final BudgetGoalMapper budgetGoalMapper;
+    private final NotificationService notificationService;
 
     @Transactional
     public AutoBudgetGoalResponse setAutoGoals(Long userId) {
@@ -57,6 +60,9 @@ public class BudgetGoalService {
         categories.forEach(item ->
                 budgetGoalMapper.upsertCategoryGoal(userId, currentPeriod, item.category(), item.budget()));
 
+        notificationService.create(userId, NotificationType.GOAL_NUDGE,
+                "목표 설정 완료", "이번 달 가계부 목표가 자동 설정되었어요.");
+
         return new AutoBudgetGoalResponse(monthlyBudget, categories);
     }
 
@@ -72,6 +78,9 @@ public class BudgetGoalService {
 
         categories.forEach(item ->
                 budgetGoalMapper.upsertCategoryGoal(userId, currentPeriod, item.category(), item.budget()));
+
+        notificationService.create(userId, NotificationType.GOAL_NUDGE,
+                "목표 설정 완료", "이번 달 가계부 목표가 설정되었어요.");
 
         return new AutoBudgetGoalResponse(monthlyBudget, categories);
     }

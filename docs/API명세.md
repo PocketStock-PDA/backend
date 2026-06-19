@@ -31,7 +31,6 @@
 | 회원·인증 | 신한인증서 인증확인 | POST | `/api/auth/shinhan-cert/verify` |  | A·우정인 |  |
 | 회원·인증 | ID/PW 로그인(JWT 발급) | POST | `/api/auth/login` |  | A·우정인 | ✅ |
 | 회원·인증 | PIN/패턴 간편 로그인 | POST | `/api/auth/login/pin` |  | A·우정인 | ✅ |
-| 회원·인증 | 신한 SSO 로그인(슈퍼SOL 진입) | POST | `/api/auth/login/sso` |  | A·우정인 |  |
 | 회원·인증 | 토큰 재발급(Refresh) | POST | `/api/auth/refresh` |  | A·우정인 | ✅ |
 | 회원·인증 | 로그아웃 | POST | `/api/auth/logout` |  | A·우정인 | ✅ |
 | 회원·인증 | 아이디 찾기 | POST | `/api/users/find-username` |  | A·우정인 | ✅ |
@@ -67,6 +66,7 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
+| 계좌 | CMA 계좌 개설(서비스 진입 게이트, 멱등) | POST | `/api/cma/account` |  | C·강문군 | ✅ |
 | 홈 | 홈 대시보드(CMA잔액+수집가능 잔돈) | GET | `/api/cma/home` |  | C·강문군 | ✅ |
 | 잔돈수집 | 잔돈 모으기 실행(통합) | POST | `/api/cma/collect` |  | C·강문군 |  |
 | 잔돈수집 | 계좌 끝전 적립 | POST | `/api/cma/collect/account` |  | C·강문군 |  |
@@ -84,7 +84,7 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 증권계좌 | 증권계좌 개설(국내·해외 위탁) | POST | `/api/trading/accounts` |  | B·김준형 | ✅ |
+| 증권계좌 | 종합계좌 개설(국내·해외 위탁) — CMA는 `/api/cma/account` 별도 | POST | `/api/trading/accounts` |  | B·김준형 | ✅ |
 | 증권계좌 | 계좌 상태 조회 | GET | `/api/trading/accounts` |  | B·김준형 | ✅ |
 | 증권계좌 | 예수금/출금가능금액 조회 | GET | `/api/trading/deposit` |  | B·김준형 | ✅ |
 | 시세 | 종목 카테고리 탐색(40대 여성 상위 등) | GET | `/api/trading/stocks/categories` |  | B·김준형 |  |
@@ -118,6 +118,8 @@
 | 웰컴보상 | 웰컴보상 후보 종목 조회(국내 거래대금 1·2위 + 해외 1·2위) | GET | `/api/trading/rewards/welcome/candidates` |  | B·김준형 | ✅ |
 | 웰컴보상 | 웰컴보상 종목 선택·지급(1,000원어치 소수점) | POST | `/api/trading/rewards/welcome` |  | B·김준형 | ✅ |
 | 웰컴보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 | ✅ |
+| 증권캘린더 | 보유 종목 증권 캘린더(월별 일정) 조회 | GET | `/api/trading/calendar` |  | D·김서현 |  |
+| 증권캘린더 | 보유 종목 주요일정(배당·실적) 조회 | GET | `/api/trading/calendar/events` |  | D·김서현 |  |
 
 > 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
 >
@@ -126,20 +128,13 @@
 > - 해외: `해외주식-044`(HHDFS76320010, `/uapi/overseas-stock/v1/ranking/trade-pbmn`), 거래대금값 `tamt`.
 > - 선택 시 `POST rewards/welcome`으로 1종목 1,000원어치 소수점 지급.
 
-## Portfolio
+## Recommendations
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 자산리밸런싱 | 종합 자산 분석(자산구성) | GET | `/api/portfolio/rebalancing/analysis` |  | D·김서현 |  |
-| 자산리밸런싱 | 순자산(자산-부채) 조회 | GET | `/api/portfolio/rebalancing/networth` |  | D·김서현 |  |
-| 자산리밸런싱 | 또래(연령·성별) 비중 비교 | GET | `/api/portfolio/rebalancing/peer` |  | D·김서현 |  |
-| 자산리밸런싱 | 원클릭 리밸런싱 실행 | POST | `/api/portfolio/rebalancing/execute` |  | D·김서현 |  |
-| 자산리밸런싱 | 예/적금 갈아타기 추천 | GET | `/api/portfolio/rebalancing/products` |  | D·김서현 |  |
-| 자산리밸런싱 | ISA 계좌 가입 안내 | GET | `/api/portfolio/rebalancing/isa` |  | D·김서현 |  |
-| 증권캘린더 | 증권 캘린더(월별 일정) 조회 | GET | `/api/portfolio/calendar` |  | D·김서현 |  |
-| 증권캘린더 | 종목 주요일정(배당·실적) 조회 | GET | `/api/portfolio/calendar/events` |  | D·김서현 |  |
-| 증권캘린더 | 캘린더 추천 종목 | GET | `/api/portfolio/calendar/recommendations` |  | D·김서현 |  |
-| 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/portfolio/cards/recommendations` |  | D·김서현 |  |
+| 종목추천 | 추천 종목 조회(또래·소비섹터·만기, type 쿼리로 필터) | GET | `/api/recommendations` |  | D·김서현 |  |
+| 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/recommendations/maturity` |  | D·김서현 |  |
+| 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/recommendations/cards` |  | D·김서현 |  |
 
 ## Budget
 
