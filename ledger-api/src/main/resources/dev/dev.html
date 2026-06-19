@@ -70,6 +70,17 @@
 </fieldset>
 
 <fieldset>
+  <legend>4-1) 웰컴 보상 (welcome) — 국내 거래대금 1·2위 + 해외 1·2위</legend>
+  <button onclick="openAccounts()">계좌개설(국내+해외)</button>
+  <span id="acctState" class="muted">계좌 미개설</span>
+  <hr/>
+  <button onclick="loadWelcomeCandidates()">후보 조회</button>
+  <button onclick="loadWelcomeHistory()">지급 내역</button>
+  <div id="welcomeView"></div>
+  <pre id="welcomeRaw" class="muted">결과 raw JSON</pre>
+</fieldset>
+
+<fieldset>
   <legend>5) 실시간 호가 (WebSocket / STOMP · UH1)</legend>
   <button onclick="wsConnect()">연결</button>
   <button onclick="wsDisconnect()">연결 해제</button>
@@ -307,6 +318,56 @@ async function loadOrders() {
     `<tr><td>${x.orderId}</td><td>${x.stockCode}</td><td>${x.side}</td><td>${x.orderType}</td><td>${won(x.quantity)}</td><td>${won(x.price)}</td><td>${x.status}</td></tr>`).join('');
   document.getElementById('portView').innerHTML =
     `<table><tr><th>#</th><th>종목</th><th>side</th><th>type</th><th>수량</th><th>가격</th><th>상태</th></tr>${rows || '<tr><td colspan="7" class="muted">내역 없음</td></tr>'}</table>`;
+}
+
+// ---- 4-1) 웰컴 보상 ----
+async function openAccounts() {
+  const h = await authHeaders();
+  const res = await fetch('/api/trading/accounts', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountTypes: ['DOMESTIC', 'OVERSEAS'] })
+  });
+  const b = await res.json();
+  document.getElementById('acctState').textContent = b.success ? '개설 완료(국내+해외)' : ('실패: ' + b.message);
+}
+
+async function loadWelcomeCandidates() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/rewards/welcome/candidates', { headers: h })).json();
+  document.getElementById('welcomeRaw').textContent = JSON.stringify(b, null, 2);
+  const view = document.getElementById('welcomeView');
+  if (!b.success) { view.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.market}</td><td>${x.stockCode}</td><td>${x.stockName}</td><td>${x.exchange}</td><td>${won(x.tradeAmount)}</td><td>${x.rank}</td>`
+    + `<td><button onclick="claimWelcome('${x.stockCode}')">이거 받기</button></td></tr>`).join('');
+  view.innerHTML = `<table><tr><th>시장</th><th>코드</th><th>종목</th><th>거래소</th><th>거래대금</th><th>순위</th><th></th></tr>`
+    + `${rows || '<tr><td colspan="7" class="muted">후보 없음</td></tr>'}</table>`;
+}
+
+async function claimWelcome(stockCode) {
+  const h = await authHeaders();
+  const res = await fetch('/api/trading/rewards/welcome', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify({ stockCode })
+  });
+  const b = await res.json();
+  document.getElementById('welcomeRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('welcomeView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const d = b.data;
+  v.innerHTML = `<p class="up">지급 완료: ${d.stockName}(${d.stockCode}) ${d.quantity} @ ${won(d.grantPrice)} ${d.currency} · 예산 ${won(d.budgetKrw)}원</p>`;
+  loadHoldings();
+}
+
+async function loadWelcomeHistory() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/rewards', { headers: h })).json();
+  document.getElementById('welcomeRaw').textContent = JSON.stringify(b, null, 2);
+  const view = document.getElementById('welcomeView');
+  if (!b.success) { view.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.market}</td><td>${x.stockCode}</td><td>${x.stockName}</td><td>${won(x.quantity)}</td><td>${won(x.grantPrice)} ${x.currency}</td><td>${x.grantedAt || ''}</td></tr>`).join('');
+  view.innerHTML = `<table><tr><th>시장</th><th>코드</th><th>종목</th><th>수량</th><th>지급가</th><th>시각</th></tr>`
+    + `${rows || '<tr><td colspan="6" class="muted">내역 없음</td></tr>'}</table>`;
 }
 
 // ---- 5) 실시간 호가 (STOMP over native WebSocket) ----

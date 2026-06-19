@@ -115,12 +115,18 @@
 | 정기적립식 | 자동모으기 종목 추가 | POST | `/api/trading/auto-invest/stocks` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 종합 설정 조회 | GET | `/api/trading/auto-invest` |  | B·김준형 |  |
 | 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | B·김준형 |  |
-| 보상 | 가입보상 종목 선택·지급 | POST | `/api/trading/rewards/signup` |  | B·김준형 |  |
-| 보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 |  |
+| 웰컴보상 | 웰컴보상 후보 종목 조회(국내 거래대금 1·2위 + 해외 1·2위) | GET | `/api/trading/rewards/welcome/candidates` |  | B·김준형 | ✅ |
+| 웰컴보상 | 웰컴보상 종목 선택·지급(1,000원어치 소수점) | POST | `/api/trading/rewards/welcome` |  | B·김준형 | ✅ |
+| 웰컴보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 | ✅ |
 | 증권캘린더 | 보유 종목 증권 캘린더(월별 일정) 조회 | GET | `/api/trading/calendar` |  | D·김서현 |  |
 | 증권캘린더 | 보유 종목 주요일정(배당·실적) 조회 | GET | `/api/trading/calendar/events` |  | D·김서현 |  |
 
 > 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
+>
+> 참고: 웰컴보상 후보(`rewards/welcome/candidates`)는 국내 거래대금순위 1·2위 + 해외 거래대금순위 1·2위 = 4종목. 둘 다 KIS(모의 미지원 → 실전 토큰 필요). 온보딩(계좌개설+연동) 완료 후 1인 1회, 선택 종목에 1,000원어치 소수점 무상 지급(예수금 차감 없음, 해외는 매매기준율로 KRW→USD 환산).
+> - 국내: 거래량순위 `국내주식-047`(FHPST01710000, `/uapi/domestic-stock/v1/quotations/volume-rank`), `FID_BLNG_CLS_CODE=3`(거래금액순), 거래대금값 `acml_tr_pbmn`.
+> - 해외: `해외주식-044`(HHDFS76320010, `/uapi/overseas-stock/v1/ranking/trade-pbmn`), 거래대금값 `tamt`.
+> - 선택 시 `POST rewards/welcome`으로 1종목 1,000원어치 소수점 지급.
 
 ## Recommendations
 
