@@ -86,13 +86,13 @@
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **거래 인증**: 본문 비밀번호 대신 사전 거래 세션(txn-auth)으로 처리. 호출 전 `POST /api/users/account-password/verify`로 인증해야 하며, 미인증 시 401 `TXN_AUTH_REQUIRED`.
 
 **Request Body**
 
 ```json
 {
-  "krwAmount": 100000,
-  "accountPassword": "1234"
+  "krwAmount": 100000
  }
 ```
 
@@ -121,13 +121,13 @@
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **거래 인증**: 본문 비밀번호 대신 사전 거래 세션(txn-auth)으로 처리. 호출 전 `POST /api/users/account-password/verify`로 인증해야 하며, 미인증 시 401 `TXN_AUTH_REQUIRED`.
 
 **Request Body**
 
 ```json
 {
-  "usdAmount": 50.00,
-  "accountPassword": "1234"
+  "usdAmount": 50.00
  }
 ```
 

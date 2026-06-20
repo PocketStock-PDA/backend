@@ -490,16 +490,18 @@ PIN/패턴 설정
 
 ### POST `/api/users/account-password/verify`
 
-거래 인증 (계좌비번 검증, 30분 유지)
+거래 인증 (계좌비번 검증). 거래(환전·CMA 등)는 이 인증으로 통과시키며, 매 거래마다 비번을 받지 않는다.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **keepAuth("비밀번호 유지" 토글)**: `true`면 검증 성공을 **30분 거래 세션**으로 기억해 이후 거래는 비번 스킵. `false`면 이번 1회만 통과하고 세션을 남기지 않음(`expiresAt == verifiedAt`).
 
 **Request Body**
 
 ```json
 {
-  "accountPassword": "1234"
+  "accountPassword": "1234",
+  "keepAuth": true
  }
 ```
 
