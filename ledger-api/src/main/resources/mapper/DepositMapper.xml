@@ -3,20 +3,24 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.pocketstock.ledger.trading.mapper.DepositMapper">
 
-    <select id="findLatestKrwBalance" resultType="java.math.BigDecimal">
-        SELECT balance_after
-        FROM deposit_transactions
-        WHERE user_id = #{userId} AND currency = 'KRW'
-        ORDER BY id DESC
-        LIMIT 1
-    </select>
+    <insert id="insertBalance">
+        INSERT INTO account_balances (account_id, currency, balance)
+        VALUES (#{accountId}, #{currency}, 0)
+    </insert>
 
-    <select id="findLatestBalance" resultType="java.math.BigDecimal">
-        SELECT balance_after
-        FROM deposit_transactions
-        WHERE user_id = #{userId} AND currency = #{currency}
-        ORDER BY id DESC
-        LIMIT 1
+    <!-- 잔액 원자 갱신: balance += delta. 출금(delta<0) 시 balance+delta>=0 가드로 음수 차단.
+         조건부 UPDATE의 행 잠금이 lost update(#77)·음수 예수금(#78)을 한 패턴으로 막음. -->
+    <update id="applyBalanceDelta">
+        UPDATE account_balances
+        SET balance = balance + #{delta}
+        WHERE account_id = #{accountId}
+          AND balance + #{delta} &gt;= 0
+    </update>
+
+    <select id="findBalanceByAccount" resultType="java.math.BigDecimal">
+        SELECT balance
+        FROM account_balances
+        WHERE account_id = #{accountId}
     </select>
 
     <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.DepositTransaction"
