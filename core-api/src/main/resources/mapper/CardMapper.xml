@@ -21,6 +21,12 @@
                provider, annual_fee_domestic AS annualFeeDomestic
         FROM cards
         WHERE is_active = true
+          AND id NOT IN (
+              SELECT card_master_id
+              FROM linked_cards
+              WHERE user_id = #{userId}
+                AND card_master_id IS NOT NULL
+          )
     </select>
 
     <select id="findAllBenefits" resultType="com.pocketstock.core.recommendations.card.dto.CardBenefitRow">
