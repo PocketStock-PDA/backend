@@ -48,9 +48,15 @@ public class BankVerificationService {
         redis.opsForHash().put(key, BankVerification.FIELD_ATTEMPTS, "0");
         redis.expire(key, BankVerification.TTL);
 
-        sendMockDepositPush(userId, code);
-        // 로컬 디버깅 fallback(목 데이터·DEBUG 전용). 운영에선 com.pocketstock 로그레벨로 차단.
-        log.debug("[1원인증] 목 코드 발송 userId={} accountId={} code={}", userId, accountId, code);
+        // 알림(푸시) 실패가 요청을 막지 않게 한다(best-effort). 챌린지는 이미 Redis에 저장됨 →
+        // 알림함 INSERT 등에서 예외가 나도 사용자는 재요청 없이 코드만 다시 받으면 된다.
+        try {
+            sendMockDepositPush(userId, code);
+        } catch (RuntimeException e) {
+            log.warn("[1원인증] 목 코드 알림 발송 실패(userId={} accountId={}): {}", userId, accountId, e.getMessage());
+        }
+        // 코드 자체는 로그에 남기지 않는다(유출 방지). 로컬 검증은 푸시/알림함으로 확인.
+        log.debug("[1원인증] 목 코드 발송 userId={} accountId={}", userId, accountId);
 
         return new VerificationRequestResponse(
                 accountId,
@@ -76,8 +82,9 @@ public class BankVerificationService {
 
         if (!stored.toString().equals(inputCode)) {
             long attempts = redis.opsForHash().increment(key, BankVerification.FIELD_ATTEMPTS, 1);
+            // MAX_ATTEMPTS번째 오답에서 잠금(정답은 increment 전 일치 분기로 통과하므로 시도 손실 없음).
             if (attempts >= BankVerification.MAX_ATTEMPTS) {
-                redis.delete(key);   // 한도 초과 → 챌린지 폐기(재요청 필요)
+                redis.delete(key);   // 챌린지 폐기 → 재요청 필요
                 throw new BusinessException(ErrorCode.VERIFICATION_ATTEMPTS_EXCEEDED);
             }
             throw new BusinessException(ErrorCode.VERIFICATION_CODE_MISMATCH);
