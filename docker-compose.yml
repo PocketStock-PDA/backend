@@ -14,6 +14,7 @@ services:
     volumes:
       - ./scripts/mysql-a-init.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./scripts/stock-master/cards_seed.sql:/docker-entrypoint-initdb.d/02-cards-seed.sql
+      - ./scripts/stock-master/dividend_stocks_seed.sql:/docker-entrypoint-initdb.d/02b-dividend-seed.sql
       - ./scripts/mysql-a-persona-seed.sql:/docker-entrypoint-initdb.d/03-persona-seed.sql
       - mysql-a-data:/var/lib/mysql
 
