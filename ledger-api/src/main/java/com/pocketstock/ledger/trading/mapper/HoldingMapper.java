@@ -9,16 +9,25 @@ import java.util.List;
 @Mapper
 public interface HoldingMapper {
 
-    /** 계좌+종목 보유 1건 (없으면 null) */
-    Holding findByAccountAndStock(@Param("accountId") Long accountId, @Param("stockCode") String stockCode);
+    /**
+     * 매수/적립 — 보유 원자 upsert. 신규면 INSERT, 기존이면 수량 누적 + 평단 가중평균을 한 문장으로.
+     * 읽기 없이 원자 갱신이라 동시 매수 lost update·첫 매수 경합(unique)까지 차단.
+     */
+    int upsertBuy(@Param("userId") Long userId,
+                  @Param("accountId") Long accountId,
+                  @Param("stockCode") String stockCode,
+                  @Param("qty") java.math.BigDecimal qty,
+                  @Param("price") java.math.BigDecimal price,
+                  @Param("krwAmount") java.math.BigDecimal krwAmount,
+                  @Param("currency") String currency);
 
-    /** 신규 보유 INSERT */
-    int insert(Holding holding);
-
-    /** 보유 수량·평단 갱신 */
-    int updateQuantityAndAvg(@Param("id") Long id,
-                             @Param("quantity") java.math.BigDecimal quantity,
-                             @Param("avgBuyPrice") java.math.BigDecimal avgBuyPrice);
+    /**
+     * 매도 — 보유 수량 원자 차감 + 음수 가드. 평단은 유지.
+     * @return 갱신 행 수(0이면 보유 부족 또는 보유 없음)
+     */
+    int reduceForSell(@Param("accountId") Long accountId,
+                      @Param("stockCode") String stockCode,
+                      @Param("qty") java.math.BigDecimal qty);
 
     /** 유저 보유종목 전체(수량>0) */
     List<Holding> findByUserId(@Param("userId") Long userId);
