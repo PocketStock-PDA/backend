@@ -285,7 +285,11 @@ CMA 잔액·성과율 (원화RP/외화RP) 조회
 
 ### GET `/api/cma/transactions`
 
-CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | BANK_IN | SAVINGS | DORMANT | SELL_RETURN | INTEREST | FX_IN | FX_OUT | BUY_TRANSFER | REVERT, 선택), from (date, 선택), to (date, 선택), page (number, 선택, 기본값 0), size (number, 선택, 기본값 20, 최대 100)
+CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | DEPOSIT | BANK_IN | SAVINGS | DORMANT | SELL_RETURN | INTEREST | FX_IN | FX_OUT | BUY_TRANSFER | REVERT, 선택), from (date, 선택), to (date, 선택), page (number, 선택, 기본값 0), size (number, 선택, 기본값 20, 최대 100)
+
+> **거래종류(`txType`) — 자금 성격.** 입금(+): `DEPOSIT`(사용자 수동 입금·초기 충전), `COLLECT`(잔돈 수집), `BANK_IN`(연동 은행계좌발 자동 입금), `SAVINGS`(적금 수집), `DORMANT`(휴면계좌 수집), `SELL_RETURN`(매도대금 환원), `INTEREST`(이자), `FX_IN`(환전 인입) / 출금(−): `BUY_TRANSFER`(매수 이체), `FX_OUT`(환전 출금) / 정정: `REVERT`
+> **출처(`sourceType`) — 거래 출처(모든 행).** 수집: `ACCOUNT`(끝전)·`CARD`(라운드업)·`POINT` / 그 외: `MANUAL`(수동)·`SYSTEM`(이자 등 시스템).
+> `txType`은 자금 성격, `sourceType`은 출처를 뜻한다. 예) 초기 수동 충전 = `txType=DEPOSIT, sourceType=MANUAL`, 은행 자동 입금 = `txType=BANK_IN, sourceType=ACCOUNT`.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
