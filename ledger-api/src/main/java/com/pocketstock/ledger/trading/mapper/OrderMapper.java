@@ -12,6 +12,9 @@ public interface OrderMapper {
     /** 주문 INSERT (useGeneratedKeys → id 채움) */
     int insert(Order order);
 
+    /** 멱등키(client_order_id)로 기존 주문 조회 — 재요청 단락용. 없으면 null. */
+    Order findByClientOrderId(@Param("clientOrderId") String clientOrderId);
+
     /** 주문 상태·체결가 갱신 (RECEIVED → FILLED) */
     int updateFill(@Param("id") Long id, @Param("status") String status, @Param("price") java.math.BigDecimal price);
 
