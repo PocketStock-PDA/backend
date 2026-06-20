@@ -46,4 +46,11 @@
         ORDER BY id DESC
     </select>
 
+    <select id="findByClientOrderId" resultMap="order">
+        SELECT id, client_order_id, user_id, account_id, stock_code, exchange, side, order_type,
+               order_quantity, price, status, source, currency, requested_at, created_at, updated_at
+        FROM orders
+        WHERE client_order_id = #{clientOrderId}
+    </select>
+
 </mapper>
