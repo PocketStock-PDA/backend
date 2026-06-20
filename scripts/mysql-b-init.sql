@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS holdings (
   account_id BIGINT NOT NULL,
   stock_code VARCHAR(20) NOT NULL,
   quantity DECIMAL(18,6) DEFAULT 0,
-  avg_buy_price DECIMAL(18,4) DEFAULT 0,
+  avg_buy_price DECIMAL(18,4) DEFAULT 0,    -- 종목 통화 기준 평단(국내 KRW / 해외 USD)
+  krw_cost_basis DECIMAL(18,4) DEFAULT 0,   -- 원화 누적 취득원가(매수 시 체결환율로 환산). 평균매입환율·환차손익 파생용. 국내는 = quantity*avg_buy_price
   currency VARCHAR(3),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

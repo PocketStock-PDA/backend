@@ -18,6 +18,7 @@ public interface HoldingMapper {
                   @Param("stockCode") String stockCode,
                   @Param("qty") java.math.BigDecimal qty,
                   @Param("price") java.math.BigDecimal price,
+                  @Param("krwAmount") java.math.BigDecimal krwAmount,
                   @Param("currency") String currency);
 
     /**

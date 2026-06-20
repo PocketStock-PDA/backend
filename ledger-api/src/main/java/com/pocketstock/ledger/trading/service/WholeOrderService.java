@@ -2,6 +2,8 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
+import com.pocketstock.ledger.exchange.CurrencyRateCache;
+import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.kis.KisAskingPriceResponse;
 import com.pocketstock.ledger.kis.KisMarketClient;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
@@ -55,6 +57,7 @@ public class WholeOrderService {
     private final DepositService depositService;
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
+    private final CurrencyRateCache currencyRateCache;
 
     /** 온주 매수/매도 — 검증 → 주문기록 → 자체 시뮬 체결 → holdings·예수금 반영. */
     @Transactional
@@ -123,7 +126,9 @@ public class WholeOrderService {
             // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
             balanceAfter = depositService.record(userId, account.getId(), "BUY",
                     totalAmount.negate(), currency, "order", order.getId());
-            applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, currency);
+            // 원화 취득원가 = 국내는 체결금액 그대로, 해외는 체결 시점 실시간 환율로 환산.
+            BigDecimal krwAmount = overseas ? totalAmount.multiply(fxRateForKrwBasis()) : totalAmount;
+            applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, krwAmount, currency);
         } else {
             applySell(account.getId(), req.stockCode(), quantity);
             balanceAfter = depositService.record(userId, account.getId(), "SELL",
@@ -188,10 +193,19 @@ public class WholeOrderService {
         return best;
     }
 
-    /** 매수 — 보유 원자 upsert(수량 누적 + 평단 가중평균). 동시 매수 lost update 차단. */
+    /** 매수 — 보유 원자 upsert(수량 누적 + 평단 가중평균 + 원화원가 누적). 동시 매수 lost update 차단. */
     private void applyBuy(Long userId, Long accountId, String stockCode, BigDecimal qty, BigDecimal fillPrice,
-                          String currency) {
-        holdingMapper.upsertBuy(userId, accountId, stockCode, qty, fillPrice, currency);
+                          BigDecimal krwAmount, String currency) {
+        holdingMapper.upsertBuy(userId, accountId, stockCode, qty, fillPrice, krwAmount, currency);
+    }
+
+    /** 해외 매수 원화원가 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 콜드스타트(틱 미수신)면 502. */
+    private BigDecimal fxRateForKrwBasis() {
+        CurrencyRateResponse rate = currencyRateCache.get();
+        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
+        }
+        return rate.exchangeRate();
     }
 
     /** 매도 — 보유 수량 원자 차감(음수 가드). 전량매도 시 quantity=0으로 row 보존. */
