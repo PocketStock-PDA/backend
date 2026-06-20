@@ -31,20 +31,28 @@ public class TxnAuthGuard {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "로그인이 필요합니다.");
         }
 
-        String value;
+        String key = TxnAuth.key(userId);
+        boolean authorized;
         try {
-            value = redis.opsForValue().get(TxnAuth.key(userId));
+            String value = redis.opsForValue().get(key);
+            if (value == null) {
+                authorized = false;
+            } else if (TxnAuth.VALUE_ONCE.equals(value)) {
+                // 1회용: 원자적 읽기+삭제로 소비. 동시 요청이 같은 토큰을 읽어도 getAndDelete가
+                // non-null을 돌려준 스레드 하나만 통과(get→delete 사이 TOCTOU 경합 방지).
+                authorized = redis.opsForValue().getAndDelete(key) != null;
+            } else {
+                // VALUE_KEEP: 유지 세션 → 소비하지 않음(TTL 동안 여러 거래 통과).
+                authorized = true;
+            }
         } catch (RuntimeException e) {
             // Redis 장애 → 인증 확인 불가. 비의도 500 대신 명시적 서버 오류로 응답 계약 고정.
             // (TXN_AUTH_REQUIRED로 바꾸면 재인증을 유도하나 그 역시 Redis라 오인 유발 → 사용 안 함)
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "거래 인증 확인에 실패했습니다.");
         }
 
-        if (value == null) {
+        if (!authorized) {
             throw new BusinessException(ErrorCode.TXN_AUTH_REQUIRED);
-        }
-        if (TxnAuth.VALUE_ONCE.equals(value)) {
-            redis.delete(TxnAuth.key(userId));   // 1회 소비
         }
     }
 }
