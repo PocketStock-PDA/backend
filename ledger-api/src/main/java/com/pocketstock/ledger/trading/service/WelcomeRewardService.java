@@ -5,7 +5,6 @@ import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateCache;
 import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.kis.KisRankingClient;
-import com.pocketstock.ledger.trading.domain.Holding;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.domain.WelcomeReward;
@@ -213,25 +212,10 @@ public class WelcomeRewardService {
     }
 
     /** 보유 적립 — 기존 있으면 수량 합산·가중평균, 없으면 신규. */
+    /** 보상 적립 — 매수와 동일한 보유 원자 upsert(수량 누적 + 평단 가중평균). 동시성 안전. */
     private void upsertHolding(Long userId, Long accountId, String stockCode, String currency,
                               BigDecimal quantity, BigDecimal grantPrice) {
-        Holding existing = holdingMapper.findByAccountAndStock(accountId, stockCode);
-        if (existing == null) {
-            holdingMapper.insert(Holding.builder()
-                    .userId(userId)
-                    .accountId(accountId)
-                    .stockCode(stockCode)
-                    .quantity(quantity)
-                    .avgBuyPrice(grantPrice)
-                    .currency(currency)
-                    .build());
-            return;
-        }
-        BigDecimal totalQty = existing.getQuantity().add(quantity);
-        BigDecimal newAvg = existing.getQuantity().multiply(existing.getAvgBuyPrice())
-                .add(quantity.multiply(grantPrice))
-                .divide(totalQty, PRICE_SCALE, RoundingMode.HALF_UP);
-        holdingMapper.updateQuantityAndAvg(existing.getId(), totalQty, newAvg);
+        holdingMapper.upsertBuy(userId, accountId, stockCode, quantity, grantPrice, currency);
     }
 
     private static BigDecimal parseAmount(String raw) {
