@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS cma_transactions (
   source_type VARCHAR(20) NULL,
   amount DECIMAL(18,4) NOT NULL,
   balance_after DECIMAL(18,4),
-  ref_type VARCHAR(20) NULL,
-  ref_id BIGINT NULL,
+  ref_type VARCHAR(20) NULL,   -- 출처 대상 테이블: LINKED_BANK_ACCOUNT/LINKED_CARD/LINKED_POINT(collect) · FX_TX(환전) · NULL(DEPOSIT/INTEREST 등). 관례 기반(CHECK 없음)
+  ref_id BIGINT NULL,          -- ref_type 테이블의 PK. 타입 내 다출처 합산 시 NULL (E-1)
   idempotency_key VARCHAR(80) UNIQUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_cmt_user (user_id), INDEX idx_cmt_acc (cma_account_id)
