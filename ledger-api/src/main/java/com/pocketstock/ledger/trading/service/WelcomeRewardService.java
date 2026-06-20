@@ -143,7 +143,9 @@ public class WelcomeRewardService {
         }
         BigDecimal grantPrice = price.setScale(PRICE_SCALE, RoundingMode.HALF_UP);
 
-        upsertHolding(userId, account.getId(), stockCode, currency, quantity, grantPrice);
+        // 무상 지급 주식의 원화 취득원가 = 지급 예산(원). 국내·해외 공통.
+        upsertHolding(userId, account.getId(), stockCode, currency, quantity, grantPrice,
+                BigDecimal.valueOf(BUDGET_KRW));
 
         LocalDateTime now = LocalDateTime.now();
         WelcomeReward reward = WelcomeReward.builder()
@@ -212,10 +214,10 @@ public class WelcomeRewardService {
     }
 
     /** 보유 적립 — 기존 있으면 수량 합산·가중평균, 없으면 신규. */
-    /** 보상 적립 — 매수와 동일한 보유 원자 upsert(수량 누적 + 평단 가중평균). 동시성 안전. */
+    /** 보상 적립 — 매수와 동일한 보유 원자 upsert(수량·평단·원화원가). 동시성 안전. */
     private void upsertHolding(Long userId, Long accountId, String stockCode, String currency,
-                              BigDecimal quantity, BigDecimal grantPrice) {
-        holdingMapper.upsertBuy(userId, accountId, stockCode, quantity, grantPrice, currency);
+                              BigDecimal quantity, BigDecimal grantPrice, BigDecimal krwAmount) {
+        holdingMapper.upsertBuy(userId, accountId, stockCode, quantity, grantPrice, krwAmount, currency);
     }
 
     private static BigDecimal parseAmount(String raw) {
