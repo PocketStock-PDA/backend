@@ -494,7 +494,7 @@ PIN/패턴 설정
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-- **keepAuth("비밀번호 유지" 토글)**: `true`면 검증 성공을 **30분 거래 세션**으로 기억해 이후 거래는 비번 스킵. `false`면 이번 1회만 통과하고 세션을 남기지 않음(`expiresAt == verifiedAt`).
+- **keepAuth("비밀번호 유지" 토글)**: `true`면 검증 성공을 **30분 거래 세션**으로 기억해 이후 거래는 비번 스킵. `false`면 직후 **거래 1건만** 통과하고 소비됨(다음 거래는 재인증; `expiresAt`는 5분 유효창).
 
 **Request Body**
 

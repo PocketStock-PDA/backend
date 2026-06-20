@@ -21,13 +21,30 @@ public class TxnAuthGuard {
 
     private final StringRedisTemplate redis;
 
-    /** 거래 인증 필요 — 미인증(키 없음/만료) 시 {@code TXN_AUTH_REQUIRED}. */
+    /**
+     * 거래 인증 필요 — 미인증(키 없음/만료) 시 {@code TXN_AUTH_REQUIRED}.
+     * 1회용({@link TxnAuth#VALUE_ONCE})은 통과 즉시 소비(삭제)해 다음 거래에서 다시 인증하게 한다.
+     * 유지 세션({@link TxnAuth#VALUE_KEEP})은 소비하지 않아 TTL 동안 여러 거래가 통과한다.
+     */
     public void requireTxnAuth(Long userId) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "로그인이 필요합니다.");
         }
-        if (!Boolean.TRUE.equals(redis.hasKey(TxnAuth.key(userId)))) {
+
+        String value;
+        try {
+            value = redis.opsForValue().get(TxnAuth.key(userId));
+        } catch (RuntimeException e) {
+            // Redis 장애 → 인증 확인 불가. 비의도 500 대신 명시적 서버 오류로 응답 계약 고정.
+            // (TXN_AUTH_REQUIRED로 바꾸면 재인증을 유도하나 그 역시 Redis라 오인 유발 → 사용 안 함)
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "거래 인증 확인에 실패했습니다.");
+        }
+
+        if (value == null) {
             throw new BusinessException(ErrorCode.TXN_AUTH_REQUIRED);
+        }
+        if (TxnAuth.VALUE_ONCE.equals(value)) {
+            redis.delete(TxnAuth.key(userId));   // 1회 소비
         }
     }
 }
