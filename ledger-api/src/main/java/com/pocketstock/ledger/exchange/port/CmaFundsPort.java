@@ -13,13 +13,11 @@ import java.math.BigDecimal;
  * {@code cma_transactions}(FX_OUT/FX_IN, ref_type='FX_TX', ref_id=fxTransactionId) 적재 +
  * {@code cma_balances} 갱신 + append-only/멱등 등 원장 규칙은 CMA가 소유한다.
  * 실 어댑터가 빈으로 등록되기 전까진 {@link DevCmaFundsAdapter}(로컬 테스트용 스텁)가 대신한다.
+ *
+ * <p>계좌 비밀번호(거래 인증)는 이 포트의 책임이 아니다 — 호출자(체결 서비스)가 거래 전
+ * 공용 거래 인증 가드({@code TxnAuthGuard}, 30분 txn-auth 세션)로 처리한다.
  */
 public interface CmaFundsPort {
-
-    /**
-     * 계좌 비밀번호 검증 — 불일치 시 예외. 계좌/CMA 소관이라 포트로 위임.
-     */
-    void verifyAccountPassword(Long userId, String accountPassword);
 
     /**
      * 환전 양다리 — {@code fromCurrency} 풀에서 {@code fromAmount} 차감(FX_OUT),
