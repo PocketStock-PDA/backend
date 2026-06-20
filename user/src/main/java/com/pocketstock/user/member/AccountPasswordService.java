@@ -7,6 +7,7 @@ import com.pocketstock.user.member.dto.SetAccountPasswordRequest;
 import com.pocketstock.user.member.dto.VerifyAccountPasswordRequest;
 import com.pocketstock.user.member.dto.VerifyAccountPasswordResponse;
 import com.pocketstock.user.member.mapper.AccountPasswordMapper;
+import com.pocketstock.user.security.TxnAuth;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 
@@ -28,10 +28,6 @@ public class AccountPasswordService {
 
     /** 계좌 비밀번호 형식 — 숫자 4자리. */
     private static final Pattern FORMAT = Pattern.compile("^\\d{4}$");
-
-    /** 거래 인증 상태 키 규약: txn-auth:{userId} (주문/이체 도메인과 공유). */
-    private static final String TXN_AUTH_KEY = "txn-auth:";
-    private static final Duration TXN_AUTH_TTL = Duration.ofMinutes(30);
 
     private final AccountPasswordMapper accountPasswordMapper;
     private final PasswordEncoder passwordEncoder;
@@ -53,7 +49,10 @@ public class AccountPasswordService {
         accountPasswordMapper.upsert(ap);
     }
 
-    /** 거래 인증 — 계좌 비밀번호 대조 후 성공 시 30분 인증 상태 기록. */
+    /**
+     * 거래 인증 — 계좌 비밀번호 대조. "비밀번호 유지"(keepAuth) ON일 때만 30분 거래 세션을 기록한다.
+     * OFF면 이번 1회만 통과하고 세션을 남기지 않아(키 미기록), 다음 거래에서 다시 비밀번호를 묻는다.
+     */
     public VerifyAccountPasswordResponse verify(Long userId, VerifyAccountPasswordRequest req) {
         requireAuth(userId);
         String raw = req == null ? null : req.accountPassword();
@@ -73,8 +72,13 @@ public class AccountPasswordService {
         }
 
         LocalDateTime verifiedAt = LocalDateTime.now();
-        LocalDateTime expiresAt = verifiedAt.plus(TXN_AUTH_TTL);
-        redis.opsForValue().set(TXN_AUTH_KEY + userId, verifiedAt.toString(), TXN_AUTH_TTL);
+        LocalDateTime expiresAt = verifiedAt;
+        if (req.keepAuth()) {
+            // "비밀번호 유지" ON: 30분 거래 세션 발급 → 이후 거래는 비밀번호 스킵
+            expiresAt = verifiedAt.plus(TxnAuth.TTL);
+            redis.opsForValue().set(TxnAuth.key(userId), verifiedAt.toString(), TxnAuth.TTL);
+        }
+        // OFF: 세션 미기록(expiresAt == verifiedAt) → 다음 거래에서 다시 비밀번호 입력
         return new VerifyAccountPasswordResponse(verifiedAt, expiresAt);
     }
 
