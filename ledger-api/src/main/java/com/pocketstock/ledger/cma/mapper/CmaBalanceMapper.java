@@ -15,4 +15,7 @@ public interface CmaBalanceMapper {
                                           @Param("currency") String currency);
 
     int upsertBalance(CmaBalance balance);
+
+    /** 신규 계좌 지갑 시드 — 이미 있으면 무시(INSERT IGNORE)해 기존 잔액을 덮어쓰지 않음 */
+    int insertBalance(CmaBalance balance);
 }

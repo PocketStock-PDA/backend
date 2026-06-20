@@ -2,6 +2,37 @@
 
 > 공통 헤더: `Authorization: Bearer {accessToken}` | `Content-Type: application/json`
 
+## 계좌
+
+### POST `/api/cma/account`
+
+CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서 호출하며, 본인인증·약관·계좌비밀번호(회원 도메인)는 선행 단계에서 처리된다. **멱등** — 이미 있으면 기존 계좌를 반환한다(오류 아님). 종합계좌(`/api/trading/accounts`)와는 별개 계좌다.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **Request Body**: 없음
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "CMA 계좌 개설 성공",
+  "data": {
+    "cmaAccountNo": "98765-90",
+    "openedAt": "2026-06-19T01:23:00",
+    "balances": [
+      { "currency": "KRW", "balance": 0, "interestRate": 0.0350 }
+    ]
+  }
+}
+```
+
+> 달러(USD) 지갑은 개설 시 만들지 않고 첫 환전 때 생성된다.
+
+---
+
 ## 홈
 
 ### GET `/api/cma/home`
