@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.WelcomeRewardMapper">
+
+    <resultMap id="welcomeReward" type="com.pocketstock.ledger.trading.domain.WelcomeReward">
+        <id     property="id"         column="id"/>
+        <result property="userId"     column="user_id"/>
+        <result property="accountId"  column="account_id"/>
+        <result property="stockCode"  column="stock_code"/>
+        <result property="market"     column="market"/>
+        <result property="quantity"   column="quantity"/>
+        <result property="grantPrice" column="grant_price"/>
+        <result property="budgetKrw"  column="budget_krw"/>
+        <result property="currency"   column="currency"/>
+        <result property="grantedAt"  column="granted_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.WelcomeReward"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO welcome_rewards
+            (user_id, account_id, stock_code, market, quantity, grant_price, budget_krw, currency, granted_at)
+        VALUES
+            (#{userId}, #{accountId}, #{stockCode}, #{market}, #{quantity}, #{grantPrice}, #{budgetKrw}, #{currency}, #{grantedAt})
+    </insert>
+
+    <select id="existsByUserId" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM welcome_rewards WHERE user_id = #{userId})
+    </select>
+
+    <select id="findByUserId" resultMap="welcomeReward">
+        SELECT id, user_id, account_id, stock_code, market, quantity, grant_price, budget_krw, currency, granted_at
+        FROM welcome_rewards
+        WHERE user_id = #{userId}
+        ORDER BY granted_at DESC, id DESC
+    </select>
+
+</mapper>

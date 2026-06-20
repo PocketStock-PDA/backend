@@ -9,10 +9,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * LS증권 국내 시세 TR 호출. 토큰은 {@link LsTokenProvider}에서 주입받아 공유한다.
@@ -26,6 +28,8 @@ public class LsMarketClient {
     private static final String MARKET_DATA_PATH = "/stock/market-data";
     private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
     private static final String SUCCESS_CODE = "00000";
+    /** LS 게이트웨이가 토큰 무효/만료를 알리는 rsp_cd — 401이 아니라 5xx 바디로 내려온다. */
+    private static final Set<String> TOKEN_REJECTED_CODES = Set.of("IGW00121");
     private static final String EXCHANGE_KRX = "K";
     private static final String EXCHANGE_UNIFIED = "U"; // KRX+NXT 통합 — 실시간(UH1 통합)과 사다리 일치
 
@@ -63,22 +67,45 @@ public class LsMarketClient {
 
     // ---- 공통 호출/검증 ----
 
-    /** TR 공통 호출 — 401이면 토큰 1회 재발급 후 재시도. 외부 호출 장애는 모두 502로 변환. */
+    /**
+     * TR 공통 호출 — 토큰 거부 시 1회 재발급 후 재시도. 외부 호출 장애는 모두 502로 변환.
+     * LS는 토큰 무효를 401이 아니라 5xx 바디(rsp_cd=IGW00121)로도 내려주므로 양쪽 다 처리한다.
+     */
     private <T> T callTr(String trCd, Object body, Class<T> type) {
         byte[] payload = serialize(body);
         try {
             return postOnce(trCd, payload, type);
         } catch (HttpClientErrorException.Unauthorized e) {
-            // 캐시 토큰이 만료 직전 거부될 수 있음 → 강제 재발급 후 1회 재시도.
-            log.warn("LS 401 — 토큰 재발급 후 재시도 (tr={})", trCd);
-            try {
-                tokenProvider.refresh();
-                return postOnce(trCd, payload, type);
-            } catch (RestClientException retryEx) {
-                throw external(trCd, retryEx);
+            return retryAfterTokenRefresh(trCd, payload, type);
+        } catch (HttpServerErrorException e) {
+            // 토큰과 무관한 5xx는 그대로 502, IGW00121 같은 토큰 거부만 재발급 후 재시도.
+            if (!isTokenRejected(e)) {
+                throw external(trCd, e);
             }
+            return retryAfterTokenRefresh(trCd, payload, type);
         } catch (RestClientException e) {
             throw external(trCd, e);
+        }
+    }
+
+    /** 캐시 토큰이 거부됐을 때 강제 재발급 후 1회 재시도. */
+    private <T> T retryAfterTokenRefresh(String trCd, byte[] payload, Class<T> type) {
+        log.warn("LS 토큰 거부 — 재발급 후 재시도 (tr={})", trCd);
+        try {
+            tokenProvider.refresh();
+            return postOnce(trCd, payload, type);
+        } catch (RestClientException retryEx) {
+            throw external(trCd, retryEx);
+        }
+    }
+
+    /** 5xx 응답 바디의 rsp_cd가 토큰 무효/만료 계열인지 판별. */
+    private boolean isTokenRejected(HttpServerErrorException e) {
+        try {
+            String rspCd = objectMapper.readTree(e.getResponseBodyAsByteArray()).path("rsp_cd").asText(null);
+            return TOKEN_REJECTED_CODES.contains(rspCd);
+        } catch (Exception parseEx) {
+            return false;
         }
     }
 

@@ -1,0 +1,2 @@
+id,user_id,market,account_no_enc,status,is_fractional_enabled,opened_at,created_at,updated_at
+1,1,DOMESTIC,,ACTIVE,TRUE,2026-02-10 09:00:00,2026-02-10 09:00:00,2026-02-10 09:00:00
