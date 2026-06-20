@@ -1,4 +1,4 @@
-package com.pocketstock.core.portfolio.card.dto;
+package com.pocketstock.core.recommendations.card.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
