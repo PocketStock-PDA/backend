@@ -301,7 +301,7 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | BA
     {
       "id": 1001,
       "txType": "COLLECT",
-      "sourceType": "CARD_ROUNDUP",
+      "sourceType": "CARD",
       "currency": "KRW",
       "amount": 8430,
       "balanceAfter": 1258430,
