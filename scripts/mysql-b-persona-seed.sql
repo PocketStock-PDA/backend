@@ -71,8 +71,12 @@ INSERT INTO deposit_transactions (id,user_id,account_id,tx_type,amount,currency,
 (1,1,1,'DEPOSIT',500000.0000,'KRW',500000.0000,NULL,NULL,'sec-init-deposit-20260210','2026-02-10 09:05:00'),
 (2,1,1,'BUY',-352500.0000,'KRW',147500.0000,NULL,NULL,'sec-buy-005930-5sh-20260210','2026-02-10 09:10:00');
 
-INSERT INTO holdings (id,user_id,account_id,stock_code,quantity,avg_buy_price,currency,created_at,updated_at) VALUES
-(1,1,1,'005930',5.000000,70500.0000,'KRW','2026-02-10 09:10:00','2026-02-10 09:10:00');
+-- 예수금 현재잔액 = deposit_transactions 최종 balance_after(147,500). 계좌당 1행(account_id=1, DOMESTIC/KRW).
+INSERT INTO account_balances (id,account_id,currency,balance,created_at,updated_at) VALUES
+(1,1,'KRW',147500.0000,'2026-02-10 09:10:00','2026-02-10 09:10:00');
+
+INSERT INTO holdings (id,user_id,account_id,stock_code,quantity,avg_buy_price,krw_cost_basis,currency,created_at,updated_at) VALUES
+(1,1,1,'005930',5.000000,70500.0000,352500.0000,'KRW','2026-02-10 09:10:00','2026-02-10 09:10:00');
 
 INSERT INTO auto_invest_settings (id,user_id,is_enabled,is_paused,keep_collecting_on_pause,created_at,updated_at) VALUES
 (1,1,FALSE,FALSE,TRUE,'2026-01-20 10:00:00','2026-01-20 10:00:00');

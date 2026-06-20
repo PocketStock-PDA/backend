@@ -126,13 +126,26 @@ CREATE TABLE IF NOT EXISTS deposit_transactions (
   INDEX idx_dt_user (user_id), INDEX idx_dt_acc (account_id)
 );
 
+-- 예수금 현재잔액(물질화 projection, 가변). 계좌당 1행, 계좌개설 때 balance=0으로 생성.
+-- 갱신은 조건부 원자 UPDATE(balance ± delta, 출금 음수 가드)로 lost update·음수 예수금 차단(#77·#78).
+CREATE TABLE IF NOT EXISTS account_balances (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  account_id BIGINT NOT NULL,
+  currency VARCHAR(3) NOT NULL,            -- DOMESTIC=KRW / OVERSEAS=USD (account가 결정하는 파생값)
+  balance DECIMAL(18,4) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_acc_bal (account_id)       -- (account_id) = 잔액 그레인
+);
+
 CREATE TABLE IF NOT EXISTS holdings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   account_id BIGINT NOT NULL,
   stock_code VARCHAR(20) NOT NULL,
   quantity DECIMAL(18,6) DEFAULT 0,
-  avg_buy_price DECIMAL(18,4) DEFAULT 0,
+  avg_buy_price DECIMAL(18,4) DEFAULT 0,    -- 종목 통화 기준 평단(국내 KRW / 해외 USD)
+  krw_cost_basis DECIMAL(18,4) DEFAULT 0,   -- 원화 누적 취득원가(매수 시 체결환율로 환산). 평균매입환율·환차손익 파생용. 국내는 = quantity*avg_buy_price
   currency VARCHAR(3),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.recommendations.maturity.mapper.MaturityRecommendationMapper">
+
+    <select id="findUpcomingMaturityAccount"
+            resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
+        SELECT account_name        AS accountName,
+               maturity_date       AS maturityDate,
+               balance             AS principalAmount,
+               interest_rate       AS interestRate,
+               DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND is_dormant = FALSE
+          AND account_type IN ('SAVINGS', 'DEPOSIT')
+          AND maturity_date IS NOT NULL
+          AND interest_rate IS NOT NULL
+          AND maturity_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+        ORDER BY maturity_date ASC
+        LIMIT 1
+    </select>
+
+    <select id="findDividendStocksAboveRate"
+            resultType="com.pocketstock.core.recommendations.maturity.dto.DividendStockRow">
+        SELECT ds.stock_code    AS stockCode,
+               ds.stock_name   AS stockName,
+               ds.category,
+               ds.dividend_yield AS dividendYield,
+               ds.tags,
+               se.event_date   AS exDividendDate
+        FROM dividend_stocks ds
+        LEFT JOIN (
+            SELECT stock_code, MIN(event_date) AS event_date
+            FROM stock_events
+            WHERE event_type = 'DIVIDEND'
+              AND event_date >= CURDATE()
+            GROUP BY stock_code
+        ) se ON ds.stock_code = se.stock_code
+        WHERE ds.is_active = TRUE
+          AND ds.dividend_yield > #{interestRatePct}
+        ORDER BY ds.dividend_yield DESC
+        LIMIT 5
+    </select>
+
+</mapper>
