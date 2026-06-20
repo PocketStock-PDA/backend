@@ -59,7 +59,7 @@ public class DevController {
         accountService.open(userId, new OpenAccountRequest(List.of("DOMESTIC")));
         SecuritiesAccount account = accountMapper.findByUserIdAndMarket(userId, "DOMESTIC");
         BigDecimal balance = depositService.record(userId, account.getId(), "IN_TRANSFER",
-                amount, "KRW", "dev", null);
+                amount, "KRW", "dev", null, null);   // dev 충전 — 멱등키 불요
         log.info("[DEV] 예수금 충전 userId={} amount={} balance={}", userId, amount, balance);
         return ApiResponse.ok("예수금 충전 완료", Map.of("balance", balance.toPlainString()));
     }
