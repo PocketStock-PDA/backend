@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.pocketstock.core.portfolio.card.mapper.CardMapper">
+<mapper namespace="com.pocketstock.core.recommendations.card.mapper.CardMapper">
 
     <select id="findCategorySpending" resultType="com.pocketstock.core.asset.dto.CategoryAmountRow">
         SELECT category, SUM(amount) AS amount
@@ -16,14 +16,14 @@
         ORDER BY amount DESC
     </select>
 
-    <select id="findAllActiveCards" resultType="com.pocketstock.core.portfolio.card.dto.CardRow">
+    <select id="findAllActiveCards" resultType="com.pocketstock.core.recommendations.card.dto.CardRow">
         SELECT id, card_name AS cardName, card_type AS cardType,
                provider, annual_fee_domestic AS annualFeeDomestic
         FROM cards
         WHERE is_active = true
     </select>
 
-    <select id="findAllBenefits" resultType="com.pocketstock.core.portfolio.card.dto.CardBenefitRow">
+    <select id="findAllBenefits" resultType="com.pocketstock.core.recommendations.card.dto.CardBenefitRow">
         SELECT card_id AS cardId, benefit_category AS benefitCategory, benefit_desc AS benefitDesc
         FROM card_benefits
     </select>

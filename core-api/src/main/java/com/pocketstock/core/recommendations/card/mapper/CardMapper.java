@@ -1,8 +1,8 @@
-package com.pocketstock.core.portfolio.card.mapper;
+package com.pocketstock.core.recommendations.card.mapper;
 
 import com.pocketstock.core.asset.dto.CategoryAmountRow;
-import com.pocketstock.core.portfolio.card.dto.CardBenefitRow;
-import com.pocketstock.core.portfolio.card.dto.CardRow;
+import com.pocketstock.core.recommendations.card.dto.CardBenefitRow;
+import com.pocketstock.core.recommendations.card.dto.CardRow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

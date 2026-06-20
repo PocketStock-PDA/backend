@@ -1,10 +1,10 @@
-package com.pocketstock.core.portfolio.card;
+package com.pocketstock.core.recommendations.card;
 
 import com.pocketstock.core.asset.dto.CategoryAmountRow;
-import com.pocketstock.core.portfolio.card.dto.CardBenefitRow;
-import com.pocketstock.core.portfolio.card.dto.CardRecommendationItem;
-import com.pocketstock.core.portfolio.card.dto.CardRow;
-import com.pocketstock.core.portfolio.card.mapper.CardMapper;
+import com.pocketstock.core.recommendations.card.dto.CardBenefitRow;
+import com.pocketstock.core.recommendations.card.dto.CardRecommendationItem;
+import com.pocketstock.core.recommendations.card.dto.CardRow;
+import com.pocketstock.core.recommendations.card.mapper.CardMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -39,7 +39,6 @@ public class CardRecommendationService {
     private static final int TOP_N = 5;
 
     public List<CardRecommendationItem> recommend(Long userId) {
-        // 최근 3개월 소비 카테고리별 합계
         LocalDateTime from = LocalDate.now().minusMonths(3).atStartOfDay();
         LocalDateTime to = LocalDate.now().plusDays(1).atStartOfDay();
 
@@ -53,7 +52,6 @@ public class CardRecommendationService {
             return List.of();
         }
 
-        // 카테고리별 소비 비중 (0~100)
         Map<String, Double> spendRatio = spending.stream().collect(Collectors.toMap(
                 CategoryAmountRow::getCategory,
                 r -> r.getAmount().multiply(BigDecimal.valueOf(100))
@@ -61,12 +59,10 @@ public class CardRecommendationService {
                         .doubleValue()
         ));
 
-        // 카드별 혜택 그룹핑
         List<CardRow> cards = cardMapper.findAllActiveCards();
         Map<Long, List<CardBenefitRow>> benefitsByCard = cardMapper.findAllBenefits().stream()
                 .collect(Collectors.groupingBy(CardBenefitRow::getCardId));
 
-        // 각 카드 matchRate 계산
         List<CardRecommendationItem> result = cards.stream().map(card -> {
             List<CardBenefitRow> benefits = benefitsByCard.getOrDefault(card.getId(), List.of());
             Set<String> benefitKeywords = benefits.stream()
@@ -85,7 +81,6 @@ public class CardRecommendationService {
                     .mapToDouble(Map.Entry::getValue)
                     .sum();
 
-            // 매칭된 혜택 설명 (상위 3개)
             List<String> matchedBenefits = benefits.stream()
                     .filter(b -> {
                         String bc = b.getBenefitCategory().toLowerCase();
