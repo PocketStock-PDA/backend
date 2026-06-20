@@ -31,9 +31,10 @@ public class Order {
     private String orderType;         // 온주: LIMIT | MARKET (소수점: AMOUNT | QUANTITY | ALL)
     private BigDecimal orderQuantity; // 주문 수량(온주=정수)
     private BigDecimal price;         // 온주 체결단가(지정가=요청가 / 시장가=최우선호가)
-    private String status;            // RECEIVED → FILLED ...
+    private OrderStatus status;       // 상태머신(§08/§08b). DB VARCHAR(이름)↔enum 자동 매핑
     private String source;            // MANUAL | AUTO
     private String currency;          // KRW | USD
+    private String failReason;        // REJECTED 사유(감사용). 정상 주문은 NULL
     private LocalDateTime requestedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
