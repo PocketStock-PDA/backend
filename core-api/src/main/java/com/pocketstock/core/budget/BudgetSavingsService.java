@@ -62,8 +62,7 @@ public class BudgetSavingsService {
                 .map(CategorySavingsItem::targetAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalSpent = categories.stream()
                 .map(CategorySavingsItem::spentAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalSaved = categories.stream()
-                .map(CategorySavingsItem::savedAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalSaved = totalBudget.subtract(totalSpent).max(BigDecimal.ZERO);
 
         return new CategorySavingsResponse(period, totalBudget, totalSpent, totalSaved, categories);
     }
@@ -134,6 +133,8 @@ public class BudgetSavingsService {
     @Transactional
     public void agreeCollect(Long userId) {
         String period = LocalDate.now().format(PERIOD_FMT);
+        BudgetSavingsRow current = savingsMapper.findBudgetSavings(userId, period);
+        if (current != null && current.isCollectAgreed()) return;
         savingsMapper.agreeCollect(userId, period);
         notificationService.create(userId, NotificationType.GOAL_NUDGE,
                 "절약금 모으기 동의", "이번 달 절약금을 CMA 계좌로 이체하기로 동의했어요.");
