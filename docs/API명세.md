@@ -29,7 +29,6 @@
 | 회원·인증 | SMS 인증번호 확인 | POST | `/api/auth/sms/verify` |  | A·우정인 | ✅ |
 | 회원·인증 | 난수문자 인증요청(휴대폰 본인확인 mock) | POST | `/api/auth/shinhan-cert/request` |  | A·우정인 | ✅ |
 | 회원·인증 | 난수문자 대조 확인(echo) | POST | `/api/auth/shinhan-cert/verify` |  | A·우정인 | ✅ |
-| 회원·인증 | 계좌 1원 인증용 보유 계좌 목록(mock) | GET | `/api/auth/bank-accounts` |  | A·우정인 |  |
 | 회원·인증 | 계좌 1원 인증 요청(1원 입금 mock) | POST | `/api/auth/account-verify/request` |  | A·우정인 |  |
 | 회원·인증 | 계좌 1원 인증 확인(숫자 3자리 대조) | POST | `/api/auth/account-verify/confirm` |  | A·우정인 |  |
 | 회원·인증 | ID/PW 로그인(JWT 발급) | POST | `/api/auth/login` |  | A·우정인 | ✅ |
