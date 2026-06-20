@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS linked_bank_accounts (
   account_type VARCHAR(20),                  -- DEPOSIT(예금) / SAVINGS(적금) / DEMAND(입출금)
   account_name VARCHAR(60),                  -- 상품 표시명 (KB Star 정기예금)
   account_no_enc VARBINARY(255),             -- AES-256 (SEC-001). 이체(잔돈수집)용
-  balance DECIMAL(18,4),
+  balance DECIMAL(18,4),                      -- 원금(가입 원금 또는 입출금 잔액, 만기 이자 미포함)
   currency VARCHAR(3),                        -- KRW / USD
   interest_rate DECIMAL(7,4) NULL,           -- 예적금만 (계약 약정 금리, 가입기간별 상이)
   start_date DATE NULL,                      -- 예적금만 (가입일)
@@ -289,7 +289,7 @@ CREATE TABLE IF NOT EXISTS dividend_stocks (
   market VARCHAR(10) NOT NULL,
   dividend_yield DECIMAL(5,2) NOT NULL,
   tags VARCHAR(200),
-  is_active BOOLEAN DEFAULT TRUE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ds (stock_code)
 );

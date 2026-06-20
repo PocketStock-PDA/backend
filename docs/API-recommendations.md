@@ -66,7 +66,7 @@
     "triggerAccount": {
       "accountName": "신한 단기 정기예금",
       "maturityDate": "2026-07-10",
-      "maturityAmount": 3000000,
+      "principalAmount": 3000000,
       "daysUntilMaturity": 20,
       "interestRate": 2.5
     },
