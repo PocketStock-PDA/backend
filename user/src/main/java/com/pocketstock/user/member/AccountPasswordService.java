@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 
@@ -71,14 +72,14 @@ public class AccountPasswordService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "계좌 비밀번호가 일치하지 않습니다.");
         }
 
+        // 검증 성공 시 항상 인증 키 발급. 토글에 따라 값/TTL만 다르게 둔다.
+        //  ON  → KEEP(30분 유지, 여러 거래 통과)  /  OFF → ONCE(직후 1건만, 가드가 소비)
         LocalDateTime verifiedAt = LocalDateTime.now();
-        LocalDateTime expiresAt = verifiedAt;
-        if (req.keepAuth()) {
-            // "비밀번호 유지" ON: 30분 거래 세션 발급 → 이후 거래는 비밀번호 스킵
-            expiresAt = verifiedAt.plus(TxnAuth.TTL);
-            redis.opsForValue().set(TxnAuth.key(userId), verifiedAt.toString(), TxnAuth.TTL);
-        }
-        // OFF: 세션 미기록(expiresAt == verifiedAt) → 다음 거래에서 다시 비밀번호 입력
+        String value = req.keepAuth() ? TxnAuth.VALUE_KEEP : TxnAuth.VALUE_ONCE;
+        Duration ttl = req.keepAuth() ? TxnAuth.TTL : TxnAuth.ONCE_TTL;
+        redis.opsForValue().set(TxnAuth.key(userId), value, ttl);
+
+        LocalDateTime expiresAt = verifiedAt.plus(ttl);
         return new VerifyAccountPasswordResponse(verifiedAt, expiresAt);
     }
 
