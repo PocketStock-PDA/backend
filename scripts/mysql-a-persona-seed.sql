@@ -31,10 +31,10 @@ INSERT INTO linked_bank_accounts (id,user_id,institution_id,account_type,account
 (4,1,4,'DEPOSIT','KB 정기예금',NULL,2000000.0000,'KRW',0.0210,'2023-03-01','2024-03-01',TRUE,'2026-06-19 08:00:00','2026-01-15 10:15:00','2026-06-19 08:00:00'),
 (5,1,5,'DEMAND','카카오뱅크 입출금',NULL,85000.0000,'KRW',NULL,NULL,NULL,FALSE,'2026-06-19 08:00:00','2026-01-15 10:16:00','2026-06-19 08:00:00');
 
-INSERT INTO linked_cards (id,user_id,institution_id,card_name,card_type,masked_no,payment_account_id,last_synced_at,created_at,updated_at) VALUES
-(1,1,2,'신한 Deep Dream 체크카드','CHECK','4127-****-****-3819',1,'2026-06-19 08:00:00','2026-01-15 10:12:00','2026-06-19 08:00:00'),
-(2,1,2,'신한 Air One 신용카드','CREDIT','5374-****-****-2891',1,'2026-06-19 08:00:00','2026-01-15 10:12:00','2026-06-19 08:00:00'),
-(3,1,6,'KB직장인보너스카드','CREDIT','5569-****-****-4427',3,'2026-01-15 10:17:00','2026-01-15 10:17:00','2026-01-15 10:17:00');
+INSERT INTO linked_cards (id,user_id,institution_id,card_name,card_type,masked_no,payment_account_id,card_master_id,last_synced_at,created_at,updated_at) VALUES
+(1,1,2,'신한 Deep Dream 체크카드','CHECK','4127-****-****-3819',1,NULL,'2026-06-19 08:00:00','2026-01-15 10:12:00','2026-06-19 08:00:00'),
+(2,1,2,'신한 Air One 신용카드','CREDIT','5374-****-****-2891',1,18,'2026-06-19 08:00:00','2026-01-15 10:12:00','2026-06-19 08:00:00'),
+(3,1,6,'KB직장인보너스카드','CREDIT','5569-****-****-4427',3,NULL,'2026-01-15 10:17:00','2026-01-15 10:17:00','2026-01-15 10:17:00');
 
 INSERT INTO linked_points (id,user_id,institution_id,point_name,balance,last_synced_at,created_at,updated_at) VALUES
 (1,1,3,'마이신한포인트',28000,'2026-06-19 08:00:00','2026-01-15 10:13:00','2026-06-19 08:00:00');
