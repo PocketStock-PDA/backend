@@ -21,13 +21,20 @@ public class DepositService {
 
     private final DepositMapper depositMapper;
 
+    /** 계좌 예수금 현재잔액. 멱등 재요청 시 기존 주문 결과를 돌려줄 때 사용. */
+    @Transactional(readOnly = true)
+    public BigDecimal getBalance(Long accountId) {
+        return depositMapper.findBalanceByAccount(accountId);
+    }
+
     /**
      * 예수금 1건 반영 — 잔액 원자 갱신(출금 음수 가드) 후 역사 1줄 append, 갱신된 잔액 반환.
      * @param signedAmount +입금(SELL/IN_TRANSFER) / −출금(BUY). 출금이 잔액 초과면 INSUFFICIENT_BALANCE.
+     * @param idempotencyKey 같은 키 재적재는 UNIQUE로 차단(결정적 키, 예: order:{orderId}). null 허용.
      */
     @Transactional
     public BigDecimal record(Long userId, Long accountId, String txType, BigDecimal signedAmount,
-                             String currency, String refType, Long refId) {
+                             String currency, String refType, Long refId, String idempotencyKey) {
         // ① 잔액 원자 갱신 + 출금 음수 가드. affected=0 → 잔액부족(또는 잔액행 없음=계좌개설 누락).
         int affected = depositMapper.applyBalanceDelta(accountId, signedAmount);
         if (affected == 0) {
@@ -44,6 +51,7 @@ public class DepositService {
                 .balanceAfter(after)
                 .refType(refType)
                 .refId(refId)
+                .idempotencyKey(idempotencyKey)
                 .build());
         return after;
     }
