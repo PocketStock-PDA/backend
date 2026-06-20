@@ -47,14 +47,16 @@ public class VerificationStore {
 
     private boolean matchAndConsume(Map<String, Entry> store, String key, String code) {
         Entry entry = store.get(key);
-        if (entry == null || entry.isExpired()) {
-            store.remove(key);     // 만료/없음 — 정리
+        if (entry == null) {
+            return false;
+        }
+        if (entry.isExpired()) {
+            store.remove(key, entry);     // 만료 — 그 항목만 정리(새로 저장된 항목 보호)
             return false;
         }
         if (!entry.code().equals(code)) {
-            return false;          // 불일치 — 세션 유지(TTL 내 재시도 허용)
+            return false;                 // 불일치 — 세션 유지(TTL 내 재시도 허용)
         }
-        store.remove(key);         // 성공 — 일회성 소비
-        return true;
+        return store.remove(key, entry);  // 성공 — 읽어둔 항목만 원자적 제거(동시 검증 시 1회만 true)
     }
 }
