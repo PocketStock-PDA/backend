@@ -544,6 +544,8 @@
 
 온주 매수/매도 (호가 기반)<br> LS TR: CSPAT00601 (국내) · COSAT00301 (해외)
 
+- **응답 status**: 즉시체결 `FILLED` / 지정가 미체결 `PENDING`(H4 매칭 대기) / 검증·체결 실패 `REJECTED`.
+  - **REJECTED는 주문으로 기록**(감사 추적) — 본 트랜잭션 롤백과 별개로 별도 트랜잭션(`REQUIRES_NEW`)에 `REJECTED` 행을 남기고 차감분이 있으면 환원.
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
@@ -582,12 +584,15 @@
 
 ### DELETE `/api/trading/orders/{orderId}`
 
-주문 취소 (배치 전송 전)<br> Path: {orderId} - 취소할 주문 ID | LS TR: CSPAT00801 (국내) · COSAT00311 (해외)
+주문 취소 — **소수점·온주 공용**.<br> Path: {orderId} - 취소할 주문 ID | LS TR: CSPAT00801 (국내) · COSAT00311 (해외)
 
+- **취소 가능 상태**: 소수점 `QUEUED`(배치 전송 전) / 온주 `PENDING`(지정가 미체결) → `CANCELLED`로 전이.
+- **취소 불가(종결) 상태**: `SENT`·`FILLED`·`CANCELLED`·`REJECTED` → `409 Conflict`.
+- **전이 가드**: 상태 전이는 DB 조건부 UPDATE(`SET status='CANCELLED' WHERE id=? AND user_id=? AND status IN ('QUEUED','PENDING')`)로 원자 처리 — 동시 체결/이중취소 경합 차단(0행이면 실패 응답).
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 Unauthorized / 404 Not Found(없는 주문·타인 주문) / 409 Conflict(종결 상태라 취소 불가)
 
-**Response Body**
+**Response Body (성공)**
 
 ```json
 {
@@ -598,6 +603,17 @@
   "orderId": "ORD-20250615-001",
   "status": "CANCELLED"
  }
+ }
+```
+
+**Response Body (취소 불가 — 이미 체결/종결, 409)**
+
+```json
+{
+  "success": false,
+  "code": "ORDER_NOT_CANCELLABLE",
+  "message": "이미 체결·종결된 주문은 취소할 수 없습니다.",
+  "data": null
  }
 ```
 

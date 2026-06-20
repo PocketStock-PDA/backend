@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS welcome_rewards (
 CREATE TABLE IF NOT EXISTS trading_rounds (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   market VARCHAR(10) NOT NULL,
+  -- 1분 단위 차수(국내·해외 동일, 매 분 1 round) / RESERVED(장외·휴장 예약). 해외는 US 정규장 중 매 분(#101)
   round_no VARCHAR(20) NOT NULL,
   trade_date DATE NOT NULL,
   submit_open DATETIME,
@@ -177,6 +178,7 @@ CREATE TABLE IF NOT EXISTS trading_rounds (
   execute_at DATETIME,
   settle_at DATETIME,
   cancel_deadline DATETIME,
+  -- DOMESTIC_TICK(국내 금액매수=현재가+5틱) / MARKET(국내 수량·해외=실행시점 시장가). VWAP 폐기(#101)
   pricing_method VARCHAR(20),
   status VARCHAR(20) DEFAULT 'OPEN',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -196,12 +198,17 @@ CREATE TABLE IF NOT EXISTS orders (
   order_quantity DECIMAL(18,6) NULL,
   est_quantity DECIMAL(18,6) NULL,
   price DECIMAL(18,4) NULL,
-  status VARCHAR(20) DEFAULT 'RECEIVED',
+  -- 경로별 상태머신(ERD-04 §08·§08b). 소수점: RECEIVED|QUEUED|SENT|FILLED|CANCELLED|REJECTED
+  -- 온주: RECEIVED|PENDING|FILLED|CANCELLED|REJECTED. 부분체결(PARTIALLY_FILLED)·이월(CARRIED_OVER) 미지원(#101).
+  -- 앱 OrderStatus enum이 소스 오브 트루스, 아래 CHECK는 쓰레기 값 차단용 안전망(전이 규칙은 앱+조건부 UPDATE).
+  status VARCHAR(20) DEFAULT 'RECEIVED'
+    CHECK (status IN ('RECEIVED','QUEUED','SENT','PENDING','FILLED','CANCELLED','REJECTED')),
   source VARCHAR(20),
   round_id BIGINT NULL,
   batch_id BIGINT NULL,
-  carried_over_count INT DEFAULT 0,
+  -- carried_over_count 제거(#101): 이월 폐기 — 1주 미달분은 회사 선부담(ceil)으로 즉시 체결.
   currency VARCHAR(3),
+  fail_reason VARCHAR(255) NULL,   -- REJECTED 사유(감사용, H3). 정상 주문은 NULL
   requested_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -246,6 +253,8 @@ CREATE TABLE IF NOT EXISTS operating_account (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_code VARCHAR(20) NOT NULL UNIQUE,
   whole_qty INT DEFAULT 0,
+  -- firm 순재고 소수부(양방향: 흡수 +/선공급 −, #101). 회사 선부담(ceil)이라 총재고(whole_qty+이값)≥0.
+  -- 갱신은 원자 조건부 UPDATE+음수가드(C1~C3 동형). 이동이력은 batch_orders+allocations가 담당.
   fractional_remainder DECIMAL(18,6) DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
