@@ -9,9 +9,9 @@
 |---|---|---|
 | **A·우정인** | 회원·인증 · 증권계좌 개설 · 알림 · 퍼즐/보상 | 30 |
 | **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 | 27 |
-| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 33 |
+| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 36 |
 | **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 리밸런싱 | 24 |
-| | **합계** | **114** |
+| | **합계** | **117** |
 
 ## 📌 범례
 
@@ -56,6 +56,9 @@
 | 자산연동 | SOL트래블 외화잔액 연동 | POST | `/api/assets/links/fx` |  | C·강문군 |  |
 | 자산연동 | 타 증권사 연동 | POST | `/api/assets/links/securities` |  | C·강문군 |  |
 | 자산연동 | 연동 자산 전체 조회 | GET | `/api/assets` |  | C·강문군 |  |
+| 자산연동 | 보유 은행 계좌 목록 조회(1원 인증·재원 계좌 선택 공용) | GET | `/api/assets/bank-accounts` |  | C·강문군 | ✅ |
+| 자산연동 | 계좌 1원 인증 송금요청(코드 푸시 발송) | POST | `/api/assets/bank-accounts/{accountId}/verification` |  | C·강문군 | ✅ |
+| 자산연동 | 계좌 1원 인증 확인(코드 검증) | POST | `/api/assets/bank-accounts/{accountId}/verification/confirm` |  | C·강문군 | ✅ |
 | 자산연동 | 연동 자산 새로고침(최신화) | POST | `/api/assets/refresh` |  | C·강문군 |  |
 | 자산연동 | 잠자는 잔돈 스캔 | GET | `/api/assets/scan` |  | C·강문군 |  |
 | 자산연동 | 휴면계좌 조회 | GET | `/api/assets/dormant` |  | C·강문군 |  |

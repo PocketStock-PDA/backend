@@ -20,6 +20,12 @@ public enum ErrorCode {
     INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "잔액이 부족합니다."),
     IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "이미 처리된 요청입니다."),
 
+    // 자산연동 - 계좌 1원 인증
+    ACCOUNT_ALREADY_VERIFIED(HttpStatus.CONFLICT, "이미 인증된 계좌입니다."),
+    VERIFICATION_EXPIRED(HttpStatus.BAD_REQUEST, "인증 요청이 없거나 만료되었습니다. 다시 요청해 주세요."),
+    VERIFICATION_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "인증 코드가 일치하지 않습니다."),
+    VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "인증 시도 횟수를 초과했습니다. 다시 요청해 주세요."),
+
     // 외부 연동(LS 등) 호출 실패 — 업스트림 장애
     EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "외부 서버 호출에 실패했습니다.");
 
