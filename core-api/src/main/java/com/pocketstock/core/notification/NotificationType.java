@@ -19,6 +19,9 @@ public enum NotificationType {
     },
     MARKETING {      // 마케팅
         @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyMarketing(); }
+    },
+    ACCOUNT_VERIFY { // 계좌 1원 인증 코드 — 보안성 알림이라 토글과 무관하게 항상 발송
+        @Override public boolean enabledFor(NotificationSettingRow s) { return true; }
     };
 
     /** 이 사용자의 설정에서 해당 타입 푸시가 켜져 있는지. */
