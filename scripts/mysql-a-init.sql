@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS linked_bank_accounts (
   start_date DATE NULL,                      -- 예적금만 (가입일)
   maturity_date DATE NULL,                   -- 예적금만 (만기일)
   is_dormant BOOLEAN DEFAULT FALSE,
+  is_verified BOOLEAN NOT NULL DEFAULT FALSE,  -- 1원 인증(계좌 소유권 확인) 완료 여부
+  verified_at DATETIME NULL,                   -- 1원 인증 성공 시각
   last_synced_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
