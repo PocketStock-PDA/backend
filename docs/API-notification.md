@@ -4,7 +4,7 @@
 
 ## 알림
 
-### GET `/api/notifications`
+### GET `/api/notifications` ✅ 구현완료
 
 알림 목록 (알림센터) 조회<br> Query: read (boolean, 선택), page (number, 선택), size (number, 선택)
 
@@ -38,7 +38,7 @@
 
 ---
 
-### PATCH `/api/notifications/{id}/read`
+### PATCH `/api/notifications/{id}/read` ✅ 구현완료
 
 알림 읽음 처리<br> Path: {id} - 읽음 처리할 알림 ID
 
@@ -61,7 +61,7 @@
 
 ---
 
-### PATCH `/api/notifications/read-all`
+### PATCH `/api/notifications/read-all` ✅ 구현완료
 
 알림 전체 읽음
 
@@ -83,7 +83,7 @@
 
 ---
 
-### POST `/api/notifications/token`
+### POST `/api/notifications/token` ✅ 구현완료
 
 푸시 토큰 등록 (user_id UNIQUE 기준 upsert — 최초 호출 시 설정 row 생성)
 
@@ -115,7 +115,7 @@
 
 ---
 
-### PUT `/api/notifications/settings`
+### PUT `/api/notifications/settings` ✅ 구현완료
 
 알림 수신 설정 (`priceAlert` ↔ `notify_unfilled`(미체결) 컬럼 매핑)
 
