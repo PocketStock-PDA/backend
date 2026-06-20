@@ -6,7 +6,6 @@ import com.pocketstock.ledger.kis.KisAskingPriceResponse;
 import com.pocketstock.ledger.kis.KisMarketClient;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
 import com.pocketstock.ledger.trading.client.LsT8450Response;
-import com.pocketstock.ledger.trading.domain.Holding;
 import com.pocketstock.ledger.trading.domain.Order;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
@@ -23,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -49,7 +47,6 @@ public class WholeOrderService {
     /** orders/tradable_stocks.exchange 는 거래소 단위 — composite FK 대상 */
     private static final Set<String> DOMESTIC_EXCHANGES = Set.of("KOSPI", "KOSDAQ");
     private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
-    private static final int AVG_SCALE = 4;  // holdings.avg_buy_price DECIMAL(18,4)
 
     private final StockMapper stockMapper;
     private final SecuritiesAccountMapper accountMapper;
@@ -191,36 +188,17 @@ public class WholeOrderService {
         return best;
     }
 
+    /** 매수 — 보유 원자 upsert(수량 누적 + 평단 가중평균). 동시 매수 lost update 차단. */
     private void applyBuy(Long userId, Long accountId, String stockCode, BigDecimal qty, BigDecimal fillPrice,
                           String currency) {
-        Holding holding = holdingMapper.findByAccountAndStock(accountId, stockCode);
-        if (holding == null) {
-            holdingMapper.insert(Holding.builder()
-                    .userId(userId)
-                    .accountId(accountId)
-                    .stockCode(stockCode)
-                    .quantity(qty)
-                    .avgBuyPrice(fillPrice)
-                    .currency(currency)
-                    .build());
-            return;
-        }
-        BigDecimal newQty = holding.getQuantity().add(qty);
-        // 평단 가중평균 = (기존수량×기존평단 + 매수수량×체결가) / 총수량
-        BigDecimal newAvg = holding.getQuantity().multiply(holding.getAvgBuyPrice())
-                .add(qty.multiply(fillPrice))
-                .divide(newQty, AVG_SCALE, RoundingMode.HALF_UP);
-        holdingMapper.updateQuantityAndAvg(holding.getId(), newQty, newAvg);
+        holdingMapper.upsertBuy(userId, accountId, stockCode, qty, fillPrice, currency);
     }
 
+    /** 매도 — 보유 수량 원자 차감(음수 가드). 전량매도 시 quantity=0으로 row 보존. */
     private void applySell(Long accountId, String stockCode, BigDecimal qty) {
-        Holding holding = holdingMapper.findByAccountAndStock(accountId, stockCode);
-        if (holding == null || holding.getQuantity().compareTo(qty) < 0) {
+        if (holdingMapper.reduceForSell(accountId, stockCode, qty) == 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "보유 수량이 부족합니다.");
         }
-        // 매도는 평단 유지, 전량매도 시 quantity=0으로 row 보존(삭제 안 함)
-        holdingMapper.updateQuantityAndAvg(holding.getId(),
-                holding.getQuantity().subtract(qty), holding.getAvgBuyPrice());
     }
 
     private String normalize(String s) {
