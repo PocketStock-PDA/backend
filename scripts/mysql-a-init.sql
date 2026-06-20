@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS linked_cards (
   card_type VARCHAR(10),                     -- CREDIT(신용) / CHECK(체크)
   masked_no VARCHAR(20),                     -- 1234-****-****-5678
   payment_account_id BIGINT NULL,            -- → linked_bank_accounts (결제/출금 계좌)
+  card_master_id BIGINT NULL,               -- → cards (추천 카드 마스터, NULL=마스터 미매칭)
   last_synced_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -356,8 +357,9 @@ ALTER TABLE account_passwords    ADD CONSTRAINT fk_ap_user    FOREIGN KEY (user_
 ALTER TABLE terms_agreements     ADD CONSTRAINT fk_terms_user FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE linked_institutions  ADD CONSTRAINT fk_li_master  FOREIGN KEY (institution_master_id) REFERENCES institution_master(id);
 ALTER TABLE linked_bank_accounts ADD CONSTRAINT fk_lba_inst   FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
-ALTER TABLE linked_cards         ADD CONSTRAINT fk_lc_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
-ALTER TABLE linked_cards         ADD CONSTRAINT fk_lc_payacc  FOREIGN KEY (payment_account_id) REFERENCES linked_bank_accounts(id);
+ALTER TABLE linked_cards         ADD CONSTRAINT fk_lc_inst       FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
+ALTER TABLE linked_cards         ADD CONSTRAINT fk_lc_payacc     FOREIGN KEY (payment_account_id) REFERENCES linked_bank_accounts(id);
+ALTER TABLE linked_cards         ADD CONSTRAINT fk_lc_card_master FOREIGN KEY (card_master_id)    REFERENCES cards(id);
 ALTER TABLE linked_points        ADD CONSTRAINT fk_lp_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
 ALTER TABLE linked_securities    ADD CONSTRAINT fk_lsec_inst  FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
 ALTER TABLE external_holdings    ADD CONSTRAINT fk_eh_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);

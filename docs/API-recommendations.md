@@ -100,11 +100,9 @@
 
 ## 카드 추천
 
-### △ GET `/api/recommendations/cards`
+### GET `/api/recommendations/cards`
 
-소비 패턴 기반 맞춤 카드 추천
-
-> ⚠️ TODO: 사용자가 이미 보유한 카드 제외 필터 미구현 (`linked_cards` 연결 필요)
+소비 패턴 기반 맞춤 카드 추천 (보유 카드 자동 제외)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 401 Unauthorized
