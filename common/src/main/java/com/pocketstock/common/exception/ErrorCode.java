@@ -19,6 +19,7 @@ public enum ErrorCode {
     // 도메인 공통(예시)
     INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "잔액이 부족합니다."),
     IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "이미 처리된 요청입니다."),
+    ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT, "이미 체결·종결된 주문은 취소할 수 없습니다."),
 
     // 자산연동 - 계좌 1원 인증
     ACCOUNT_ALREADY_VERIFIED(HttpStatus.CONFLICT, "이미 인증된 계좌입니다."),

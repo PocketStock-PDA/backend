@@ -9,8 +9,10 @@ import com.pocketstock.ledger.kis.KisMarketClient;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
 import com.pocketstock.ledger.trading.client.LsT8450Response;
 import com.pocketstock.ledger.trading.domain.Order;
+import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
+import com.pocketstock.ledger.trading.dto.OrderCancelResponse;
 import com.pocketstock.ledger.trading.dto.OrderHistoryResponse;
 import com.pocketstock.ledger.trading.dto.WholeOrderRequest;
 import com.pocketstock.ledger.trading.dto.WholeOrderResponse;
@@ -56,6 +58,7 @@ public class WholeOrderService {
     private final HoldingMapper holdingMapper;
     private final DepositService depositService;
     private final OperatingCashService operatingCashService;
+    private final OrderRejectionService rejectionService;
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
     private final CurrencyRateCache currencyRateCache;
@@ -114,56 +117,97 @@ public class WholeOrderService {
                     (overseas ? "해외" : "국내") + " 위탁계좌가 없습니다. 먼저 계좌를 개설하세요.");
         }
 
-        BigDecimal fillPrice = resolveFillPrice(stock, overseas, side, type, req.price());
-        BigDecimal quantity = BigDecimal.valueOf(req.quantity());
-        BigDecimal totalAmount = fillPrice.multiply(quantity);
-
-        Order order = Order.builder()
-                .clientOrderId(clientOrderId)   // 클라 발급 멱등키(FIX clOrdID)
-                .userId(userId)
-                .accountId(account.getId())
-                .stockCode(req.stockCode())
-                .exchange(stock.getExchange())   // 거래소값(KOSPI 등) — composite FK 정합
-                .side(side)
-                .orderType(type)
-                .orderQuantity(quantity)
-                .price(fillPrice)
-                .status("RECEIVED")
-                .source("MANUAL")
-                .currency(currency)
-                .requestedAt(LocalDateTime.now())
-                .build();
+        // 종목·계좌가 해석된 이후의 비즈니스 실패는 REJECTED로 감사 기록(H3). 단 멱등 충돌은 제외.
         try {
-            orderMapper.insert(order);
-        } catch (DuplicateKeyException e) {
-            // 동시 중복 요청 — 거의 동시에 같은 키 2건이 단락을 통과한 경우. client_order_id UNIQUE가
-            // 두 번째 INSERT를 막는다(중복 체결·차감 차단). 이 트랜잭션은 롤백, 재요청 시 위 단락이 처리.
-            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 처리 중인 주문입니다.");
+            BigDecimal fillPrice = resolveFillPrice(stock, overseas, side, type, req.price());
+            BigDecimal quantity = BigDecimal.valueOf(req.quantity());
+            BigDecimal totalAmount = fillPrice.multiply(quantity);
+
+            Order order = Order.builder()
+                    .clientOrderId(clientOrderId)   // 클라 발급 멱등키(FIX clOrdID)
+                    .userId(userId)
+                    .accountId(account.getId())
+                    .stockCode(req.stockCode())
+                    .exchange(stock.getExchange())   // 거래소값(KOSPI 등) — composite FK 정합
+                    .side(side)
+                    .orderType(type)
+                    .orderQuantity(quantity)
+                    .price(fillPrice)
+                    .status(OrderStatus.RECEIVED)
+                    .source("MANUAL")
+                    .currency(currency)
+                    .requestedAt(LocalDateTime.now())
+                    .build();
+            try {
+                orderMapper.insert(order);
+            } catch (DuplicateKeyException e) {
+                // 동시 중복 요청 — 거의 동시에 같은 키 2건이 단락을 통과한 경우. client_order_id UNIQUE가
+                // 두 번째 INSERT를 막는다(중복 체결·차감 차단). 이 트랜잭션은 롤백, 재요청 시 위 단락이 처리.
+                throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 처리 중인 주문입니다.");
+            }
+            String idemKey = "order:" + order.getId();   // 하위 원장 결정적 멱등키
+
+            BigDecimal balanceAfter;
+            if ("BUY".equals(side)) {
+                // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
+                balanceAfter = depositService.record(userId, account.getId(), "BUY",
+                        totalAmount.negate(), currency, "order", order.getId(), idemKey);
+                // 복식부기 상대 leg(H1): 유저 출금의 짝으로 회사 현금 수취(+). 같은 로컬 트랜잭션.
+                operatingCashService.record("BUY", totalAmount, currency, "order", order.getId(), idemKey);
+                // 원화 취득원가 = 국내는 체결금액 그대로, 해외는 체결 시점 실시간 환율로 환산.
+                BigDecimal krwAmount = overseas ? totalAmount.multiply(fxRateForKrwBasis()) : totalAmount;
+                applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, krwAmount, currency);
+            } else {
+                applySell(account.getId(), req.stockCode(), quantity);
+                balanceAfter = depositService.record(userId, account.getId(), "SELL",
+                        totalAmount, currency, "order", order.getId(), idemKey);
+                // 복식부기 상대 leg(H1): 유저 입금의 짝으로 회사 현금 지급(−). 같은 로컬 트랜잭션.
+                operatingCashService.record("SELL", totalAmount.negate(), currency, "order", order.getId(), idemKey);
+            }
+
+            // 전이 가드 ②: RECEIVED → FILLED 조건부 전이(같은 tx라 항상 1행, 0이면 정합성 오류).
+            if (orderMapper.transitionFill(order.getId(), OrderStatus.RECEIVED, OrderStatus.FILLED, fillPrice) == 0) {
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 상태 전이 실패(RECEIVED→FILLED)");
+            }
+
+            return new WholeOrderResponse(order.getId(), req.stockCode(), side, req.quantity(),
+                    fillPrice, totalAmount, OrderStatus.FILLED.name(), balanceAfter);
+        } catch (BusinessException e) {
+            // 멱등 충돌은 '실패한 주문'이 아니라 중복 — REJECTED 기록 제외. 그 외 비즈니스 실패만 감사 기록.
+            if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT) {
+                try {
+                    // 자금 이동은 본 tx 롤백으로 환원됨. REJECTED 행만 별도 tx(REQUIRES_NEW)로 commit.
+                    rejectionService.recordRejection(userId, account.getId(), req.stockCode(), stock.getExchange(),
+                            side, type, BigDecimal.valueOf(req.quantity()), req.price(), currency, e.getMessage());
+                } catch (Exception ignore) {
+                    // 감사 기록 실패가 원 비즈니스 예외를 가리지 않도록 무시.
+                }
+            }
+            throw e;
         }
-        String idemKey = "order:" + order.getId();   // 하위 원장 결정적 멱등키
+    }
 
-        BigDecimal balanceAfter;
-        if ("BUY".equals(side)) {
-            // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
-            balanceAfter = depositService.record(userId, account.getId(), "BUY",
-                    totalAmount.negate(), currency, "order", order.getId(), idemKey);
-            // 복식부기 상대 leg(H1): 유저 출금의 짝으로 회사 현금 수취(+). 같은 로컬 트랜잭션.
-            operatingCashService.record("BUY", totalAmount, currency, "order", order.getId(), idemKey);
-            // 원화 취득원가 = 국내는 체결금액 그대로, 해외는 체결 시점 실시간 환율로 환산.
-            BigDecimal krwAmount = overseas ? totalAmount.multiply(fxRateForKrwBasis()) : totalAmount;
-            applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, krwAmount, currency);
-        } else {
-            applySell(account.getId(), req.stockCode(), quantity);
-            balanceAfter = depositService.record(userId, account.getId(), "SELL",
-                    totalAmount, currency, "order", order.getId(), idemKey);
-            // 복식부기 상대 leg(H1): 유저 입금의 짝으로 회사 현금 지급(−). 같은 로컬 트랜잭션.
-            operatingCashService.record("SELL", totalAmount.negate(), currency, "order", order.getId(), idemKey);
+    /** 주문 취소 — 소수점 QUEUED / 온주 PENDING만 취소(→CANCELLED). 종결 상태면 409. */
+    @Transactional
+    public OrderCancelResponse cancelOrder(Long userId, Long orderId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-
-        orderMapper.updateFill(order.getId(), "FILLED", fillPrice);
-
-        return new WholeOrderResponse(order.getId(), req.stockCode(), side, req.quantity(),
-                fillPrice, totalAmount, "FILLED", balanceAfter);
+        Order o = orderMapper.findByIdAndUserId(orderId, userId);
+        if (o == null) {
+            // 없는 주문 또는 타인 주문 — 존재 노출 없이 404.
+            throw new BusinessException(ErrorCode.NOT_FOUND, "주문을 찾을 수 없습니다.");
+        }
+        if (!o.getStatus().isCancellable()) {
+            throw new BusinessException(ErrorCode.ORDER_NOT_CANCELLABLE);
+        }
+        // 전이 가드 ②: QUEUED/PENDING일 때만 CANCELLED. 0행이면 그 사이 체결/취소된 경합 → 409.
+        if (orderMapper.cancelIfCancellable(orderId, userId) == 0) {
+            throw new BusinessException(ErrorCode.ORDER_NOT_CANCELLABLE);
+        }
+        // 자금 환원: 온주 PENDING(M2 hold)·소수점 QUEUED(선차감)이 자금을 선점하면 여기서 release/refund.
+        // 현재 온주는 체결 시점 차감이라 PENDING엔 선점 자금이 없어 no-op — H4/2차에서 보강.
+        return new OrderCancelResponse(orderId, OrderStatus.CANCELLED.name());
     }
 
     /** 거래내역(최신순). */
@@ -174,7 +218,7 @@ public class WholeOrderService {
         }
         return orderMapper.findByUserId(userId).stream()
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
-                        o.getOrderType(), o.getOrderQuantity(), o.getPrice(), o.getStatus(), o.getCreatedAt()))
+                        o.getOrderType(), o.getOrderQuantity(), o.getPrice(), o.getStatus().name(), o.getCreatedAt()))
                 .toList();
     }
 
@@ -183,7 +227,7 @@ public class WholeOrderService {
         BigDecimal total = o.getPrice().multiply(o.getOrderQuantity());
         BigDecimal balanceAfter = depositService.getBalance(o.getAccountId());
         return new WholeOrderResponse(o.getId(), o.getStockCode(), o.getSide(),
-                o.getOrderQuantity().longValueExact(), o.getPrice(), total, o.getStatus(), balanceAfter);
+                o.getOrderQuantity().longValueExact(), o.getPrice(), total, o.getStatus().name(), balanceAfter);
     }
 
     // ---- 체결 시뮬 ----
