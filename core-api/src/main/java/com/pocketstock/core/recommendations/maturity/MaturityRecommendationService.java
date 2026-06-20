@@ -48,7 +48,7 @@ public class MaturityRecommendationService {
         TriggerAccountDto triggerAccount = new TriggerAccountDto(
                 account.getAccountName(),
                 account.getMaturityDate(),
-                account.getMaturityAmount(),
+                account.getPrincipalAmount(),
                 account.getDaysUntilMaturity(),
                 interestRatePct
         );

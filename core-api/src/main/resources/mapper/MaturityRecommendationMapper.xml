@@ -8,7 +8,7 @@
             resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
         SELECT account_name        AS accountName,
                maturity_date       AS maturityDate,
-               balance             AS maturityAmount,
+               balance             AS principalAmount,
                interest_rate       AS interestRate,
                DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
         FROM linked_bank_accounts

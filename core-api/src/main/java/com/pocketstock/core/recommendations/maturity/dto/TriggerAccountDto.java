@@ -6,7 +6,7 @@ import java.time.LocalDate;
 public record TriggerAccountDto(
         String accountName,
         LocalDate maturityDate,
-        BigDecimal maturityAmount,
+        BigDecimal principalAmount,
         int daysUntilMaturity,
         BigDecimal interestRate
 ) {}

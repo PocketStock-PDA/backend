@@ -9,7 +9,7 @@ import java.time.LocalDate;
 public class TriggerAccountRow {
     private String accountName;
     private LocalDate maturityDate;
-    private BigDecimal maturityAmount;
+    private BigDecimal principalAmount;
     private BigDecimal interestRate;
     private int daysUntilMaturity;
 }
