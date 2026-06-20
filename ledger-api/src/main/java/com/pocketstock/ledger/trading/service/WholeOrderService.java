@@ -123,12 +123,10 @@ public class WholeOrderService {
 
         BigDecimal balanceAfter;
         if ("BUY".equals(side)) {
-            if (depositService.getBalance(userId, currency).compareTo(totalAmount) < 0) {
-                throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "예수금이 부족합니다.");
-            }
-            applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, currency);
+            // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
             balanceAfter = depositService.record(userId, account.getId(), "BUY",
                     totalAmount.negate(), currency, "order", order.getId());
+            applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, currency);
         } else {
             applySell(account.getId(), req.stockCode(), quantity);
             balanceAfter = depositService.record(userId, account.getId(), "SELL",

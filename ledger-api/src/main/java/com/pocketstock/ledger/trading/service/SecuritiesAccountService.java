@@ -35,6 +35,12 @@ public class SecuritiesAccountService {
             "OVERSEAS", "02"
     );
 
+    /** 위탁계좌 시장 → 예수금 통화 (DOMESTIC=KRW / OVERSEAS=USD) */
+    private static final Map<String, String> MARKET_CURRENCY = Map.of(
+            "DOMESTIC", "KRW",
+            "OVERSEAS", "USD"
+    );
+
     private final SecuritiesAccountMapper accountMapper;
     private final DepositMapper depositMapper;
     private final AccountNoCipher cipher;
@@ -54,14 +60,17 @@ public class SecuritiesAccountService {
                 continue;
             }
             String accountNo = base + "-" + MARKET_SUFFIX.get(market);
-            accountMapper.insert(SecuritiesAccount.builder()
+            SecuritiesAccount account = SecuritiesAccount.builder()
                     .userId(userId)
                     .market(market)
                     .accountNoEnc(cipher.encrypt(accountNo))
                     .status(STATUS_ACTIVE)
                     .isFractionalEnabled(true)
                     .openedAt(LocalDateTime.now())
-                    .build());
+                    .build();
+            accountMapper.insert(account);
+            // 예수금 잔액행을 계좌와 짝으로 생성(balance=0) → 이후 입출금은 항상 UPDATE만.
+            depositMapper.insertBalance(account.getId(), MARKET_CURRENCY.get(market));
         }
 
         String representative = base + "-" + MARKET_SUFFIX.get(requested.get(0));
@@ -82,11 +91,12 @@ public class SecuritiesAccountService {
         return result;
     }
 
-    /** 예수금/출금가능/주문가능 조회 (KRW) */
+    /** 예수금/출금가능/주문가능 조회 (KRW = 국내 위탁계좌) */
     @Transactional(readOnly = true)
     public DepositResponse getDeposit(Long userId) {
         requireAuth(userId);
-        BigDecimal balance = depositMapper.findLatestKrwBalance(userId);
+        SecuritiesAccount domestic = accountMapper.findByUserIdAndMarket(userId, "DOMESTIC");
+        BigDecimal balance = (domestic == null) ? null : depositMapper.findBalanceByAccount(domestic.getId());
         if (balance == null) {
             balance = BigDecimal.ZERO;
         }
