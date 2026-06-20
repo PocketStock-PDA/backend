@@ -281,6 +281,26 @@ CREATE TABLE IF NOT EXISTS stock_events (
   INDEX idx_se (stock_code, event_date)
 );
 
+CREATE TABLE IF NOT EXISTS dividend_stocks (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_code VARCHAR(20) NOT NULL,
+  stock_name VARCHAR(100) NOT NULL,
+  category VARCHAR(40),
+  market VARCHAR(10) NOT NULL,
+  dividend_yield DECIMAL(5,2) NOT NULL,
+  tags VARCHAR(200),
+  is_active BOOLEAN DEFAULT TRUE,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ds (stock_code)
+);
+
+CREATE TABLE IF NOT EXISTS dividend_tag_criteria (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  tag_name VARCHAR(40) NOT NULL,
+  condition_desc VARCHAR(200),
+  UNIQUE KEY uq_dtc (tag_name)
+);
+
 CREATE TABLE IF NOT EXISTS calendar_recommendations (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NULL,

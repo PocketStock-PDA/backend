@@ -58,7 +58,7 @@
 | 자산연동 | 잠자는 잔돈 스캔 | GET | `/api/assets/scan` |  | C·강문군 |  |
 | 자산연동 | 휴면계좌 조회 | GET | `/api/assets/dormant` |  | C·강문군 |  |
 | 자산연동 | 휴면계좌 해지·잔액 이체 | POST | `/api/assets/dormant/close` |  | C·강문군 |  |
-| 소비패턴분석 | 소비패턴 분석 결과 조회 | GET | `/api/assets/spending` |  | D·김서현 |  |
+| 소비패턴분석 | 소비패턴 분석 결과 조회 | GET | `/api/assets/spending` |  | D·김서현 | ✅ |
 | 소비패턴분석 | 소비분석 리포트 | GET | `/api/assets/spending/report` |  | D·김서현 |  |
 | 타사소수점 | 타사 보유 소수점 통합 조회 | GET | `/api/assets/external-holdings` |  | C·강문군 |  |
 
@@ -133,18 +133,18 @@
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
 | 종목추천 | 추천 종목 조회(또래·소비섹터·만기, type 쿼리로 필터) | GET | `/api/recommendations` |  | D·김서현 |  |
-| 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/recommendations/maturity` |  | D·김서현 |  |
+| 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/recommendations/maturity` |  | D·김서현 | ✅ |
 | 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/recommendations/cards` |  | D·김서현 | ✅ |
 
 ## Budget
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 가계부 | 소비분석 기반 목표 자동설정 | POST | `/api/budget/goals/auto` |  | D·김서현 |  |
-| 가계부 | 가계부 목표 설정(생활비/카테고리) | POST | `/api/budget/goals` |  | D·김서현 |  |
-| 가계부 | 가계부 목표 조회 | GET | `/api/budget/goals` |  | D·김서현 |  |
-| 가계부 | 일별/월별 소비내역 조회 | GET | `/api/budget/transactions` |  | D·김서현 |  |
-| 가계부 | 파도 캘린더(일별 예산) 조회 | GET | `/api/budget/calendar` |  | D·김서현 |  |
+| 가계부 | 소비분석 기반 목표 자동설정 | POST | `/api/budget/goals/auto` |  | D·김서현 | ✅ |
+| 가계부 | 가계부 목표 설정(생활비/카테고리) | POST | `/api/budget/goals` |  | D·김서현 | ✅ |
+| 가계부 | 가계부 목표 조회 | GET | `/api/budget/goals` |  | D·김서현 | ✅ |
+| 가계부 | 일별/월별 소비내역 조회 | GET | `/api/budget/transactions` |  | D·김서현 | ✅ |
+| 가계부 | 파도 캘린더(일별 예산) 조회 | GET | `/api/budget/calendar` |  | D·김서현 | ✅ |
 | 가계부 | 카테고리별 목표대비 절약 현황 | GET | `/api/budget/savings/by-category` |  | D·김서현 |  |
 | 가계부 | 소비 섹터별 전월 비교 | GET | `/api/budget/comparison` |  | D·김서현 |  |
 | 가계부 | 절약금 현황 조회 | GET | `/api/budget/savings` |  | D·김서현 |  |
