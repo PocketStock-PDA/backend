@@ -2,11 +2,12 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
+import com.pocketstock.ledger.exchange.CurrencyRateCache;
+import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.kis.KisAskingPriceResponse;
 import com.pocketstock.ledger.kis.KisMarketClient;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
 import com.pocketstock.ledger.trading.client.LsT8450Response;
-import com.pocketstock.ledger.trading.domain.Holding;
 import com.pocketstock.ledger.trading.domain.Order;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
@@ -23,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -49,7 +49,6 @@ public class WholeOrderService {
     /** orders/tradable_stocks.exchange 는 거래소 단위 — composite FK 대상 */
     private static final Set<String> DOMESTIC_EXCHANGES = Set.of("KOSPI", "KOSDAQ");
     private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
-    private static final int AVG_SCALE = 4;  // holdings.avg_buy_price DECIMAL(18,4)
 
     private final StockMapper stockMapper;
     private final SecuritiesAccountMapper accountMapper;
@@ -58,6 +57,7 @@ public class WholeOrderService {
     private final DepositService depositService;
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
+    private final CurrencyRateCache currencyRateCache;
 
     /** 온주 매수/매도 — 검증 → 주문기록 → 자체 시뮬 체결 → holdings·예수금 반영. */
     @Transactional
@@ -123,12 +123,12 @@ public class WholeOrderService {
 
         BigDecimal balanceAfter;
         if ("BUY".equals(side)) {
-            if (depositService.getBalance(userId, currency).compareTo(totalAmount) < 0) {
-                throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "예수금이 부족합니다.");
-            }
-            applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, currency);
+            // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
             balanceAfter = depositService.record(userId, account.getId(), "BUY",
                     totalAmount.negate(), currency, "order", order.getId());
+            // 원화 취득원가 = 국내는 체결금액 그대로, 해외는 체결 시점 실시간 환율로 환산.
+            BigDecimal krwAmount = overseas ? totalAmount.multiply(fxRateForKrwBasis()) : totalAmount;
+            applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, krwAmount, currency);
         } else {
             applySell(account.getId(), req.stockCode(), quantity);
             balanceAfter = depositService.record(userId, account.getId(), "SELL",
@@ -193,36 +193,26 @@ public class WholeOrderService {
         return best;
     }
 
+    /** 매수 — 보유 원자 upsert(수량 누적 + 평단 가중평균 + 원화원가 누적). 동시 매수 lost update 차단. */
     private void applyBuy(Long userId, Long accountId, String stockCode, BigDecimal qty, BigDecimal fillPrice,
-                          String currency) {
-        Holding holding = holdingMapper.findByAccountAndStock(accountId, stockCode);
-        if (holding == null) {
-            holdingMapper.insert(Holding.builder()
-                    .userId(userId)
-                    .accountId(accountId)
-                    .stockCode(stockCode)
-                    .quantity(qty)
-                    .avgBuyPrice(fillPrice)
-                    .currency(currency)
-                    .build());
-            return;
-        }
-        BigDecimal newQty = holding.getQuantity().add(qty);
-        // 평단 가중평균 = (기존수량×기존평단 + 매수수량×체결가) / 총수량
-        BigDecimal newAvg = holding.getQuantity().multiply(holding.getAvgBuyPrice())
-                .add(qty.multiply(fillPrice))
-                .divide(newQty, AVG_SCALE, RoundingMode.HALF_UP);
-        holdingMapper.updateQuantityAndAvg(holding.getId(), newQty, newAvg);
+                          BigDecimal krwAmount, String currency) {
+        holdingMapper.upsertBuy(userId, accountId, stockCode, qty, fillPrice, krwAmount, currency);
     }
 
+    /** 해외 매수 원화원가 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 콜드스타트(틱 미수신)면 502. */
+    private BigDecimal fxRateForKrwBasis() {
+        CurrencyRateResponse rate = currencyRateCache.get();
+        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
+        }
+        return rate.exchangeRate();
+    }
+
+    /** 매도 — 보유 수량 원자 차감(음수 가드). 전량매도 시 quantity=0으로 row 보존. */
     private void applySell(Long accountId, String stockCode, BigDecimal qty) {
-        Holding holding = holdingMapper.findByAccountAndStock(accountId, stockCode);
-        if (holding == null || holding.getQuantity().compareTo(qty) < 0) {
+        if (holdingMapper.reduceForSell(accountId, stockCode, qty) == 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "보유 수량이 부족합니다.");
         }
-        // 매도는 평단 유지, 전량매도 시 quantity=0으로 row 보존(삭제 안 함)
-        holdingMapper.updateQuantityAndAvg(holding.getId(),
-                holding.getQuantity().subtract(qty), holding.getAvgBuyPrice());
     }
 
     private String normalize(String s) {

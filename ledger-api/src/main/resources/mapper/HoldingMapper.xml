@@ -15,24 +15,26 @@
         <result property="updatedAt"   column="updated_at"/>
     </resultMap>
 
-    <select id="findByAccountAndStock" resultMap="holding">
-        SELECT id, user_id, account_id, stock_code, quantity, avg_buy_price, currency, created_at, updated_at
-        FROM holdings
-        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
-    </select>
-
-    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.Holding"
-            useGeneratedKeys="true" keyProperty="id">
+    <!-- 매수/적립 원자 upsert. 기존이면 평단 가중평균(옛 수량으로 먼저 계산) 후 수량 누적.
+         MySQL은 SET을 왼→오로 평가 → avg_buy_price를 quantity 갱신 '전에' 둬야 옛 수량을 쓴다. -->
+    <insert id="upsertBuy">
         INSERT INTO holdings
-            (user_id, account_id, stock_code, quantity, avg_buy_price, currency)
+            (user_id, account_id, stock_code, quantity, avg_buy_price, krw_cost_basis, currency)
         VALUES
-            (#{userId}, #{accountId}, #{stockCode}, #{quantity}, #{avgBuyPrice}, #{currency})
+            (#{userId}, #{accountId}, #{stockCode}, #{qty}, #{price}, #{krwAmount}, #{currency})
+        ON DUPLICATE KEY UPDATE
+            avg_buy_price  = (quantity * avg_buy_price + #{qty} * #{price}) / (quantity + #{qty}),
+            krw_cost_basis = krw_cost_basis + #{krwAmount},
+            quantity       = quantity + #{qty}
     </insert>
 
-    <update id="updateQuantityAndAvg">
+    <!-- 매도 원자 차감 + 음수 가드. 평단 유지, 원화원가는 남은 수량 비례로 차감(옛 수량으로 먼저 계산). -->
+    <update id="reduceForSell">
         UPDATE holdings
-        SET quantity = #{quantity}, avg_buy_price = #{avgBuyPrice}
-        WHERE id = #{id}
+        SET krw_cost_basis = krw_cost_basis * (quantity - #{qty}) / quantity,
+            quantity       = quantity - #{qty}
+        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+          AND quantity - #{qty} &gt;= 0
     </update>
 
     <select id="findByUserId" resultMap="holding">
