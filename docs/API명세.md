@@ -145,10 +145,10 @@
 | 가계부 | 가계부 목표 조회 | GET | `/api/budget/goals` |  | D·김서현 | ✅ |
 | 가계부 | 일별/월별 소비내역 조회 | GET | `/api/budget/transactions` |  | D·김서현 | ✅ |
 | 가계부 | 파도 캘린더(일별 예산) 조회 | GET | `/api/budget/calendar` |  | D·김서현 | ✅ |
-| 가계부 | 카테고리별 목표대비 절약 현황 | GET | `/api/budget/savings/by-category` |  | D·김서현 |  |
-| 가계부 | 소비 섹터별 전월 비교 | GET | `/api/budget/comparison` |  | D·김서현 |  |
-| 가계부 | 절약금 현황 조회 | GET | `/api/budget/savings` |  | D·김서현 |  |
-| 가계부 | 절약금 모으기 동의 | POST | `/api/budget/savings/agree` |  | D·김서현 |  |
+| 가계부 | 카테고리별 목표대비 절약 현황 | GET | `/api/budget/savings/by-category` |  | D·김서현 | ✅ |
+| 가계부 | 소비 섹터별 전월 비교 | GET | `/api/budget/comparison` |  | D·김서현 | ✅ |
+| 가계부 | 절약금 현황 조회 | GET | `/api/budget/savings` |  | D·김서현 | ✅ |
+| 가계부 | 절약금 모으기 동의 | POST | `/api/budget/savings/agree` |  | D·김서현 | ✅ |
 
 ## Exchange
 
