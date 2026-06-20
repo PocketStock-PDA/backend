@@ -59,7 +59,7 @@ public class CardRecommendationService {
                         .doubleValue()
         ));
 
-        List<CardRow> cards = cardMapper.findAllActiveCards();
+        List<CardRow> cards = cardMapper.findAllActiveCards(userId);
         Map<Long, List<CardBenefitRow>> benefitsByCard = cardMapper.findAllBenefits().stream()
                 .collect(Collectors.groupingBy(CardBenefitRow::getCardId));
 

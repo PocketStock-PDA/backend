@@ -18,7 +18,7 @@ public interface CardMapper {
             @Param("to") LocalDateTime to
     );
 
-    List<CardRow> findAllActiveCards();
+    List<CardRow> findAllActiveCards(@Param("userId") Long userId);
 
     List<CardBenefitRow> findAllBenefits();
 }
