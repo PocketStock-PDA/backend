@@ -55,6 +55,7 @@ public class WholeOrderService {
     private final OrderMapper orderMapper;
     private final HoldingMapper holdingMapper;
     private final DepositService depositService;
+    private final OperatingCashService operatingCashService;
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
     private final CurrencyRateCache currencyRateCache;
@@ -126,6 +127,8 @@ public class WholeOrderService {
             // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
             balanceAfter = depositService.record(userId, account.getId(), "BUY",
                     totalAmount.negate(), currency, "order", order.getId());
+            // 복식부기 상대 leg(H1): 유저 출금의 짝으로 회사 현금 수취(+). 같은 로컬 트랜잭션.
+            operatingCashService.record("BUY", totalAmount, currency, "order", order.getId());
             // 원화 취득원가 = 국내는 체결금액 그대로, 해외는 체결 시점 실시간 환율로 환산.
             BigDecimal krwAmount = overseas ? totalAmount.multiply(fxRateForKrwBasis()) : totalAmount;
             applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, krwAmount, currency);
@@ -133,6 +136,8 @@ public class WholeOrderService {
             applySell(account.getId(), req.stockCode(), quantity);
             balanceAfter = depositService.record(userId, account.getId(), "SELL",
                     totalAmount, currency, "order", order.getId());
+            // 복식부기 상대 leg(H1): 유저 입금의 짝으로 회사 현금 지급(−). 같은 로컬 트랜잭션.
+            operatingCashService.record("SELL", totalAmount.negate(), currency, "order", order.getId());
         }
 
         orderMapper.updateFill(order.getId(), "FILLED", fillPrice);
