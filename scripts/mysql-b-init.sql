@@ -241,15 +241,40 @@ CREATE TABLE IF NOT EXISTS allocations (
   INDEX idx_alloc_order (order_id), INDEX idx_alloc_batch (batch_order_id)
 );
 
+-- 옴니버스 재고(소수점 정산용, 2차). 현금은 분리됨(operating_cash_*) — 여기는 주식 재고 전용.
 CREATE TABLE IF NOT EXISTS operating_account (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_code VARCHAR(20) NOT NULL UNIQUE,
   whole_qty INT DEFAULT 0,
   fractional_remainder DECIMAL(18,6) DEFAULT 0,
-  cash_balance DECIMAL(18,4) DEFAULT 0,
-  currency VARCHAR(3),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 회사 현금 원장(복식부기 상대계정, H1 #89). 유저쪽 deposit_transactions/account_balances와 대칭.
+-- 거래 역사는 operating_cash_transactions(불변 journal), 현재잔액은 operating_cash_balances(통화당 1행, 가변).
+-- ※ 음수 가드 없음: 무상주(웰컴리워드) 매도 등으로 회사 순현금이 음수가 될 수 있음(정당한 회계값).
+CREATE TABLE IF NOT EXISTS operating_cash_transactions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  currency VARCHAR(3) NOT NULL,
+  tx_type VARCHAR(20) NOT NULL,            -- 트리거 주문 side: BUY(회사 현금 수취,+) / SELL(회사 현금 지급,-)
+  amount DECIMAL(18,4) NOT NULL,           -- +수취 / −지급 (유저 예수금 leg의 반대 부호)
+  balance_after DECIMAL(18,4),
+  ref_type VARCHAR(20) NULL,               -- order(온주) | allocation | batch(2차 소수점)
+  ref_id BIGINT NULL,
+  idempotency_key VARCHAR(80) UNIQUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_oct_ccy (currency), INDEX idx_oct_ref (ref_type, ref_id)
+);
+
+-- 회사 현금 현재잔액(물질화 projection, 통화당 1행). 갱신은 원자 upsert(balance += delta), 음수 가드 없음.
+CREATE TABLE IF NOT EXISTS operating_cash_balances (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  currency VARCHAR(3) NOT NULL,
+  balance DECIMAL(18,4) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ocb_ccy (currency)         -- (currency) = 회사현금 그레인
 );
 
 CREATE TABLE IF NOT EXISTS auto_invest_settings (
