@@ -22,7 +22,9 @@ public class CmaTransaction {
     //                                 출금(-): BUY_TRANSFER, FX_OUT / 정정: REVERT
     // FX_IN/FX_OUT은 환전 CmaFundsPort 계약(ref_type='FX_TX', ref_id=fx_transactions.id, 스왑당 2줄)을 따른다.
     private String txType;
-    private String sourceType;      // ACCOUNT_CHANGE / CARD_ROUNDUP / POINT / null
+    // source_type 정식 어휘 — 거래 출처(모든 행). 수집: ACCOUNT(끝전)/CARD(라운드업)/POINT,
+    //                          그 외: MANUAL(수동 입금)/SYSTEM(이자 등). collection_settings.source_type와 동일 어휘.
+    private String sourceType;
 
     private BigDecimal amount;
     private BigDecimal balanceAfter;
