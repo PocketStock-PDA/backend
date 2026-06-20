@@ -25,10 +25,13 @@
 | 회원·인증 | 아이디 중복 확인 | GET | `/api/users/check-username` |  | A·우정인 | ✅ |
 | 회원·인증 | 회원가입(이름·주민번호 앞6+뒷1·아이디·비번·휴대폰) | POST | `/api/users/signup` |  | A·우정인 | ✅ |
 | 회원·인증 | 비밀번호 보안규칙 실시간 검증 | POST | `/api/users/validate-password` |  | A·우정인 | ✅ |
-| 회원·인증 | SMS 인증번호 발송 | POST | `/api/auth/sms/send` |  | A·우정인 |  |
-| 회원·인증 | SMS 인증번호 확인 | POST | `/api/auth/sms/verify` |  | A·우정인 |  |
-| 회원·인증 | 신한인증서 난수문자 인증요청 | POST | `/api/auth/shinhan-cert/request` |  | A·우정인 |  |
-| 회원·인증 | 신한인증서 인증확인 | POST | `/api/auth/shinhan-cert/verify` |  | A·우정인 |  |
+| 회원·인증 | SMS 인증번호 발송 | POST | `/api/auth/sms/send` |  | A·우정인 | ✅ |
+| 회원·인증 | SMS 인증번호 확인 | POST | `/api/auth/sms/verify` |  | A·우정인 | ✅ |
+| 회원·인증 | 난수문자 인증요청(휴대폰 본인확인 mock) | POST | `/api/auth/shinhan-cert/request` |  | A·우정인 | ✅ |
+| 회원·인증 | 난수문자 대조 확인(echo) | POST | `/api/auth/shinhan-cert/verify` |  | A·우정인 | ✅ |
+| 회원·인증 | 계좌 1원 인증용 보유 계좌 목록(mock) | GET | `/api/auth/bank-accounts` |  | A·우정인 |  |
+| 회원·인증 | 계좌 1원 인증 요청(1원 입금 mock) | POST | `/api/auth/account-verify/request` |  | A·우정인 |  |
+| 회원·인증 | 계좌 1원 인증 확인(숫자 3자리 대조) | POST | `/api/auth/account-verify/confirm` |  | A·우정인 |  |
 | 회원·인증 | ID/PW 로그인(JWT 발급) | POST | `/api/auth/login` |  | A·우정인 | ✅ |
 | 회원·인증 | PIN/패턴 간편 로그인 | POST | `/api/auth/login/pin` |  | A·우정인 | ✅ |
 | 회원·인증 | 토큰 재발급(Refresh) | POST | `/api/auth/refresh` |  | A·우정인 | ✅ |
@@ -166,8 +169,8 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 알림 | 알림 목록(알림센터) 조회 | GET | `/api/notifications` |  | A·우정인 |  |
-| 알림 | 알림 읽음 처리 | PATCH | `/api/notifications/{id}/read` |  | A·우정인 |  |
-| 알림 | 알림 전체 읽음 | PATCH | `/api/notifications/read-all` |  | A·우정인 |  |
-| 알림 | 푸시 토큰 등록 | POST | `/api/notifications/token` |  | A·우정인 |  |
-| 알림 | 알림 수신 설정 | PUT | `/api/notifications/settings` |  | A·우정인 |  |
+| 알림 | 알림 목록(알림센터) 조회 | GET | `/api/notifications` |  | A·우정인 | ✅ |
+| 알림 | 알림 읽음 처리 | PATCH | `/api/notifications/{id}/read` |  | A·우정인 | ✅ |
+| 알림 | 알림 전체 읽음 | PATCH | `/api/notifications/read-all` |  | A·우정인 | ✅ |
+| 알림 | 푸시 토큰 등록 | POST | `/api/notifications/token` |  | A·우정인 | ✅ |
+| 알림 | 알림 수신 설정 | PUT | `/api/notifications/settings` |  | A·우정인 | ✅ |
