@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.budget.mapper.BudgetSavingsMapper">
+
+    <select id="findCategoryGoalsWithSpending"
+            resultType="com.pocketstock.core.budget.dto.CategorySavingsRow">
+        SELECT bg.category,
+               bg.target_amount                    AS targetAmount,
+               COALESCE(SUM(ct.amount), 0)         AS spentAmount
+        FROM budget_goals bg
+        LEFT JOIN card_transactions ct
+            ON ct.user_id    = bg.user_id
+            AND ct.category  = bg.category
+            AND ct.paid_at  >= #{from}
+            AND ct.paid_at   &lt; #{to}
+            AND ct.is_cancelled = FALSE
+        WHERE bg.user_id = #{userId}
+          AND bg.period  = #{period}
+          AND bg.category IS NOT NULL
+        GROUP BY bg.category, bg.target_amount
+        ORDER BY bg.target_amount DESC
+    </select>
+
+    <select id="findBudgetSavings"
+            resultType="com.pocketstock.core.budget.dto.BudgetSavingsRow">
+        SELECT target_amount      AS targetAmount,
+               is_collect_agreed  AS collectAgreed,
+               transfer_status    AS transferStatus
+        FROM budget_savings
+        WHERE user_id = #{userId}
+          AND period  = #{period}
+        LIMIT 1
+    </select>
+
+    <insert id="agreeCollect">
+        INSERT INTO budget_savings
+            (user_id, period, target_amount, spent_amount, saved_amount,
+             is_collect_agreed, transfer_status, created_at, updated_at)
+        VALUES
+            (#{userId}, #{period}, 0, 0, 0, TRUE, 'PENDING', NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            is_collect_agreed = TRUE,
+            updated_at        = NOW()
+    </insert>
+
+</mapper>
