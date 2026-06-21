@@ -3,7 +3,9 @@ package com.pocketstock.ledger.kis;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -12,14 +14,15 @@ import java.util.List;
 /**
  * KIS 예탁원 배당일정 조회 (HHKDB669102C0).
  * 실전 전용(모의 미지원). 배치에서만 호출한다.
+ * 401 응답 시 토큰 1회 재발급 후 재시도한다(KisMarketClient와 동일 패턴).
  */
 @Slf4j
 @Component
 public class KisDividendClient {
 
-    private static final String PATH       = "/uapi/domestic-stock/v1/ksdinfo/dividend";
-    private static final String TR_ID      = "HHKDB669102C0";
-    private static final String SUCCESS    = "0";
+    private static final String PATH    = "/uapi/domestic-stock/v1/ksdinfo/dividend";
+    private static final String TR_ID   = "HHKDB669102C0";
+    private static final String SUCCESS = "0";
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final KisApiProperties props;
@@ -42,6 +45,24 @@ public class KisDividendClient {
     }
 
     private List<KisDividendResponse.Item> fetch(String stockCode, LocalDate from, LocalDate to) {
+        try {
+            return fetchOnce(stockCode, from, to);
+        } catch (HttpClientErrorException.Unauthorized e) {
+            log.warn("KIS 배당일정 401 — 토큰 재발급 후 재시도");
+            try {
+                tokenProvider.refresh();
+                return fetchOnce(stockCode, from, to);
+            } catch (RestClientException retryEx) {
+                log.error("KIS 배당일정 재시도 실패: {}", retryEx.getMessage());
+                return List.of();
+            }
+        } catch (RestClientException e) {
+            log.error("KIS 배당일정 조회 실패: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<KisDividendResponse.Item> fetchOnce(String stockCode, LocalDate from, LocalDate to) {
         KisDividendResponse res = kisRestClient.get()
                 .uri(uri -> uri.path(PATH)
                         .queryParam("CTS",     "")
