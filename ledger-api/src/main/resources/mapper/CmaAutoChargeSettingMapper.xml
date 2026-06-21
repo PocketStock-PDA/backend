@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.cma.mapper.CmaAutoChargeSettingMapper">
+
+    <resultMap id="cmaAutoChargeSetting" type="com.pocketstock.ledger.cma.domain.CmaAutoChargeSetting">
+        <id     property="id"               column="id"/>
+        <result property="userId"           column="user_id"/>
+        <result property="isEnabled"        column="is_enabled"/>
+        <result property="sourceAccountRef" column="source_account_ref"/>
+        <result property="maxChargePerTx"   column="max_charge_per_tx"/>
+        <result property="createdAt"        column="created_at"/>
+        <result property="updatedAt"        column="updated_at"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="cmaAutoChargeSetting">
+        SELECT id, user_id, is_enabled, source_account_ref, max_charge_per_tx, created_at, updated_at
+        FROM cma_auto_charge_settings
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- user_id UNIQUE 기준 upsert -->
+    <insert id="upsert" parameterType="com.pocketstock.ledger.cma.domain.CmaAutoChargeSetting">
+        INSERT INTO cma_auto_charge_settings (user_id, is_enabled, source_account_ref, max_charge_per_tx)
+        VALUES (#{userId}, #{isEnabled}, #{sourceAccountRef}, #{maxChargePerTx})
+        ON DUPLICATE KEY UPDATE
+            is_enabled         = #{isEnabled},
+            source_account_ref = #{sourceAccountRef},
+            max_charge_per_tx  = #{maxChargePerTx},
+            updated_at         = NOW()
+    </insert>
+
+</mapper>

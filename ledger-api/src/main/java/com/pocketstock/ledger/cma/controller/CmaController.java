@@ -1,13 +1,16 @@
 package com.pocketstock.ledger.cma.controller;
 
 import com.pocketstock.common.response.ApiResponse;
+import com.pocketstock.ledger.cma.dto.request.AutoChargeSettingRequest;
 import com.pocketstock.ledger.cma.dto.request.CollectionSettingRequest;
+import com.pocketstock.ledger.cma.dto.response.AutoChargeSettingResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaAccountResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
 import com.pocketstock.ledger.cma.dto.response.CollectResult;
 import com.pocketstock.ledger.cma.service.CmaAccountService;
+import com.pocketstock.ledger.cma.service.CmaAutoChargeSettingService;
 import com.pocketstock.ledger.cma.service.CmaCollectService;
 import com.pocketstock.ledger.cma.service.CmaQueryService;
 import com.pocketstock.user.security.CurrentUserId;
@@ -28,6 +31,7 @@ public class CmaController {
     private final CmaQueryService queryService;
     private final CmaCollectService collectService;
     private final CmaAccountService accountService;
+    private final CmaAutoChargeSettingService autoChargeSettingService;
 
     /** CMA 계좌 개설(멱등) — 온보딩 마지막 단계. 이미 있으면 기존 계좌 반환. */
     @PostMapping("/account")
@@ -120,6 +124,21 @@ public class CmaController {
             @RequestBody @Valid CollectionSettingRequest request) {
         collectService.updateSettings(userId, request);
         return ApiResponse.ok("적립 소스 설정 완료", null);
+    }
+
+    /** 부족금액 자동충전 설정 조회 — 설정 없는 신규 사용자는 OFF 기본값 반환. */
+    @GetMapping("/auto-charge-settings")
+    public ApiResponse<AutoChargeSettingResponse> getAutoChargeSettings(@CurrentUserId Long userId) {
+        return ApiResponse.ok("자동충전 설정 조회 성공", autoChargeSettingService.get(userId));
+    }
+
+    /** 부족금액 자동충전 설정 변경 — 켤 때만 충전 재원·한도 검증. */
+    @PutMapping("/auto-charge-settings")
+    public ApiResponse<Void> updateAutoChargeSettings(
+            @CurrentUserId Long userId,
+            @RequestBody @Valid AutoChargeSettingRequest request) {
+        autoChargeSettingService.update(userId, request);
+        return ApiResponse.ok("자동충전 설정 완료", null);
     }
 
     /**
