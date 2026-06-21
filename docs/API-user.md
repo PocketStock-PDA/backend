@@ -240,6 +240,14 @@ ID/PW 로그인 (JWT 발급)
  }
 ```
 
+**Response Headers**
+
+```
+Set-Cookie: refreshToken={token}; Max-Age=1209600; Path=/api/auth; HttpOnly; Secure; SameSite=Lax
+```
+
+> refreshToken은 바디로 내려가지 않는다. HttpOnly 쿠키로만 전달되어 JS에서 접근할 수 없다(XSS 탈취 방지).
+
 **Response Body**
 
 ```json
@@ -249,7 +257,6 @@ ID/PW 로그인 (JWT 발급)
   "message": "로그인 성공",
   "data": {
   "accessToken": "eyJhbGci...",
-  "refreshToken": "eyJhbGci...",
   "expiresIn": 1800
  }
  }
@@ -273,6 +280,14 @@ PIN/패턴 간편 로그인
  }
 ```
 
+**Response Headers**
+
+```
+Set-Cookie: refreshToken={token}; Max-Age=1209600; Path=/api/auth; HttpOnly; Secure; SameSite=Lax
+```
+
+> refreshToken은 바디로 내려가지 않는다. HttpOnly 쿠키로만 전달된다(로그인과 동일).
+
 **Response Body**
 
 ```json
@@ -282,7 +297,6 @@ PIN/패턴 간편 로그인
   "message": "간편 로그인 성공",
   "data": {
   "accessToken": "eyJhbGci...",
-  "refreshToken": "eyJhbGci...",
   "expiresIn": 1800
  }
  }
@@ -295,15 +309,10 @@ PIN/패턴 간편 로그인
 토큰 재발급 (Refresh)
 
 - **Request Headers**: 없음 (인증 불필요)
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+- **Cookie**: `refreshToken` (HttpOnly) — 로그인 시 발급된 쿠키가 자동 전송됨
 
-**Request Body**
-
-```json
-{
-  "refreshToken": "eyJhbGci..."
- }
-```
+**Request Body**: 없음 — refreshToken은 쿠키에서 읽는다. 쿠키가 없으면 401.
 
 **Response Body**
 
@@ -326,15 +335,18 @@ PIN/패턴 간편 로그인
 로그아웃
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK
+- **Cookie**: `refreshToken` (HttpOnly) — 자동 전송됨. Redis의 refresh token을 폐기한다.
 
-**Request Body**
+**Request Body**: 없음 — refreshToken은 쿠키에서 읽는다.
 
-```json
-{
-  "refreshToken": "eyJhbGci..."
- }
+**Response Headers**
+
 ```
+Set-Cookie: refreshToken=; Max-Age=0; Path=/api/auth; HttpOnly; Secure; SameSite=Lax
+```
+
+> refresh 쿠키를 즉시 만료시켜 브라우저에서 제거한다.
 
 **Response Body**
 

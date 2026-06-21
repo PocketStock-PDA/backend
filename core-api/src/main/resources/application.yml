@@ -35,6 +35,11 @@ jwt:
   validity-ms: 1800000          # access token 30분
   refresh-validity-ms: 1209600000  # refresh token 14일
 
+# refresh token HttpOnly 쿠키 설정
+auth:
+  refresh-cookie:
+    secure: true   # HTTPS에서만 전송. 로컬(http)은 application-local.yml에서 false로 override
+
 # 웹푸시(VAPID) — 공개키는 프론트와 동일 값 공유(NEXT_PUBLIC_VAPID_PUBLIC_KEY)
 webpush:
   vapid:

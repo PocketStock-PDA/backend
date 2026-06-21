@@ -4,8 +4,8 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.user.member.domain.AuthMethod;
 import com.pocketstock.user.member.domain.Member;
+import com.pocketstock.user.member.dto.AuthTokens;
 import com.pocketstock.user.member.dto.LoginRequest;
-import com.pocketstock.user.member.dto.LoginResponse;
 import com.pocketstock.user.member.dto.PinLoginRequest;
 import com.pocketstock.user.member.dto.RefreshResponse;
 import com.pocketstock.user.member.mapper.AuthMethodMapper;
@@ -38,7 +38,7 @@ public class AuthService {
 
     /** ID/PW 로그인 — 검증 성공 시 기기 등록 후 access/refresh 토큰 발급. */
     @Transactional   // 기기 등록(clear→update)을 한 트랜잭션으로 묶어 부분 실패를 방지
-    public LoginResponse login(LoginRequest req, String deviceId) {
+    public AuthTokens login(LoginRequest req, String deviceId) {
         if (!StringUtils.hasText(req.username()) || !StringUtils.hasText(req.password())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "아이디와 비밀번호는 필수입니다.");
         }
@@ -55,14 +55,14 @@ public class AuthService {
         String accessToken = jwtProvider.createToken(member.getId());
         String refreshToken = refreshTokenService.issue(member.getId());
 
-        return new LoginResponse(accessToken, refreshToken, jwtProvider.getValiditySeconds());
+        return new AuthTokens(accessToken, refreshToken, jwtProvider.getValiditySeconds());
     }
 
     /**
      * PIN/패턴 간편 로그인 — X-Device-Id로 사용자를 특정한 뒤 PIN/패턴을 대조한다.
      * deviceId는 신뢰 경계 밖(클라이언트 제공)이라 사용자 '특정'에만 쓰고, 인증은 PIN 대조로 한다.
      */
-    public LoginResponse loginPin(PinLoginRequest req, String deviceId) {
+    public AuthTokens loginPin(PinLoginRequest req, String deviceId) {
         if (req == null || !StringUtils.hasText(req.type()) || !StringUtils.hasText(req.value())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "type과 value는 필수입니다.");
         }
@@ -94,7 +94,7 @@ public class AuthService {
 
         String accessToken = jwtProvider.createToken(userId);
         String refreshToken = refreshTokenService.issue(userId);
-        return new LoginResponse(accessToken, refreshToken, jwtProvider.getValiditySeconds());
+        return new AuthTokens(accessToken, refreshToken, jwtProvider.getValiditySeconds());
     }
 
     /** deviceId를 로그인 사용자에 등록. 기존 소유자에서 분리 후 부여(기기 1대=계정 1명). */
