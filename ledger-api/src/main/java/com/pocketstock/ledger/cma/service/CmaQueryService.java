@@ -16,6 +16,7 @@ import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
 import com.pocketstock.ledger.cma.mapper.CmaBalanceMapper;
 import com.pocketstock.ledger.cma.mapper.CmaTransactionMapper;
 import com.pocketstock.ledger.cma.mapper.CollectionSettingMapper;
+import com.pocketstock.ledger.exchange.service.ExchangeRateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,12 +39,15 @@ public class CmaQueryService {
             "POINT",   "마이신한포인트"
     );
     private static final BigDecimal DEFAULT_THRESHOLD = BigDecimal.valueOf(10000);
+    private static final String KRW = "KRW";
+    private static final String USD = "USD";
 
     private final CmaAccountMapper accountMapper;
     private final CmaBalanceMapper balanceMapper;
     private final CmaTransactionMapper transactionMapper;
     private final CollectionSettingMapper settingMapper;
     private final AssetFeignClient assetFeignClient;
+    private final ExchangeRateService exchangeRateService;
 
     @Transactional(readOnly = true)
     public CmaHomeResponse getHome(Long userId) {
@@ -120,14 +124,32 @@ public class CmaQueryService {
                 ))
                 .toList();
 
-        // TODO: 환전 도메인(/api/exchange/*) 구현 후 USD 잔액을 환율로 환산해 합산해야 함 (docs/API-cma.md 참고)
-        BigDecimal totalKrw = balances.stream()
-                .filter(b -> "KRW".equals(b.getCurrency()))
-                .map(CmaBalance::getBalance)
-                .findFirst()
-                .orElse(BigDecimal.ZERO);
+        return new CmaBalanceResponse(items, calcTotalKrwEquivalent(balances));
+    }
 
-        return new CmaBalanceResponse(items, totalKrw);
+    /**
+     * 총 평가액(KRW 환산) = KRW 잔액 + USD 잔액 × 매매기준율.
+     * USD 미보유(행 없음/0)면 환율을 조회하지 않아 KRW 전용 계좌는 항상 성공한다.
+     * USD>0 인데 환율 캐시가 비어 있으면(콜드스타트) 환전 API와 동일하게 502가 전파되어,
+     * 틀린(과소) 총액을 노출하지 않는다.
+     */
+    private BigDecimal calcTotalKrwEquivalent(List<CmaBalance> balances) {
+        BigDecimal totalKrw = sumByCurrency(balances, KRW);
+        BigDecimal usd = sumByCurrency(balances, USD);
+        if (usd.signum() == 0) {
+            return totalKrw;
+        }
+        BigDecimal baseRate = exchangeRateService.getUsdKrwRate().baseRate();
+        BigDecimal usdInKrw = usd.multiply(baseRate).setScale(0, RoundingMode.HALF_UP);
+        return totalKrw.add(usdInKrw);
+    }
+
+    private BigDecimal sumByCurrency(List<CmaBalance> balances, String currency) {
+        return balances.stream()
+                .filter(b -> currency.equals(b.getCurrency()))
+                .map(CmaBalance::getBalance)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Transactional(readOnly = true)
