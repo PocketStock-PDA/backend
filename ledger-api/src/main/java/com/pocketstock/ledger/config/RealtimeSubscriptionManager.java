@@ -56,7 +56,7 @@ public class RealtimeSubscriptionManager {
     /**
      * 매칭 엔진 전용 — 종목 호가(UH1) 구독 ON. 클라 STOMP 구독과 같은 참조계수를 공유하므로
      * 누가 켜든 상류엔 1번만 등록되고, 클라·PENDING이 모두 빠질 때만 실제 해제된다.
-     * (국내 한정 — 해외 RSYM 키 매핑은 후속 범위.)
+     * (국내 LS UH1 — 해외 KIS는 {@link #acquireForeignQuote} 참조.)
      */
     public void acquireAsking(String stockCode) {
         RealtimeKey key = resolve(ASKING_PREFIX + stockCode);
@@ -68,6 +68,26 @@ public class RealtimeSubscriptionManager {
     /** 매칭 엔진 전용 — 종목 호가(UH1) 구독 해제(그 종목 마지막 PENDING 종료 시). */
     public void releaseAsking(String stockCode) {
         RealtimeKey key = resolve(ASKING_PREFIX + stockCode);
+        if (key != null) {
+            decrement(key);
+        }
+    }
+
+    /**
+     * 매칭 엔진 전용 — 해외 종목 호가(KIS HDFSASP0) 구독 ON. 국내 {@link #acquireAsking}과 동형으로
+     * 클라 STOMP 구독과 같은 참조계수를 공유한다. tr_key 조립(D/R·시장코드)은 {@code resolveForeign}이
+     * 서버시각으로 자동 결정 — 장 마감(CLOSED)이면 null이라 등록 스킵(틱이 안 와도 안전).
+     */
+    public void acquireForeignQuote(String stockCode) {
+        RealtimeKey key = resolve(FOREIGN_QUOTE_PREFIX + stockCode);
+        if (key != null) {
+            increment(key);
+        }
+    }
+
+    /** 매칭 엔진 전용 — 해외 종목 호가(HDFSASP0) 구독 해제(그 종목 마지막 PENDING 종료 시). */
+    public void releaseForeignQuote(String stockCode) {
+        RealtimeKey key = resolve(FOREIGN_QUOTE_PREFIX + stockCode);
         if (key != null) {
             decrement(key);
         }

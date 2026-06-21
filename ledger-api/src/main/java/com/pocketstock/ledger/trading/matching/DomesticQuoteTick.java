@@ -12,5 +12,5 @@ public record DomesticQuoteTick(
         BigDecimal[] askPrices,
         BigDecimal[] askVolumes,
         BigDecimal[] bidPrices,
-        BigDecimal[] bidVolumes) {
+        BigDecimal[] bidVolumes) implements QuoteTick {
 }

@@ -2,9 +2,11 @@ package com.pocketstock.ledger.kis;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pocketstock.ledger.realtime.RealtimeReconnectedEvent;
 import com.pocketstock.ledger.realtime.RealtimeUpstream;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -45,6 +47,7 @@ public class KisRealtimeClient implements RealtimeUpstream {
     private final KisApiProperties props;
     private final KisApprovalKeyProvider approvalKeyProvider;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** tr_id → 도메인 핸들러. */
     private final Map<String, KisRealtimeListener> listeners;
@@ -54,12 +57,16 @@ public class KisRealtimeClient implements RealtimeUpstream {
     private final StandardWebSocketClient wsClient = new StandardWebSocketClient();
     private volatile WebSocketSession session;
     private final Object connectLock = new Object();
+    /** 첫 연결 이후 true — 첫 연결과 '재연결(down→up)'을 구분해 재연결에만 보정 이벤트를 쏜다. */
+    private volatile boolean everConnected = false;
 
     public KisRealtimeClient(KisApiProperties props, KisApprovalKeyProvider approvalKeyProvider,
-                             ObjectMapper objectMapper, List<KisRealtimeListener> listenerBeans) {
+                             ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher,
+                             List<KisRealtimeListener> listenerBeans) {
         this.props = props;
         this.approvalKeyProvider = approvalKeyProvider;
         this.objectMapper = objectMapper;
+        this.eventPublisher = eventPublisher;
         this.listeners = listenerBeans.stream()
                 .collect(Collectors.toMap(KisRealtimeListener::trId, l -> l));
     }
@@ -90,23 +97,33 @@ public class KisRealtimeClient implements RealtimeUpstream {
         if (isOpen()) {
             return;
         }
+        boolean reconnected = false;
         synchronized (connectLock) {
-            if (isOpen()) {
-                return;
+            if (!isOpen()) {
+                String url = props.getRealtimeUrl();
+                try {
+                    session = wsClient.execute(new InboundHandler(), url).get();
+                    log.info("KIS 실시간 WebSocket 연결: {}", url);
+                    // 재연결이면 끊기기 전 등록 종목을 다시 켠다.
+                    activeKeys.forEach(k -> {
+                        String[] p = k.split("\\|", 2);
+                        send(TR_TYPE_REGISTER, p[0], p[1]);
+                    });
+                    reconnected = everConnected;   // 직전에 한 번이라도 붙었었다면 이번은 '재연결'
+                    everConnected = true;
+                } catch (Exception e) {
+                    session = null;
+                    // 인터럽트일 때만 플래그 복원 — 그 외 예외(연결·실행 오류)엔 호출 스레드 오염 금지.
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw new IllegalStateException("KIS 실시간 WebSocket 연결 실패: " + url, e);
+                }
             }
-            String url = props.getRealtimeUrl();
-            try {
-                session = wsClient.execute(new InboundHandler(), url).get();
-                log.info("KIS 실시간 WebSocket 연결: {}", url);
-                activeKeys.forEach(k -> {
-                    String[] p = k.split("\\|", 2);
-                    send(TR_TYPE_REGISTER, p[0], p[1]);
-                });
-            } catch (Exception e) {
-                session = null;
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("KIS 실시간 WebSocket 연결 실패: " + url, e);
-            }
+        }
+        // 잠금 밖에서 발행 — 소비자(매칭 엔진)의 REST 스냅샷 보정이 connectLock을 물지 않게.
+        if (reconnected) {
+            eventPublisher.publishEvent(new RealtimeReconnectedEvent(name()));
         }
     }
 
