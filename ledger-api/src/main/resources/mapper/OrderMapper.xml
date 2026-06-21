@@ -17,33 +17,59 @@
         <result property="status"        column="status"/>
         <result property="source"        column="source"/>
         <result property="currency"      column="currency"/>
+        <result property="failReason"    column="fail_reason"/>
         <result property="requestedAt"   column="requested_at"/>
         <result property="createdAt"     column="created_at"/>
         <result property="updatedAt"     column="updated_at"/>
     </resultMap>
 
+    <sql id="cols">
+        id, client_order_id, user_id, account_id, stock_code, exchange, side, order_type,
+        order_quantity, price, status, source, currency, fail_reason, requested_at, created_at, updated_at
+    </sql>
+
     <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.Order"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO orders
             (client_order_id, user_id, account_id, stock_code, exchange, side, order_type,
-             order_quantity, price, status, source, currency, requested_at)
+             order_quantity, price, status, source, currency, fail_reason, requested_at)
         VALUES
             (#{clientOrderId}, #{userId}, #{accountId}, #{stockCode}, #{exchange}, #{side}, #{orderType},
-             #{orderQuantity}, #{price}, #{status}, #{source}, #{currency}, #{requestedAt})
+             #{orderQuantity}, #{price}, #{status}, #{source}, #{currency}, #{failReason}, #{requestedAt})
     </insert>
 
-    <update id="updateFill">
+    <!-- 전이 가드 ②: status=expected 일 때만 next로. 0행이면 동시성 경합으로 전이 실패. -->
+    <update id="transitionFill">
         UPDATE orders
-        SET status = #{status}, price = #{price}
-        WHERE id = #{id}
+        SET status = #{next}, price = #{price}
+        WHERE id = #{id} AND status = #{expected}
+    </update>
+
+    <!-- 취소 가드: 취소 가능 상태(QUEUED/PENDING)일 때만 CANCELLED. 동시 체결/이중취소 차단. -->
+    <update id="cancelIfCancellable">
+        UPDATE orders
+        SET status = 'CANCELLED'
+        WHERE id = #{id} AND user_id = #{userId}
+          AND status IN ('QUEUED', 'PENDING')
     </update>
 
     <select id="findByUserId" resultMap="order">
-        SELECT id, client_order_id, user_id, account_id, stock_code, exchange, side, order_type,
-               order_quantity, price, status, source, currency, requested_at, created_at, updated_at
+        SELECT <include refid="cols"/>
         FROM orders
         WHERE user_id = #{userId}
         ORDER BY id DESC
+    </select>
+
+    <select id="findByClientOrderId" resultMap="order">
+        SELECT <include refid="cols"/>
+        FROM orders
+        WHERE client_order_id = #{clientOrderId}
+    </select>
+
+    <select id="findByIdAndUserId" resultMap="order">
+        SELECT <include refid="cols"/>
+        FROM orders
+        WHERE id = #{id} AND user_id = #{userId}
     </select>
 
 </mapper>

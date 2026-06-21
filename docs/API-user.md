@@ -93,9 +93,11 @@
 
 ---
 
-### POST `/api/auth/sms/send`
+### POST `/api/auth/sms/send` ✅ 구현완료
 
-SMS 인증번호 발송
+SMS 인증번호 발송<br>
+**mock** — 실제 SMS는 발송하지 않고, 발급한 인증번호를 응답으로 내려준다(프론트가 "문자 도착"을 연출).
+운영(실제 발송) 전환 시 응답의 `code` 필드는 제거한다.
 
 - **Request Headers**: 없음 (인증 불필요)
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -115,13 +117,16 @@ SMS 인증번호 발송
   "success": true,
   "code": "SUCCESS",
   "message": "SMS 인증번호 발송 성공",
-  "data": null
+  "data": {
+  "code": "123456",
+  "expiresIn": 180
+ }
  }
 ```
 
 ---
 
-### POST `/api/auth/sms/verify`
+### POST `/api/auth/sms/verify` ✅ 구현완료
 
 SMS 인증번호 확인
 
@@ -152,9 +157,11 @@ SMS 인증번호 확인
 
 ---
 
-### POST `/api/auth/shinhan-cert/request`
+### POST `/api/auth/shinhan-cert/request` ✅ 구현완료
 
-신한인증서 난수문자 인증요청
+휴대폰 본인확인 난수문자 요청<br>
+서버가 난수문자(`randomCode`)를 발급한다. 프론트는 이를 "문자 보내기" 화면 형태로 표시하고,
+사용자가 "보내기" 클릭 시 그 내용을 verify로 제출해 대조한다. **실제 SMS는 발송하지 않는 mock(echo 대조)** 이다.
 
 - **Request Headers**: 없음 (인증 불필요)
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -173,7 +180,7 @@ SMS 인증번호 확인
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "신한인증서 인증요청 성공",
+  "message": "난수문자 인증요청 성공",
   "data": {
   "requestId": "REQ-20250615-001",
   "randomCode": "A1B2C3",
@@ -184,9 +191,11 @@ SMS 인증번호 확인
 
 ---
 
-### POST `/api/auth/shinhan-cert/verify`
+### POST `/api/auth/shinhan-cert/verify` ✅ 구현완료
 
-신한인증서 인증확인
+난수문자 대조 확인<br>
+request에서 발급한 난수문자(`randomCode`)를 echo로 제출받아, 세션에 저장된 발급값과 일치하는지 대조한다.
+세션이 없거나 만료(TTL)됐거나 코드가 불일치하면 실패한다.
 
 - **Request Headers**: 없음 (인증 불필요)
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -195,7 +204,8 @@ SMS 인증번호 확인
 
 ```json
 {
-  "requestId": "REQ-20250615-001"
+  "requestId": "REQ-20250615-001",
+  "randomCode": "A1B2C3"
  }
 ```
 
@@ -205,7 +215,7 @@ SMS 인증번호 확인
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "신한인증서 인증 확인 성공",
+  "message": "난수문자 대조 확인 성공",
   "data": {
   "verified": true
  }
@@ -490,16 +500,18 @@ PIN/패턴 설정
 
 ### POST `/api/users/account-password/verify`
 
-거래 인증 (계좌비번 검증, 30분 유지)
+거래 인증 (계좌비번 검증). 거래(환전·CMA 등)는 이 인증으로 통과시키며, 매 거래마다 비번을 받지 않는다.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **keepAuth("비밀번호 유지" 토글)**: `true`면 검증 성공을 **30분 거래 세션**으로 기억해 이후 거래는 비번 스킵. `false`면 직후 **거래 1건만** 통과하고 소비됨(다음 거래는 재인증; `expiresAt`는 5분 유효창).
 
 **Request Body**
 
 ```json
 {
-  "accountPassword": "1234"
+  "accountPassword": "1234",
+  "keepAuth": true
  }
 ```
 

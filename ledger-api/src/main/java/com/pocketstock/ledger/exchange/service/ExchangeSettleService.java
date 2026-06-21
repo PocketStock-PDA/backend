@@ -13,6 +13,7 @@ import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.exchange.mapper.FxTransactionMapper;
 import com.pocketstock.ledger.exchange.port.CmaFundsPort;
 import com.pocketstock.ledger.exchange.port.FxLegResult;
+import com.pocketstock.user.security.TxnAuthGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,13 +50,14 @@ public class ExchangeSettleService {
     private final ExchangeRatePolicy ratePolicy;
     private final FxTransactionMapper fxMapper;
     private final CmaFundsPort cmaFunds;
+    private final TxnAuthGuard txnAuthGuard;
 
     /** 원화 → 달러: KRW 풀 차감 → USD = krw ÷ 매수환율. */
     @Transactional
     public KrwToUsdResponse krwToUsd(Long userId, KrwToUsdRequest req) {
         requireUser(userId);
         BigDecimal krw = requirePositive(req.krwAmount());
-        cmaFunds.verifyAccountPassword(userId, req.accountPassword());
+        txnAuthGuard.requireTxnAuth(userId);
 
         BigDecimal buyRate = ratePolicy.buyRate(USD, baseRate());
         BigDecimal usd = krw.divide(buyRate, USD_SCALE, RoundingMode.DOWN);
@@ -71,7 +73,7 @@ public class ExchangeSettleService {
     public UsdToKrwResponse usdToKrw(Long userId, UsdToKrwRequest req) {
         requireUser(userId);
         BigDecimal usd = requirePositive(req.usdAmount());
-        cmaFunds.verifyAccountPassword(userId, req.accountPassword());
+        txnAuthGuard.requireTxnAuth(userId);
 
         BigDecimal sellRate = ratePolicy.sellRate(USD, baseRate());
         BigDecimal krw = usd.multiply(sellRate).setScale(KRW_SCALE, RoundingMode.DOWN);

@@ -7,6 +7,7 @@ import com.pocketstock.user.member.dto.SetAccountPasswordRequest;
 import com.pocketstock.user.member.dto.VerifyAccountPasswordRequest;
 import com.pocketstock.user.member.dto.VerifyAccountPasswordResponse;
 import com.pocketstock.user.member.mapper.AccountPasswordMapper;
+import com.pocketstock.user.security.TxnAuth;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -53,7 +54,6 @@ public class AccountPasswordService {
         accountPasswordMapper.upsert(ap);
     }
 
-    /** 거래 인증 — 계좌 비밀번호 대조 후 성공 시 30분 인증 상태 기록. */
     public VerifyAccountPasswordResponse verify(Long userId, VerifyAccountPasswordRequest req) {
         requireAuth(userId);
         String raw = req == null ? null : req.accountPassword();
@@ -72,9 +72,9 @@ public class AccountPasswordService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "계좌 비밀번호가 일치하지 않습니다.");
         }
 
+        // 검증 성공 시 항상 인증 키 발급. 토글에 따라 값/TTL만 다르게 둔다.
+        //  ON  → KEEP(30분 유지, 여러 거래 통과)  /  OFF → ONCE(직후 1건만, 가드가 소비)
         LocalDateTime verifiedAt = LocalDateTime.now();
-        LocalDateTime expiresAt = verifiedAt.plus(TXN_AUTH_TTL);
-        redis.opsForValue().set(TXN_AUTH_KEY + userId, verifiedAt.toString(), TXN_AUTH_TTL);
         return new VerifyAccountPasswordResponse(verifiedAt, expiresAt);
     }
 

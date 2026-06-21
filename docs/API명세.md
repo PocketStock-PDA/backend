@@ -9,9 +9,9 @@
 |---|---|---|
 | **A·우정인** | 회원·인증 · 증권계좌 개설 · 알림 · 퍼즐/보상 | 30 |
 | **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 | 27 |
-| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 33 |
+| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 36 |
 | **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 리밸런싱 | 24 |
-| | **합계** | **114** |
+| | **합계** | **117** |
 
 ## 📌 범례
 
@@ -25,10 +25,10 @@
 | 회원·인증 | 아이디 중복 확인 | GET | `/api/users/check-username` |  | A·우정인 | ✅ |
 | 회원·인증 | 회원가입(이름·주민번호 앞6+뒷1·아이디·비번·휴대폰) | POST | `/api/users/signup` |  | A·우정인 | ✅ |
 | 회원·인증 | 비밀번호 보안규칙 실시간 검증 | POST | `/api/users/validate-password` |  | A·우정인 | ✅ |
-| 회원·인증 | SMS 인증번호 발송 | POST | `/api/auth/sms/send` |  | A·우정인 |  |
-| 회원·인증 | SMS 인증번호 확인 | POST | `/api/auth/sms/verify` |  | A·우정인 |  |
-| 회원·인증 | 신한인증서 난수문자 인증요청 | POST | `/api/auth/shinhan-cert/request` |  | A·우정인 |  |
-| 회원·인증 | 신한인증서 인증확인 | POST | `/api/auth/shinhan-cert/verify` |  | A·우정인 |  |
+| 회원·인증 | SMS 인증번호 발송 | POST | `/api/auth/sms/send` |  | A·우정인 | ✅ |
+| 회원·인증 | SMS 인증번호 확인 | POST | `/api/auth/sms/verify` |  | A·우정인 | ✅ |
+| 회원·인증 | 난수문자 인증요청(휴대폰 본인확인 mock) | POST | `/api/auth/shinhan-cert/request` |  | A·우정인 | ✅ |
+| 회원·인증 | 난수문자 대조 확인(echo) | POST | `/api/auth/shinhan-cert/verify` |  | A·우정인 | ✅ |
 | 회원·인증 | ID/PW 로그인(JWT 발급) | POST | `/api/auth/login` |  | A·우정인 | ✅ |
 | 회원·인증 | PIN/패턴 간편 로그인 | POST | `/api/auth/login/pin` |  | A·우정인 | ✅ |
 | 회원·인증 | 토큰 재발급(Refresh) | POST | `/api/auth/refresh` |  | A·우정인 | ✅ |
@@ -54,6 +54,9 @@
 | 자산연동 | SOL트래블 외화잔액 연동 | POST | `/api/assets/links/fx` |  | C·강문군 |  |
 | 자산연동 | 타 증권사 연동 | POST | `/api/assets/links/securities` |  | C·강문군 |  |
 | 자산연동 | 연동 자산 전체 조회 | GET | `/api/assets` |  | C·강문군 |  |
+| 자산연동 | 보유 은행 계좌 목록 조회(1원 인증·재원 계좌 선택 공용) | GET | `/api/assets/bank-accounts` |  | C·강문군 | ✅ |
+| 자산연동 | 계좌 1원 인증 송금요청(코드 푸시 발송) | POST | `/api/assets/bank-accounts/{accountId}/verification` |  | C·강문군 | ✅ |
+| 자산연동 | 계좌 1원 인증 확인(코드 검증) | POST | `/api/assets/bank-accounts/{accountId}/verification/confirm` |  | C·강문군 | ✅ |
 | 자산연동 | 연동 자산 새로고침(최신화) | POST | `/api/assets/refresh` |  | C·강문군 |  |
 | 자산연동 | 잠자는 잔돈 스캔 | GET | `/api/assets/scan` |  | C·강문군 |  |
 | 자산연동 | 휴면계좌 조회 | GET | `/api/assets/dormant` |  | C·강문군 |  |
@@ -104,7 +107,7 @@
 | 소수점투자 | 소수점 매수(금액/수량) → LS 합산 온주주문 | POST | `/api/trading/orders/buy` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 소수점 매도(금액/전량) → LS 합산 온주주문 | POST | `/api/trading/orders/sell` | CSPAT00601(국내)·COSMT00300(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 온주 매수/매도(호가 기반) | POST | `/api/trading/orders/whole` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 | ✅ |
-| 소수점투자 | 주문 취소(배치 전송 전) | DELETE | `/api/trading/orders/{orderId}` | CSPAT00801(국내)·COSAT00311(해외) [자체 시뮬] | B·김준형 |  |
+| 소수점투자 | 주문 취소(소수점 QUEUED·온주 PENDING 공용) | DELETE | `/api/trading/orders/{orderId}` | CSPAT00801(국내)·COSAT00311(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 거래내역 조회(매수·매도·달성) | GET | `/api/trading/orders` |  | B·김준형 | ✅ |
 | 소수점투자 | 미체결 주문 조회 | GET | `/api/trading/orders/pending` |  | B·김준형 |  |
 | 소수점투자 | 보유종목·잔고(평가·수익률) 조회 | GET | `/api/trading/holdings` |  | B·김준형 | ✅ |
@@ -118,8 +121,8 @@
 | 웰컴보상 | 웰컴보상 후보 종목 조회(국내 거래대금 1·2위 + 해외 1·2위) | GET | `/api/trading/rewards/welcome/candidates` |  | B·김준형 | ✅ |
 | 웰컴보상 | 웰컴보상 종목 선택·지급(1,000원어치 소수점) | POST | `/api/trading/rewards/welcome` |  | B·김준형 | ✅ |
 | 웰컴보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 | ✅ |
-| 증권캘린더 | 보유 종목 증권 캘린더(월별 일정) 조회 | GET | `/api/trading/calendar` |  | D·김서현 | ✅ |
-| 증권캘린더 | 보유 종목 주요일정(배당·실적) 조회 | GET | `/api/trading/calendar/events` |  | D·김서현 | ✅ |
+| 증권캘린더 | 보유 종목 증권 캘린더(월별 일정) 조회 | GET | `/api/trading/calendar` |  | D·김서현 |  |
+| 증권캘린더 | 보유 종목 주요일정(배당·실적) 조회 | GET | `/api/trading/calendar/events` |  | D·김서현 |  |
 
 > 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
 >
@@ -166,8 +169,8 @@
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
 |---|---|---|---|---|---|---|
-| 알림 | 알림 목록(알림센터) 조회 | GET | `/api/notifications` |  | A·우정인 |  |
-| 알림 | 알림 읽음 처리 | PATCH | `/api/notifications/{id}/read` |  | A·우정인 |  |
-| 알림 | 알림 전체 읽음 | PATCH | `/api/notifications/read-all` |  | A·우정인 |  |
-| 알림 | 푸시 토큰 등록 | POST | `/api/notifications/token` |  | A·우정인 |  |
-| 알림 | 알림 수신 설정 | PUT | `/api/notifications/settings` |  | A·우정인 |  |
+| 알림 | 알림 목록(알림센터) 조회 | GET | `/api/notifications` |  | A·우정인 | ✅ |
+| 알림 | 알림 읽음 처리 | PATCH | `/api/notifications/{id}/read` |  | A·우정인 | ✅ |
+| 알림 | 알림 전체 읽음 | PATCH | `/api/notifications/read-all` |  | A·우정인 | ✅ |
+| 알림 | 푸시 토큰 등록 | POST | `/api/notifications/token` |  | A·우정인 | ✅ |
+| 알림 | 알림 수신 설정 | PUT | `/api/notifications/settings` |  | A·우정인 | ✅ |

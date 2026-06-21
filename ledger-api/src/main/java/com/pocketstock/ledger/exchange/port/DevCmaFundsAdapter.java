@@ -16,24 +16,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>잔액은 <b>인메모리</b>(사용자별 KRW/USD)로 흉내내며, 첫 접근 시 시드 잔액을 채운다.
  * DB를 안 쓰므로 호출자 트랜잭션 롤백에 동참하지 않는다 — 그래서 체결 서비스는 fx 기록을 먼저
  * 적재(id 확보)하고 이 호출을 <b>마지막</b>에 둬, 이후 실패로 인한 불일치 여지를 없앤다.
- * 실서비스 의미(원장·잔액 정합·멱등)는 CMA 실 어댑터가 보장한다. 비번은 데모상 "1234"만 통과.
+ * 실서비스 의미(원장·잔액 정합·멱등)는 CMA 실 어댑터가 보장한다.
+ * (계좌 비밀번호 검증은 포트 책임이 아니다 — 체결 서비스가 거래 인증 가드로 처리.)
  */
 @Slf4j
 public class DevCmaFundsAdapter implements CmaFundsPort {
 
     private static final BigDecimal SEED_KRW = new BigDecimal("5000000");
     private static final BigDecimal SEED_USD = new BigDecimal("1000.00");
-    private static final String DEV_PASSWORD = "1234";
 
     /** key = userId + ":" + currency → 잔액. */
     private final Map<String, BigDecimal> balances = new ConcurrentHashMap<>();
-
-    @Override
-    public void verifyAccountPassword(Long userId, String accountPassword) {
-        if (!DEV_PASSWORD.equals(accountPassword)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "계좌 비밀번호가 일치하지 않습니다.");
-        }
-    }
 
     @Override
     public synchronized FxLegResult applyFxLegs(Long userId,

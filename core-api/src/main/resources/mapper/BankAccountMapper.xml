@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.asset.mapper.BankAccountMapper">
+
+    <!-- 유저 보유(연동) 은행 계좌 목록.
+         lba.institution_id → linked_institutions.id → institution_master(은행 카탈로그) 체인으로 은행명 해석.
+         계좌번호(account_no_enc)는 노출하지 않는다. 정렬: 은행 sort_order → 계좌 id 순(안정적). -->
+    <select id="findBankAccountsByUser" resultType="com.pocketstock.core.asset.dto.BankAccountResponse">
+        SELECT lba.id            AS accountId,
+               im.company_code   AS bankCode,
+               im.company_name   AS bankName,
+               lba.account_name  AS accountName,
+               lba.account_type  AS accountType,
+               lba.balance       AS balance,
+               lba.currency      AS currency,
+               lba.is_dormant    AS isDormant,
+               lba.is_verified   AS isVerified
+        FROM linked_bank_accounts lba
+        JOIN linked_institutions li ON li.id = lba.institution_id
+        JOIN institution_master im ON im.id = li.institution_master_id
+        WHERE lba.user_id = #{userId}
+        ORDER BY im.sort_order ASC, lba.id ASC
+    </select>
+
+    <!-- 본인 소유 확인 + 인증 상태 단건 조회(1원 인증 요청/확인 선행 체크). 없으면 null. -->
+    <select id="findVerifyStatus" resultType="java.lang.Boolean">
+        SELECT is_verified
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND id = #{accountId}
+    </select>
+
+    <!-- 1원 인증 성공 마킹. 멱등성: 이미 인증된 행은 영향 0(서비스에서 선검사). -->
+    <update id="markVerified">
+        UPDATE linked_bank_accounts
+        SET is_verified = TRUE,
+            verified_at = NOW()
+        WHERE user_id = #{userId}
+          AND id = #{accountId}
+          AND is_verified = FALSE
+    </update>
+
+</mapper>

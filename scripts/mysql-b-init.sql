@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS cma_transactions (
   source_type VARCHAR(20) NULL,
   amount DECIMAL(18,4) NOT NULL,
   balance_after DECIMAL(18,4),
-  ref_type VARCHAR(20) NULL,
-  ref_id BIGINT NULL,
+  ref_type VARCHAR(20) NULL,   -- 출처 대상 테이블: LINKED_BANK_ACCOUNT/LINKED_CARD/LINKED_POINT(collect) · FX_TX(환전) · REVERT(정정, ref_id=원거래 cma_transactions.id 자기참조) · NULL(DEPOSIT/INTEREST 등). 관례 기반(CHECK 없음)
+  ref_id BIGINT NULL,          -- ref_type 테이블의 PK. 타입 내 다출처 합산 시 NULL (E-1)
   idempotency_key VARCHAR(80) UNIQUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_cmt_user (user_id), INDEX idx_cmt_acc (cma_account_id)
@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS welcome_rewards (
 CREATE TABLE IF NOT EXISTS trading_rounds (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   market VARCHAR(10) NOT NULL,
+  -- 1분 단위 차수(국내·해외 동일, 매 분 1 round) / RESERVED(장외·휴장 예약). 해외는 US 정규장 중 매 분(#101)
   round_no VARCHAR(20) NOT NULL,
   trade_date DATE NOT NULL,
   submit_open DATETIME,
@@ -177,6 +178,7 @@ CREATE TABLE IF NOT EXISTS trading_rounds (
   execute_at DATETIME,
   settle_at DATETIME,
   cancel_deadline DATETIME,
+  -- DOMESTIC_TICK(국내 금액매수=현재가+5틱) / MARKET(국내 수량·해외=실행시점 시장가). VWAP 폐기(#101)
   pricing_method VARCHAR(20),
   status VARCHAR(20) DEFAULT 'OPEN',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -196,12 +198,17 @@ CREATE TABLE IF NOT EXISTS orders (
   order_quantity DECIMAL(18,6) NULL,
   est_quantity DECIMAL(18,6) NULL,
   price DECIMAL(18,4) NULL,
-  status VARCHAR(20) DEFAULT 'RECEIVED',
+  -- 경로별 상태머신(ERD-04 §08·§08b). 소수점: RECEIVED|QUEUED|SENT|FILLED|CANCELLED|REJECTED
+  -- 온주: RECEIVED|PENDING|FILLED|CANCELLED|REJECTED. 부분체결(PARTIALLY_FILLED)·이월(CARRIED_OVER) 미지원(#101).
+  -- 앱 OrderStatus enum이 소스 오브 트루스, 아래 CHECK는 쓰레기 값 차단용 안전망(전이 규칙은 앱+조건부 UPDATE).
+  status VARCHAR(20) DEFAULT 'RECEIVED'
+    CHECK (status IN ('RECEIVED','QUEUED','SENT','PENDING','FILLED','CANCELLED','REJECTED')),
   source VARCHAR(20),
   round_id BIGINT NULL,
   batch_id BIGINT NULL,
-  carried_over_count INT DEFAULT 0,
+  -- carried_over_count 제거(#101): 이월 폐기 — 1주 미달분은 회사 선부담(ceil)으로 즉시 체결.
   currency VARCHAR(3),
+  fail_reason VARCHAR(255) NULL,   -- REJECTED 사유(감사용, H3). 정상 주문은 NULL
   requested_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -241,15 +248,42 @@ CREATE TABLE IF NOT EXISTS allocations (
   INDEX idx_alloc_order (order_id), INDEX idx_alloc_batch (batch_order_id)
 );
 
+-- 옴니버스 재고(소수점 정산용, 2차). 현금은 분리됨(operating_cash_*) — 여기는 주식 재고 전용.
 CREATE TABLE IF NOT EXISTS operating_account (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_code VARCHAR(20) NOT NULL UNIQUE,
   whole_qty INT DEFAULT 0,
+  -- firm 순재고 소수부(양방향: 흡수 +/선공급 −, #101). 회사 선부담(ceil)이라 총재고(whole_qty+이값)≥0.
+  -- 갱신은 원자 조건부 UPDATE+음수가드(C1~C3 동형). 이동이력은 batch_orders+allocations가 담당.
   fractional_remainder DECIMAL(18,6) DEFAULT 0,
-  cash_balance DECIMAL(18,4) DEFAULT 0,
-  currency VARCHAR(3),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 회사 현금 원장(복식부기 상대계정, H1 #89). 유저쪽 deposit_transactions/account_balances와 대칭.
+-- 거래 역사는 operating_cash_transactions(불변 journal), 현재잔액은 operating_cash_balances(통화당 1행, 가변).
+-- ※ 음수 가드 없음: 무상주(웰컴리워드) 매도 등으로 회사 순현금이 음수가 될 수 있음(정당한 회계값).
+CREATE TABLE IF NOT EXISTS operating_cash_transactions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  currency VARCHAR(3) NOT NULL,
+  tx_type VARCHAR(20) NOT NULL,            -- 트리거 주문 side: BUY(회사 현금 수취,+) / SELL(회사 현금 지급,-)
+  amount DECIMAL(18,4) NOT NULL,           -- +수취 / −지급 (유저 예수금 leg의 반대 부호)
+  balance_after DECIMAL(18,4),
+  ref_type VARCHAR(20) NULL,               -- order(온주) | allocation | batch(2차 소수점)
+  ref_id BIGINT NULL,
+  idempotency_key VARCHAR(80) UNIQUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_oct_ccy (currency), INDEX idx_oct_ref (ref_type, ref_id)
+);
+
+-- 회사 현금 현재잔액(물질화 projection, 통화당 1행). 갱신은 원자 upsert(balance += delta), 음수 가드 없음.
+CREATE TABLE IF NOT EXISTS operating_cash_balances (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  currency VARCHAR(3) NOT NULL,
+  balance DECIMAL(18,4) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ocb_ccy (currency)         -- (currency) = 회사현금 그레인
 );
 
 CREATE TABLE IF NOT EXISTS auto_invest_settings (
