@@ -1,5 +1,6 @@
 package com.pocketstock.ledger.config;
 
+import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.ledger.kis.KisRealtimeClient;
 import com.pocketstock.ledger.ls.LsRealtimeClient;
 import com.pocketstock.ledger.realtime.RealtimeUpstream;
@@ -174,7 +175,14 @@ public class RealtimeSubscriptionManager {
             log.warn("해외 실시간 구독: 미존재 종목 {}", stockCode);
             return null;
         }
-        String trKey = KisTrKey.of(sessionResolver.current(), stock);
+        String trKey;
+        try {
+            trKey = KisTrKey.of(sessionResolver.current(), stock);
+        } catch (BusinessException e) {
+            // 매핑 불가 거래소(예: 국내 종목을 해외 토픽에 구독) → 스킵. 구독 흐름으로 예외 전파 안 함.
+            log.warn("해외 실시간 구독: tr_key 조립 실패 {} - {}", stockCode, e.getMessage());
+            return null;
+        }
         if (trKey == null) {
             log.info("해외 실시간 구독 스킵(장 마감): {}", stockCode);
             return null;

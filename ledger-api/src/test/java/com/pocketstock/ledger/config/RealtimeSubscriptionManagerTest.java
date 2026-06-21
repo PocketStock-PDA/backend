@@ -84,4 +84,16 @@ class RealtimeSubscriptionManagerTest {
 
         verify(kisClient).register("HDFSASP0", "RBAQAAPL");
     }
+
+    @Test
+    @DisplayName("매핑 불가 거래소(국내 종목을 해외 토픽 구독): 예외 흡수→등록 스킵")
+    void unmappedExchangeSkips() {
+        when(sessionResolver.current()).thenReturn(MarketSession.REGULAR);
+        when(stockMapper.findByCode("005930"))
+                .thenReturn(TradableStock.builder().stockCode("005930").exchange("KOSPI").build());
+
+        subscribe("/topic/foreign/quote/005930");
+
+        verify(kisClient, never()).register(any(), any());
+    }
 }

@@ -24,6 +24,9 @@ public final class KisTrKey {
 
     /** 종목 마스터로부터 조립. */
     public static String of(MarketSession session, TradableStock stock) {
+        if (stock == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "종목 없음");
+        }
         return of(session, stock.getExchange(), stock.getStockCode());
     }
 
@@ -35,6 +38,9 @@ public final class KisTrKey {
      * @throws BusinessException 심볼이 비었거나, 매핑 없는 거래소일 때
      */
     public static String of(MarketSession session, String exchange, String symbol) {
+        if (session == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "세션 없음");
+        }
         if (session == MarketSession.CLOSED) {
             return null;
         }

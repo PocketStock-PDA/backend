@@ -10,8 +10,8 @@ import java.math.BigDecimal;
  * {@code symbol/realtimeCode/localTime/lastTradeVolume/tradeStrength}는 WS 전용 추가 필드.
  */
 public record ForeignTradeResponse(
-        String symbol,             // SYMB
-        String realtimeCode,       // RSYM — 토픽 키
+        String symbol,             // SYMB — 토픽 키(안정적)
+        String realtimeCode,       // RSYM — 참고용(세션따라 D/R 변동)
         String localTime,          // XHMS 현지시간
         BigDecimal currentPrice,   // LAST 현재가(체결가)
         BigDecimal changePrice,    // DIFF 전일대비(SIGN 부호 적용)

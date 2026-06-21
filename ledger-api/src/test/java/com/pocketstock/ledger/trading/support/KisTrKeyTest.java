@@ -1,6 +1,7 @@
 package com.pocketstock.ledger.trading.support;
 
 import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.ledger.trading.domain.TradableStock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +44,15 @@ class KisTrKeyTest {
     @DisplayName("매핑 없는 거래소: 예외")
     void unmappedExchange() {
         assertThatThrownBy(() -> KisTrKey.of(MarketSession.DAY, "HKEX", "00003"))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("null 입력(세션·종목): NPE 아닌 BusinessException")
+    void nullInputs() {
+        assertThatThrownBy(() -> KisTrKey.of(null, "NASDAQ", "AAPL"))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> KisTrKey.of(MarketSession.REGULAR, (TradableStock) null))
                 .isInstanceOf(BusinessException.class);
     }
 }
