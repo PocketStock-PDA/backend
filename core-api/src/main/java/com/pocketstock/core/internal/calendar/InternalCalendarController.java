@@ -3,6 +3,7 @@ package com.pocketstock.core.internal.calendar;
 import com.pocketstock.core.internal.calendar.dto.StockEventUpsertRequest;
 import com.pocketstock.core.trading.calendar.mapper.CalendarMapper;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,7 +21,7 @@ public class InternalCalendarController {
 
     @PostMapping("/stock-events")
     @Transactional
-    public void upsertStockEvents(@RequestBody List<StockEventUpsertRequest> events) {
+    public void upsertStockEvents(@RequestBody @Valid List<StockEventUpsertRequest> events) {
         for (StockEventUpsertRequest req : events) {
             calendarMapper.upsertEvent(
                     req.stockCode(), req.eventType(), req.eventDate(), req.title(), req.detail());
