@@ -16,12 +16,16 @@ import com.pocketstock.ledger.trading.dto.OrderCancelResponse;
 import com.pocketstock.ledger.trading.dto.OrderHistoryResponse;
 import com.pocketstock.ledger.trading.dto.WholeOrderRequest;
 import com.pocketstock.ledger.trading.dto.WholeOrderResponse;
+import com.pocketstock.ledger.trading.matching.PendingOrderClosedEvent;
+import com.pocketstock.ledger.trading.matching.PendingOrderCreatedEvent;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.support.BookWalker;
 import com.pocketstock.ledger.trading.support.OverseasExchangeCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +66,7 @@ public class WholeOrderService {
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
     private final CurrencyRateCache currencyRateCache;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** 온주 매수/매도 — 검증 → 주문기록 → 자체 시뮬 체결 → holdings·예수금 반영. */
     @Transactional
@@ -119,9 +124,12 @@ public class WholeOrderService {
 
         // 종목·계좌가 해석된 이후의 비즈니스 실패는 REJECTED로 감사 기록(H3). 단 멱등 충돌은 제외.
         try {
-            BigDecimal fillPrice = resolveFillPrice(stock, overseas, side, type, req.price());
             BigDecimal quantity = BigDecimal.valueOf(req.quantity());
-            BigDecimal totalAmount = fillPrice.multiply(quantity);
+            // 호가 사다리로 즉시체결 여부 판정(H4): 시장가·지정가 즉시분 → 체결가, 지정가 미체결 → PENDING.
+            Execution exec = resolveExecution(stock, overseas, side, type, req.price(), quantity);
+            boolean fillNow = exec.filled();
+            // 즉시체결은 산정가, PENDING은 지정가(reqPrice)를 주문가로 기록.
+            BigDecimal orderPrice = fillNow ? exec.price() : req.price();
 
             Order order = Order.builder()
                     .clientOrderId(clientOrderId)   // 클라 발급 멱등키(FIX clOrdID)
@@ -132,8 +140,8 @@ public class WholeOrderService {
                     .side(side)
                     .orderType(type)
                     .orderQuantity(quantity)
-                    .price(fillPrice)
-                    .status(OrderStatus.RECEIVED)
+                    .price(orderPrice)
+                    .status(fillNow ? OrderStatus.RECEIVED : OrderStatus.PENDING)
                     .source("MANUAL")
                     .currency(currency)
                     .requestedAt(LocalDateTime.now())
@@ -147,6 +155,19 @@ public class WholeOrderService {
             }
             String idemKey = "order:" + order.getId();   // 하위 원장 결정적 멱등키
 
+            // 지정가 미체결 → PENDING: 자금/수량 hold만(원장 이동 없음). 체결은 매칭 데몬(H4 #92)이 수행.
+            if (!fillNow) {
+                BigDecimal holdTotal = reserveForPending(side, account.getId(), req.stockCode(), quantity, req.price());
+                // 커밋 후 매칭 엔진이 인덱스 등록·호가 구독 ON(롤백되면 발행돼도 AFTER_COMMIT이 안 탐).
+                eventPublisher.publishEvent(new PendingOrderCreatedEvent(order.getId(), userId, account.getId(),
+                        req.stockCode(), stock.getExchange(), side, req.price(), quantity, currency));
+                return new WholeOrderResponse(order.getId(), req.stockCode(), side, req.quantity(),
+                        req.price(), holdTotal, OrderStatus.PENDING.name(),
+                        depositService.getBalance(account.getId()));
+            }
+
+            BigDecimal fillPrice = exec.price();
+            BigDecimal totalAmount = fillPrice.multiply(quantity);
             BigDecimal balanceAfter;
             if ("BUY".equals(side)) {
                 // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
@@ -201,12 +222,22 @@ public class WholeOrderService {
         if (!o.getStatus().isCancellable()) {
             throw new BusinessException(ErrorCode.ORDER_NOT_CANCELLABLE);
         }
+        OrderStatus prev = o.getStatus();
         // 전이 가드 ②: QUEUED/PENDING일 때만 CANCELLED. 0행이면 그 사이 체결/취소된 경합 → 409.
         if (orderMapper.cancelIfCancellable(orderId, userId) == 0) {
             throw new BusinessException(ErrorCode.ORDER_NOT_CANCELLABLE);
         }
-        // 자금 환원: 온주 PENDING(M2 hold)·소수점 QUEUED(선차감)이 자금을 선점하면 여기서 release/refund.
-        // 현재 온주는 체결 시점 차감이라 PENDING엔 선점 자금이 없어 no-op — H4/2차에서 보강.
+        // 온주 PENDING(M2 hold) 자금/수량 환원 — 매수=예수금 hold 해제, 매도=수량 hold 해제(같은 tx).
+        // 소수점 QUEUED(선차감)의 명시 환원은 별개 경로(FRAC-014) — 여기선 온주 PENDING만 처리.
+        if (prev == OrderStatus.PENDING) {
+            if ("BUY".equals(o.getSide())) {
+                depositService.releaseHold(o.getAccountId(), o.getPrice().multiply(o.getOrderQuantity()));
+            } else {
+                holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
+            }
+            // 커밋 후 매칭 엔진이 인덱스 제거·그 종목 PENDING 0건이면 호가 구독 OFF.
+            eventPublisher.publishEvent(new PendingOrderClosedEvent(orderId, o.getStockCode(), o.getExchange()));
+        }
         return new OrderCancelResponse(orderId, OrderStatus.CANCELLED.name());
     }
 
@@ -232,42 +263,108 @@ public class WholeOrderService {
 
     // ---- 체결 시뮬 ----
 
-    /** 지정가=요청가, 시장가=최우선 호가. 국내=LS t8450, 해외=KIS 현재가호가. */
-    private BigDecimal resolveFillPrice(TradableStock stock, boolean overseas, String side, String type,
-                                        BigDecimal reqPrice) {
-        if ("LIMIT".equals(type)) {
-            if (reqPrice == null || reqPrice.signum() <= 0) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "지정가(price)를 입력해주세요.");
+    /**
+     * 체결 계획 산정(H4) — 호가 사다리로 평가해 "즉시 체결(가격)" 또는 "PENDING"으로 분기.
+     * 시장가: 사다리 훑어 전량 가능하면 가중평균가로 즉시 체결, 잔량 부족이면 거부(부분체결 없음).
+     * 지정가: 지정가 이내 호가만 훑어 전량 가능하면 그 가중평균가로 즉시 체결(가격개선), 아니면 PENDING.
+     */
+    private Execution resolveExecution(TradableStock stock, boolean overseas, String side, String type,
+                                       BigDecimal reqPrice, BigDecimal quantity) {
+        boolean buy = "BUY".equals(side);
+        Book book = fetchBook(stock, overseas, buy);
+        if ("MARKET".equals(type)) {
+            BookWalker.Fill f = BookWalker.walk(book.prices(), book.volumes(), quantity, null, buy);
+            if (!f.complete()) {
+                // 국내 호가창이 통째로 비었으면(휴장·데이터 없음) 현재가 단일가로 대체 — 기존 폴백 유지.
+                if (!overseas && book.prices()[0].signum() <= 0 && book.current().signum() > 0) {
+                    return new Execution(true, book.current());
+                }
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "시장가로 전량 체결할 호가 잔량이 부족합니다.");
             }
-            return reqPrice;
+            // 가격제한폭(국내): 체결 평균가가 상·하한가를 벗어나면 호가 비정상 → 거부. 해외는 무제한.
+            if (!overseas) {
+                checkPriceBand(f.avgPrice(), book.upperLimit(), book.lowerLimit());
+            }
+            return new Execution(true, f.avgPrice());
         }
-        // MARKET — 매수는 최우선 매도호가, 매도는 최우선 매수호가로 체결
-        return overseas ? overseasMarketPrice(stock, side) : domesticMarketPrice(stock.getStockCode(), side);
+        // LIMIT — 지정가 이내(매수=지정가 이하·매도=지정가 이상) 호가만 훑는다.
+        if (reqPrice == null || reqPrice.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "지정가(price)를 입력해주세요.");
+        }
+        BookWalker.Fill f = BookWalker.walk(book.prices(), book.volumes(), quantity, reqPrice, buy);
+        if (f.complete()) {
+            return new Execution(true, f.avgPrice());   // 지정가 이내 전량 체결(가격개선 가능)
+        }
+        return new Execution(false, null);              // 미체결 → PENDING(매칭 데몬 H4 #92가 체결)
     }
 
-    /** 국내 시장가 — LS 통합 호가(t8450) 최우선가, 비면 현재가로 대체. */
-    private BigDecimal domesticMarketPrice(String stockCode, String side) {
-        LsT8450Response.OutBlock ob = lsMarketClient.getDomesticOrderbook(stockCode);
-        long best = "BUY".equals(side) ? ob.askPrices()[0] : ob.bidPrices()[0];
-        if (best <= 0) {
-            best = ob.price();  // 호가가 비어있으면 현재가로 대체
+    /** 거래소별 호가창 스냅샷(한 방향) — 매수=매도호가/매도=매수호가 사다리 + (국내) 현재가·상하한가. */
+    private Book fetchBook(TradableStock stock, boolean overseas, boolean buy) {
+        if (overseas) {
+            String excd = OverseasExchangeCode.of(stock);
+            KisAskingPriceResponse.Output2 o2 =
+                    kisMarketClient.getOverseasOrderbook(excd, stock.getStockCode()).output2();
+            String[] prices = buy ? o2.askPrices() : o2.bidPrices();
+            String[] volumes = buy ? o2.askVolumes() : o2.bidVolumes();
+            return new Book(toDec(prices), toDec(volumes), BigDecimal.ZERO, 0L, 0L);
         }
-        if (best <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "시장가 체결가를 산정할 수 없습니다.");
-        }
-        return BigDecimal.valueOf(best);
+        LsT8450Response.OutBlock ob = lsMarketClient.getDomesticOrderbook(stock.getStockCode());
+        long[] prices = buy ? ob.askPrices() : ob.bidPrices();
+        long[] volumes = buy ? ob.askVolumes() : ob.bidVolumes();
+        return new Book(toDec(prices), toDec(volumes), BigDecimal.valueOf(ob.price()),
+                ob.upperLimit(), ob.lowerLimit());
     }
 
-    /** 해외 시장가 — KIS 현재가호가(HHDFS76200100) 최우선가(소수점). */
-    private BigDecimal overseasMarketPrice(TradableStock stock, String side) {
-        String excd = OverseasExchangeCode.of(stock);
-        KisAskingPriceResponse.Output2 o2 =
-                kisMarketClient.getOverseasOrderbook(excd, stock.getStockCode()).output2();
-        BigDecimal best = "BUY".equals(side) ? dec(o2.askPrices()[0]) : dec(o2.bidPrices()[0]);
-        if (best.signum() <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "시장가 체결가를 산정할 수 없습니다.");
+    /**
+     * 지정가 PENDING 진입 hold(M2) — 매수=예수금 묶기, 매도=보유수량 묶기. 부족하면 거부(→REJECTED).
+     * @return 묶인 명목금액(지정가×수량) — 응답 표시용.
+     */
+    private BigDecimal reserveForPending(String side, Long accountId, String stockCode,
+                                         BigDecimal quantity, BigDecimal limitPrice) {
+        BigDecimal notional = limitPrice.multiply(quantity);
+        if ("BUY".equals(side)) {
+            depositService.hold(accountId, notional);   // 주문가능 부족이면 INSUFFICIENT_BALANCE
+        } else if (holdingMapper.reserveForSell(accountId, stockCode, quantity) == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도가능 보유 수량이 부족합니다.");
         }
-        return best;
+        return notional;
+    }
+
+    /** 체결 계획: 즉시 체결(filled=true, price)이거나 PENDING(filled=false). */
+    private record Execution(boolean filled, BigDecimal price) {
+    }
+
+    /** 호가창 스냅샷(한 방향). 국내만 current/상하한가 채움(해외는 0). */
+    private record Book(BigDecimal[] prices, BigDecimal[] volumes, BigDecimal current,
+                        long upperLimit, long lowerLimit) {
+    }
+
+    /** 체결 평균가가 상·하한가 범위를 벗어나면 거부(상·하한가 0이면 미제공으로 보고 통과). */
+    private void checkPriceBand(BigDecimal price, long upperLimit, long lowerLimit) {
+        if (upperLimit > 0 && price.compareTo(BigDecimal.valueOf(upperLimit)) > 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "체결가가 상한가를 초과합니다.");
+        }
+        if (lowerLimit > 0 && price.compareTo(BigDecimal.valueOf(lowerLimit)) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "체결가가 하한가 미만입니다.");
+        }
+    }
+
+    /** long[] 호가/잔량 → BigDecimal[]. */
+    private BigDecimal[] toDec(long[] arr) {
+        BigDecimal[] out = new BigDecimal[arr.length];
+        for (int i = 0; i < arr.length; i++) {
+            out[i] = BigDecimal.valueOf(arr[i]);
+        }
+        return out;
+    }
+
+    /** String[] 호가/잔량 → BigDecimal[](빈 값 0). */
+    private BigDecimal[] toDec(String[] arr) {
+        BigDecimal[] out = new BigDecimal[arr.length];
+        for (int i = 0; i < arr.length; i++) {
+            out[i] = dec(arr[i]);
+        }
+        return out;
     }
 
     /** 매수 — 보유 원자 upsert(수량 누적 + 평단 가중평균 + 원화원가 누적). 동시 매수 lost update 차단. */

@@ -72,4 +72,16 @@
         WHERE id = #{id} AND user_id = #{userId}
     </select>
 
+    <!-- 매칭 엔진 부팅 재적재 — 거래소 집합의 지정가 PENDING 전건(국내 한정). -->
+    <select id="findPendingByExchanges" resultMap="order">
+        SELECT <include refid="cols"/>
+        FROM orders
+        WHERE status = 'PENDING' AND order_type = 'LIMIT'
+          AND exchange IN
+          <foreach item="ex" collection="exchanges" open="(" separator="," close=")">
+              #{ex}
+          </foreach>
+        ORDER BY id
+    </select>
+
 </mapper>

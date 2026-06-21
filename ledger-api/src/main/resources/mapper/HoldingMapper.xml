@@ -28,13 +28,31 @@
             quantity       = quantity + #{qty}
     </insert>
 
-    <!-- 매도 원자 차감 + 음수 가드. 평단 유지, 원화원가는 남은 수량 비례로 차감(옛 수량으로 먼저 계산). -->
+    <!-- 매도 원자 차감 + 가드. 평단 유지, 원화원가는 남은 수량 비례 차감(옛 수량으로 먼저 계산).
+         매도가능 = quantity − held_quantity 기준 → PENDING에 묶인 수량은 즉시매도가 못 건드림(M2). -->
     <update id="reduceForSell">
         UPDATE holdings
         SET krw_cost_basis = krw_cost_basis * (quantity - #{qty}) / quantity,
             quantity       = quantity - #{qty}
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
-          AND quantity - #{qty} &gt;= 0
+          AND quantity - held_quantity - #{qty} &gt;= 0
+    </update>
+
+    <!-- 매도 PENDING 수량 hold: held_quantity += qty, 매도가능(quantity−held_quantity)>=qty 가드. -->
+    <update id="reserveForSell">
+        UPDATE holdings
+        SET held_quantity = held_quantity + #{qty}
+        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+          AND quantity - held_quantity - #{qty} &gt;= 0
+    </update>
+
+    <!-- 수량 hold 환원: held_quantity -= qty (취소·미체결). held_quantity>=qty 가드로 음수(매도가능 왜곡) 차단.
+         정상은 환원=hold 1:1이라 항상 통과 — 0행이면 수량 hold 회계 버그. -->
+    <update id="releaseSellReserve">
+        UPDATE holdings
+        SET held_quantity = held_quantity - #{qty}
+        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+          AND held_quantity &gt;= #{qty}
     </update>
 
     <select id="findByUserId" resultMap="holding">
