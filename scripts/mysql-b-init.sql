@@ -435,3 +435,4 @@ ALTER TABLE rewards              ADD CONSTRAINT fk_rwd_stock  FOREIGN KEY (stock
 -- ※ orders·batch_orders는 exchange NOT NULL이라 composite 적용. auto_invest_stocks는 market(DOMESTIC/OVERSEAS) NULL 허용이라 단순 FK 유지
 ALTER TABLE orders               ADD CONSTRAINT fk_ord_stock  FOREIGN KEY (stock_code, exchange) REFERENCES tradable_stocks(stock_code, exchange);
 ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_stock   FOREIGN KEY (stock_code, exchange) REFERENCES tradable_stocks(stock_code, exchange);
+

@@ -240,15 +240,15 @@ CREATE TABLE IF NOT EXISTS portfolio_items (
 );
 
 CREATE TABLE IF NOT EXISTS holdings_replica (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  stock_code VARCHAR(20),
-  quantity DECIMAL(18,6),
+  id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id       BIGINT NOT NULL,
+  stock_code    VARCHAR(20),
+  quantity      DECIMAL(18,6),
   avg_buy_price DECIMAL(18,4),
-  eval_amount DECIMAL(18,4),
-  profit_rate DECIMAL(7,4),
-  currency VARCHAR(3),
-  synced_at DATETIME,
+  eval_amount   DECIMAL(18,4),
+  profit_rate   DECIMAL(7,4),
+  currency      VARCHAR(3),
+  synced_at     DATETIME,
   UNIQUE KEY uq_hr (user_id, stock_code)
 );
 
@@ -273,14 +273,16 @@ CREATE TABLE IF NOT EXISTS peer_benchmarks (
 -- rebalancing_products 제거(2026-06-18): 갈아타기(REBAL-005·006)·대출 폐지로 삭제
 
 CREATE TABLE IF NOT EXISTS stock_events (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  stock_code VARCHAR(20),
-  event_type VARCHAR(20),
-  event_date DATE,
-  title VARCHAR(200),
-  detail VARCHAR(500) NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_se (stock_code, event_date)
+  id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_code VARCHAR(20)  NOT NULL,
+  event_type VARCHAR(20)  NOT NULL,
+  event_date DATE         NOT NULL,
+  title      VARCHAR(200) NOT NULL,
+  detail     VARCHAR(500) NULL,
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_se (stock_code, event_date, event_type),
+  INDEX idx_se_date (event_date)
 );
 
 CREATE TABLE IF NOT EXISTS dividend_stocks (

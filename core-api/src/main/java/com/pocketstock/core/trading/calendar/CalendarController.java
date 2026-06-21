@@ -30,7 +30,7 @@ public class CalendarController {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
 
         LocalDate today = LocalDate.now();
-        int y = year != null ? year : today.getYear();
+        int y = year  != null ? year  : today.getYear();
         int m = month != null ? month : today.getMonthValue();
         if (m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
 

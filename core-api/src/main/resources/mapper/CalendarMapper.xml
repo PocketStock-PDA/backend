@@ -22,4 +22,13 @@
         ORDER BY se.event_date ASC, se.event_type ASC
     </select>
 
+    <insert id="upsertEvent">
+        INSERT INTO stock_events (stock_code, event_type, event_date, title, detail)
+        VALUES (#{stockCode}, #{eventType}, #{eventDate}, #{title}, #{detail})
+        ON DUPLICATE KEY UPDATE
+            title      = VALUES(title),
+            detail     = VALUES(detail),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
 </mapper>
