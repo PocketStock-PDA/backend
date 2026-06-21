@@ -29,6 +29,14 @@
         ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
     </insert>
 
+    <!-- 멱등 재호출 감지: 동일 idempotency_key 행이 있으면 잔액을 다시 손대지 않고 기존 결과 반환 -->
+    <select id="findByIdempotencyKey" resultMap="cmaTransaction">
+        SELECT id, user_id, cma_account_id, currency, tx_type, source_type,
+               amount, balance_after, ref_type, ref_id, idempotency_key, created_at
+        FROM cma_transactions
+        WHERE idempotency_key = #{idempotencyKey}
+    </select>
+
     <select id="findByUserIdAndFilter" resultMap="cmaTransaction">
         SELECT id, user_id, cma_account_id, currency, tx_type, source_type,
                amount, balance_after, ref_type, ref_id, idempotency_key, created_at
