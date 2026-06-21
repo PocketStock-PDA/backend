@@ -333,7 +333,6 @@ CREATE TABLE IF NOT EXISTS tradable_stocks (
   standard_code VARCHAR(20)  NULL,              -- 표준코드/ISIN (KR7005930003) — KR 안정 식별자
   stock_name    VARCHAR(100) NOT NULL,          -- 한글종목명
   english_name  VARCHAR(100) NULL,              -- 영문명 (US)
-  rt_symbol     VARCHAR(30)  NULL,              -- 실시간 시세 구독 심볼 (US: NASAACB / KR: null이면 stock_code 사용)
   currency      CHAR(3)      NOT NULL,          -- KRW/USD
   sec_type      VARCHAR(10)  NOT NULL,          -- STOCK / ETF
   is_fractional BOOLEAN DEFAULT TRUE,

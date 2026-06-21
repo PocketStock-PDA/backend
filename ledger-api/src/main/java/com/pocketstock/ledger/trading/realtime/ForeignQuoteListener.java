@@ -15,7 +15,9 @@ import static com.pocketstock.ledger.trading.support.MarketFields.dec;
 
 /**
  * KIS HDFSASP0(해외 실시간호가) 데이터 프레임을 {@link ForeignQuoteResponse}로 매핑해
- * {@code /topic/foreign/quote/{RSYM}}로 push 한다.
+ * {@code /topic/foreign/quote/{stock_code}}로 push 한다.
+ * 토픽 키는 세션에 따라 바뀌는 RSYM이 아니라 안정적인 SYMB(=stock_code, 예 AAPL)를 쓴다 —
+ * 클라는 종목코드만 알면 정규장/주간 무관하게 같은 토픽으로 수신한다.
  *
  * <p>필드 순서(캐럿 구분): RSYM,SYMB,ZDIV,XYMD,XHMS,KYMD,KHMS,BVOL,AVOL,BDVL,ADVL(11),
  * 이후 호가 단계별 6필드 × 10 = PBID,PASK,VBID,VASK,DBID,DASK.
@@ -66,6 +68,7 @@ public class ForeignQuoteListener implements KisRealtimeListener {
                 dec(f[8]),       // AVOL 매도총잔량
                 dec(f[7]));      // BVOL 매수총잔량
 
-        messagingTemplate.convertAndSend(TOPIC_PREFIX + realtimeCode, payload);
+        // 토픽 키 = SYMB(안정적 stock_code). 구독 tr_key(RSYM)는 세션에 따라 D/R로 바뀌므로 토픽엔 안 씀.
+        messagingTemplate.convertAndSend(TOPIC_PREFIX + symbol, payload);
     }
 }
