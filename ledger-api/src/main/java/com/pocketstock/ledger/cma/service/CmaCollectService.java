@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -136,21 +135,30 @@ public class CmaCollectService {
     /**
      * 통합 수집 — 활성 소스 전체를 독립 실행하고 소스별 결과를 모아 반환(E-1, 부분 성공 허용).
      * 자체 트랜잭션 없음 — 소스별 @Transactional은 {@link #self} 프록시 경유로 적용된다.
+     *
+     * <p>{@code baseKey}에 소스 접미사({@code :ACCOUNT}/{@code :CARD}/{@code :POINT})를 붙여
+     * 소스별 멱등키를 파생한다. 같은 {@code baseKey}로 재요청하면 소스별로 동일 키가 재사용되어
+     * 이중 적립이 방지된다(환전의 {@code FX:{id}:OUT/:IN}과 동일 방식).
      */
-    public List<CollectResult> collectAll(Long userId) {
+    public List<CollectResult> collectAll(Long userId, String baseKey) {
         getAccountOrThrow(userId);   // 계좌 자체가 없으면 전체 실패로 propagate
         List<CollectResult> results = new ArrayList<>();
-        results.add(runSource(SRC_ACCOUNT, () -> self.collectFromAccount(userId, newKey())));
-        results.add(runSource(SRC_CARD, () -> self.collectFromCard(userId, newKey())));
-        results.add(runSource(SRC_POINT, () -> self.collectFromPoint(userId, newKey())));
+        results.add(runSource(SRC_ACCOUNT, () -> self.collectFromAccount(userId, baseKey + ":ACCOUNT")));
+        results.add(runSource(SRC_CARD, () -> self.collectFromCard(userId, baseKey + ":CARD")));
+        results.add(runSource(SRC_POINT, () -> self.collectFromPoint(userId, baseKey + ":POINT")));
         return results;
     }
 
     private CollectResult runSource(String sourceType, Supplier<CollectResult> action) {
         try {
             return action.get();
-        } catch (BusinessException e) {        // 소스 비활성·수집 잔돈 없음 = 정상 건너뜀
-            return CollectResult.skipped(sourceType, e.getMessage());
+        } catch (BusinessException e) {
+            // 소스 비활성·수집 잔돈 없음(INVALID_INPUT)만 정상 건너뜀. 그 외 비즈니스 오류
+            // (계좌 없음 등)는 실패로 분류해 실제 오류가 SKIPPED로 가려지지 않게 한다.
+            if (e.getErrorCode() == ErrorCode.INVALID_INPUT) {
+                return CollectResult.skipped(sourceType, e.getMessage());
+            }
+            return CollectResult.failed(sourceType, e.getMessage());
         } catch (Exception e) {                // Feign 장애 등 예기치 못한 오류
             return CollectResult.failed(sourceType, e.getMessage());
         }
@@ -211,9 +219,5 @@ public class CmaCollectService {
 
     private String settingKey(CollectionSetting setting) {
         return setting.getSourceType() + ":" + setting.getSourceRefId();
-    }
-
-    private static String newKey() {
-        return UUID.randomUUID().toString();
     }
 }
