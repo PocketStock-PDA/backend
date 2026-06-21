@@ -16,18 +16,21 @@ import com.pocketstock.ledger.trading.dto.OrderCancelResponse;
 import com.pocketstock.ledger.trading.dto.OrderHistoryResponse;
 import com.pocketstock.ledger.trading.dto.WholeOrderRequest;
 import com.pocketstock.ledger.trading.dto.WholeOrderResponse;
+import com.pocketstock.ledger.trading.matching.PendingOrderClosedEvent;
+import com.pocketstock.ledger.trading.matching.PendingOrderCreatedEvent;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.support.BookWalker;
 import com.pocketstock.ledger.trading.support.OverseasExchangeCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -63,6 +66,7 @@ public class WholeOrderService {
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
     private final CurrencyRateCache currencyRateCache;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** 온주 매수/매도 — 검증 → 주문기록 → 자체 시뮬 체결 → holdings·예수금 반영. */
     @Transactional
@@ -154,6 +158,9 @@ public class WholeOrderService {
             // 지정가 미체결 → PENDING: 자금/수량 hold만(원장 이동 없음). 체결은 매칭 데몬(H4 #92)이 수행.
             if (!fillNow) {
                 BigDecimal holdTotal = reserveForPending(side, account.getId(), req.stockCode(), quantity, req.price());
+                // 커밋 후 매칭 엔진이 인덱스 등록·호가 구독 ON(롤백되면 발행돼도 AFTER_COMMIT이 안 탐).
+                eventPublisher.publishEvent(new PendingOrderCreatedEvent(order.getId(), userId, account.getId(),
+                        req.stockCode(), stock.getExchange(), side, req.price(), quantity, currency));
                 return new WholeOrderResponse(order.getId(), req.stockCode(), side, req.quantity(),
                         req.price(), holdTotal, OrderStatus.PENDING.name(),
                         depositService.getBalance(account.getId()));
@@ -228,6 +235,8 @@ public class WholeOrderService {
             } else {
                 holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
             }
+            // 커밋 후 매칭 엔진이 인덱스 제거·그 종목 PENDING 0건이면 호가 구독 OFF.
+            eventPublisher.publishEvent(new PendingOrderClosedEvent(orderId, o.getStockCode(), o.getExchange()));
         }
         return new OrderCancelResponse(orderId, OrderStatus.CANCELLED.name());
     }
@@ -264,7 +273,7 @@ public class WholeOrderService {
         boolean buy = "BUY".equals(side);
         Book book = fetchBook(stock, overseas, buy);
         if ("MARKET".equals(type)) {
-            BookFill f = walkTheBook(book, quantity, null, buy);
+            BookWalker.Fill f = BookWalker.walk(book.prices(), book.volumes(), quantity, null, buy);
             if (!f.complete()) {
                 // 국내 호가창이 통째로 비었으면(휴장·데이터 없음) 현재가 단일가로 대체 — 기존 폴백 유지.
                 if (!overseas && book.prices()[0].signum() <= 0 && book.current().signum() > 0) {
@@ -282,7 +291,7 @@ public class WholeOrderService {
         if (reqPrice == null || reqPrice.signum() <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "지정가(price)를 입력해주세요.");
         }
-        BookFill f = walkTheBook(book, quantity, reqPrice, buy);
+        BookWalker.Fill f = BookWalker.walk(book.prices(), book.volumes(), quantity, reqPrice, buy);
         if (f.complete()) {
             return new Execution(true, f.avgPrice());   // 지정가 이내 전량 체결(가격개선 가능)
         }
@@ -307,34 +316,6 @@ public class WholeOrderService {
     }
 
     /**
-     * 호가 사다리 훑기 — 최우선부터 칸별 잔량을 주문수량만큼 누적(walk the book), 가중평균가 산정.
-     * limitCap!=null(지정가)이면 매수=지정가 초과·매도=지정가 미만 호가에서 중단. 빈 칸(가격/잔량 0)도 중단.
-     * 전량 못 채우면 complete=false(시장가→거부, 지정가→PENDING).
-     */
-    private BookFill walkTheBook(Book book, BigDecimal quantity, BigDecimal limitCap, boolean buy) {
-        BigDecimal[] prices = book.prices();
-        BigDecimal[] volumes = book.volumes();
-        BigDecimal remaining = quantity;
-        BigDecimal totalCost = BigDecimal.ZERO;
-        for (int i = 0; i < prices.length && remaining.signum() > 0; i++) {
-            if (prices[i].signum() <= 0 || volumes[i].signum() <= 0) {
-                break;  // 가격/잔량 0 = 더 이상 깊이 없음(사다리 끝)
-            }
-            if (limitCap != null
-                    && (buy ? prices[i].compareTo(limitCap) > 0 : prices[i].compareTo(limitCap) < 0)) {
-                break;  // 지정가 범위 밖 — 더는 체결 불가
-            }
-            BigDecimal take = volumes[i].min(remaining);
-            totalCost = totalCost.add(prices[i].multiply(take));
-            remaining = remaining.subtract(take);
-        }
-        if (remaining.signum() > 0) {
-            return new BookFill(false, null);
-        }
-        return new BookFill(true, totalCost.divide(quantity, 4, RoundingMode.HALF_UP));
-    }
-
-    /**
      * 지정가 PENDING 진입 hold(M2) — 매수=예수금 묶기, 매도=보유수량 묶기. 부족하면 거부(→REJECTED).
      * @return 묶인 명목금액(지정가×수량) — 응답 표시용.
      */
@@ -356,10 +337,6 @@ public class WholeOrderService {
     /** 호가창 스냅샷(한 방향). 국내만 current/상하한가 채움(해외는 0). */
     private record Book(BigDecimal[] prices, BigDecimal[] volumes, BigDecimal current,
                         long upperLimit, long lowerLimit) {
-    }
-
-    /** 사다리 훑기 결과: 전량 채움(complete) 여부 + 가중평균가. */
-    private record BookFill(boolean complete, BigDecimal avgPrice) {
     }
 
     /** 체결 평균가가 상·하한가 범위를 벗어나면 거부(상·하한가 0이면 미제공으로 보고 통과). */
