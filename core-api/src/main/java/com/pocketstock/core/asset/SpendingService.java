@@ -117,8 +117,10 @@ public class SpendingService {
                     .divide(prevAmount, 0, RoundingMode.HALF_UP);
             if (change.compareTo(BigDecimal.ZERO) > 0) {
                 insight = String.format("이번 달 %s가 전월 대비 %s%% 증가했습니다.", mostIncreased.getCategory(), change);
+            } else if (change.compareTo(BigDecimal.ZERO) == 0) {
+                insight = "이번 달 소비 패턴이 전월과 비슷합니다.";
             } else {
-                insight = String.format("이번 달 모든 카테고리 소비가 전월보다 줄었습니다.");
+                insight = "이번 달 전체 소비가 전월보다 줄었습니다.";
             }
         }
 
