@@ -1,12 +1,15 @@
 package com.pocketstock.ledger.trading.matching;
 
 import com.pocketstock.ledger.config.RealtimeSubscriptionManager;
+import com.pocketstock.ledger.kis.KisAskingPriceResponse;
+import com.pocketstock.ledger.kis.KisMarketClient;
 import com.pocketstock.ledger.realtime.RealtimeReconnectedEvent;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
 import com.pocketstock.ledger.trading.client.LsT8450Response;
 import com.pocketstock.ledger.trading.domain.Order;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.trading.support.BookWalker;
+import com.pocketstock.ledger.trading.support.OverseasMarket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -20,16 +23,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static com.pocketstock.ledger.trading.support.MarketFields.dec;
 
 /**
- * 온주 지정가 PENDING 매칭 엔진(국내 LS). 실시간 호가 틱을 받아 종목별 PENDING과 cross 판정,
+ * 온주 지정가 PENDING 매칭 엔진. 실시간 호가 틱을 받아 종목별 PENDING과 cross 판정,
  * 닿으면 사다리 훑어 전량 가능 시 체결시킨다(부분체결 없음 → 잔량 부족이면 PENDING 유지).
+ * 국내(LS UH1)·해외(KIS HDFSASP0)를 한 엔진이 처리한다 — 벤더 차이는 리스너가 흡수하고
+ * 여긴 정규화된 {@link QuoteTick}(국내 {@link DomesticQuoteTick}·해외 {@link ForeignQuoteTick})만 받는다.
  *
  * <p>구독 = PENDING 생명주기(온디맨드): 종목 첫 PENDING이면 호가 구독 ON, 마지막이 종료되면 OFF.
+ * 국내/해외 구분은 종목별 PENDING 스냅샷({@code exchange})이 들고 있어 구독 acquire/release를 분기한다.
  * 인덱스({@code 종목→PENDING})는 매칭용 캐시일 뿐 SSOT는 DB({@code orders.status=PENDING}) —
  * 부팅 시 DB에서 재적재한다. 체결/취소의 실제 정합성 가드는 {@link PendingFillService}의 조건부 전이.
  *
- * <p>해외(KIS)는 RSYM 키 매핑이 별도라 후속 범위 — 지금은 국내 거래소만 인덱싱한다.
+ * <p>틱은 LS·KIS 두 상류 세션 스레드에서 각각 호출되지만 국내·해외 종목은 키가 겹치지 않아
+ * 같은 종목에 대한 동시 호출은 없다(인덱스는 {@link ConcurrentHashMap}). 취소(다른 스레드)와의
+ * 경합은 {@link PendingFillService}의 조건부 전이가 최종 차단하고, 인덱스 정리는 최선노력(다음 틱 자가복구).
  */
 @Slf4j
 @Component
@@ -37,65 +50,101 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WholeOrderMatchingEngine {
 
     private static final Set<String> DOMESTIC_EXCHANGES = Set.of("KOSPI", "KOSDAQ");
+    private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
+    private static final Set<String> SUPPORTED_EXCHANGES =
+            Stream.concat(DOMESTIC_EXCHANGES.stream(), OVERSEAS_EXCHANGES.stream())
+                    .collect(Collectors.toUnmodifiableSet());
 
     private final OrderMapper orderMapper;
     private final RealtimeSubscriptionManager subscriptionManager;
     private final PendingFillService pendingFillService;
     private final LsMarketClient lsMarketClient;
+    private final KisMarketClient kisMarketClient;
 
     /** stockCode → (orderId → PENDING 스냅샷). 매칭용 캐시(SSOT=DB). */
     private final Map<String, Map<Long, Pending>> index = new ConcurrentHashMap<>();
 
-    /** 부팅 복구 — DB의 국내 PENDING 전건을 인덱스에 재적재하고 종목별 호가 구독을 켠다. */
+    /** 부팅 복구 — DB의 국내·해외 PENDING 전건을 인덱스에 재적재하고 종목별 호가 구독을 켠다. */
     @EventListener(ApplicationReadyEvent.class)
     public void reloadPending() {
-        List<Order> pendings = orderMapper.findPendingByExchanges(DOMESTIC_EXCHANGES);
+        List<Order> pendings = orderMapper.findPendingByExchanges(SUPPORTED_EXCHANGES);
         for (Order o : pendings) {
             put(o.getStockCode(), toPending(o));
         }
-        index.keySet().forEach(subscriptionManager::acquireAsking);
+        // 종목별 1회만 구독(같은 종목 PENDING은 거래소가 동일) — 인덱스의 아무 PENDING에서 거래소 파생.
+        index.forEach((stockCode, orders) -> {
+            String exchange = anyExchange(orders);
+            if (exchange != null) {
+                acquireQuote(stockCode, exchange);
+            }
+        });
         log.info("온주 지정가 매칭 — PENDING {}건 재적재, 종목 {}개 호가 구독 ON", pendings.size(), index.size());
-        // 서버 다운 동안 닿았을 cross를 부팅 시 REST 호가 1회 스냅샷으로 보정.
-        sweepSnapshot();
+        // 서버 다운 동안 닿았을 cross를 부팅 시 REST 호가 1회 스냅샷으로 보정(국내·해외 전부).
+        sweepSnapshot(e -> true);
     }
 
     /**
      * WS 단절→재연결 보정 — 끊긴 동안 실시간 틱을 놓쳤을 수 있으니 PENDING 종목별 REST 호가를
-     * 1회 스냅샷해 재매칭한다(폴링 루프 아님, 재연결 1발). LS만 — 해외는 후속 범위.
+     * 1회 스냅샷해 재매칭한다(폴링 루프 아님, 재연결 1발). LS 재연결은 국내 PENDING만, KIS 재연결은
+     * 해외 PENDING만 보정한다(끊긴 세션의 종목만).
      */
     @EventListener
     public void onReconnect(RealtimeReconnectedEvent e) {
-        if (!"LS".equals(e.broker())) {
+        Predicate<String> filter;
+        if ("LS".equals(e.broker())) {
+            filter = DOMESTIC_EXCHANGES::contains;
+        } else if ("KIS".equals(e.broker())) {
+            filter = OVERSEAS_EXCHANGES::contains;
+        } else {
             return;
         }
-        log.info("LS 실시간 재연결 — PENDING {}종목 REST 스냅샷 보정", index.size());
-        sweepSnapshot();
+        log.info("{} 실시간 재연결 — 해당 PENDING 종목 REST 스냅샷 보정", e.broker());
+        sweepSnapshot(filter);
     }
 
-    /** PENDING 종목 전부에 대해 REST 호가 스냅샷 1회 → 매칭(부팅·재연결 공용). */
-    private void sweepSnapshot() {
-        for (String stockCode : index.keySet()) {
+    /** PENDING 종목 중 거래소 필터에 맞는 것만 REST 호가 스냅샷 1회 → 매칭(부팅·재연결 공용). */
+    private void sweepSnapshot(Predicate<String> exchangeFilter) {
+        for (Map.Entry<String, Map<Long, Pending>> entry : index.entrySet()) {
+            String stockCode = entry.getKey();
+            String exchange = anyExchange(entry.getValue());
+            if (exchange == null || !exchangeFilter.test(exchange)) {
+                continue;
+            }
             try {
-                LsT8450Response.OutBlock ob = lsMarketClient.getDomesticOrderbook(stockCode);
-                onTick(new DomesticQuoteTick(stockCode,
-                        toDec(ob.askPrices()), toDec(ob.askVolumes()),
-                        toDec(ob.bidPrices()), toDec(ob.bidVolumes())));
+                onTick(snapshot(stockCode, exchange));
             } catch (Exception ex) {
-                log.warn("REST 호가 스냅샷 보정 실패 stockCode={} — 다음 틱/재연결 재시도", stockCode, ex);
+                log.warn("REST 호가 스냅샷 보정 실패 stockCode={} exchange={} — 다음 틱/재연결 재시도",
+                        stockCode, exchange, ex);
             }
         }
+    }
+
+    /** 거래소별 REST 호가 1틱 — 국내 LS T8450 / 해외 KIS HHDFS76200100(정규장 EXCD, 즉시체결 경로와 동일). */
+    private QuoteTick snapshot(String stockCode, String exchange) {
+        if (OVERSEAS_EXCHANGES.contains(exchange)) {
+            String excd = OverseasMarket.fromExchange(exchange).regularCode();
+            KisAskingPriceResponse.Output2 o2 = kisMarketClient.getOverseasOrderbook(excd, stockCode).output2();
+            return new ForeignQuoteTick(stockCode,
+                    toDec(o2.askPrices()), toDec(o2.askVolumes()),
+                    toDec(o2.bidPrices()), toDec(o2.bidVolumes()));
+        }
+        LsT8450Response.OutBlock ob = lsMarketClient.getDomesticOrderbook(stockCode);
+        return new DomesticQuoteTick(stockCode,
+                toDec(ob.askPrices()), toDec(ob.askVolumes()),
+                toDec(ob.bidPrices()), toDec(ob.bidVolumes()));
     }
 
     /** PENDING 진입(커밋 후) — 인덱스 등록 + 그 종목 첫 PENDING이면 호가 구독 ON. */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPendingCreated(PendingOrderCreatedEvent e) {
-        if (!DOMESTIC_EXCHANGES.contains(e.exchange())) {
-            return;   // 해외(KIS)는 데몬 대상 아님(후속)
+        if (!SUPPORTED_EXCHANGES.contains(e.exchange())) {
+            return;   // 지원하지 않는 거래소(소수점 등)는 데몬 대상 아님
         }
         boolean firstForStock = put(e.stockCode(), new Pending(
-                e.orderId(), e.userId(), e.accountId(), e.side(), e.limitPrice(), e.quantity(), e.currency()));
+                e.orderId(), e.userId(), e.accountId(), e.exchange(), e.side(),
+                e.limitPrice(), e.quantity(), e.currency()));
         if (firstForStock) {
-            subscriptionManager.acquireAsking(e.stockCode());
+            acquireQuote(e.stockCode(), e.exchange());
         }
     }
 
@@ -103,30 +152,31 @@ public class WholeOrderMatchingEngine {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPendingClosed(PendingOrderClosedEvent e) {
         if (remove(e.stockCode(), e.orderId())) {
-            subscriptionManager.releaseAsking(e.stockCode());
+            releaseQuote(e.stockCode(), e.exchange());
         }
     }
 
     /**
      * 호가 틱 — 그 종목 PENDING들과 cross 판정, 닿으면 사다리 훑어 전량 가능 시 체결.
-     * 단일 LS 세션 스레드에서 순차 호출되므로 종목 내 틱은 직렬. 취소(다른 스레드)와의 경합은
-     * {@link PendingFillService}의 조건부 전이가 최종 차단하고, 인덱스 정리는 최선노력(다음 틱 자가복구).
+     * 국내·해외 틱을 한 메서드로 받는다({@link QuoteTick}). 종목 내 틱은 한 상류 세션 스레드에서
+     * 순차 호출되므로 직렬. 취소(다른 스레드)와의 경합은 {@link PendingFillService}의 조건부 전이가
+     * 최종 차단하고, 인덱스 정리는 최선노력(다음 틱 자가복구).
      */
     @EventListener
-    public void onTick(DomesticQuoteTick t) {
+    public void onTick(QuoteTick t) {
         Map<Long, Pending> orders = index.get(t.stockCode());
         if (orders == null) {
             return;
         }
         for (Pending p : orders.values()) {   // ConcurrentHashMap weakly-consistent 순회
             if (tryMatch(t, p) && remove(t.stockCode(), p.orderId())) {
-                subscriptionManager.releaseAsking(t.stockCode());   // 마지막 PENDING 체결 → 구독 OFF
+                releaseQuote(t.stockCode(), p.exchange());   // 마지막 PENDING 체결 → 구독 OFF
             }
         }
     }
 
     /** @return true=인덱스에서 제거 대상(체결됨 또는 이미 종결). false=유지(미도달·잔량부족·일시오류 재시도). */
-    private boolean tryMatch(DomesticQuoteTick t, Pending p) {
+    private boolean tryMatch(QuoteTick t, Pending p) {
         boolean buy = "BUY".equals(p.side());
         BigDecimal best = buy ? first(t.askPrices()) : first(t.bidPrices());
         if (best.signum() <= 0) {
@@ -154,6 +204,24 @@ public class WholeOrderMatchingEngine {
         } catch (Exception ex) {
             log.error("온주 지정가 체결 실패 orderId={} — 다음 틱 재시도", p.orderId(), ex);
             return false;
+        }
+    }
+
+    // ---- 구독 dispatch(국내 LS UH1 / 해외 KIS HDFSASP0) ----
+
+    private void acquireQuote(String stockCode, String exchange) {
+        if (OVERSEAS_EXCHANGES.contains(exchange)) {
+            subscriptionManager.acquireForeignQuote(stockCode);
+        } else {
+            subscriptionManager.acquireAsking(stockCode);
+        }
+    }
+
+    private void releaseQuote(String stockCode, String exchange) {
+        if (OVERSEAS_EXCHANGES.contains(exchange)) {
+            subscriptionManager.releaseForeignQuote(stockCode);
+        } else {
+            subscriptionManager.releaseAsking(stockCode);
         }
     }
 
@@ -187,15 +255,23 @@ public class WholeOrderMatchingEngine {
     }
 
     private Pending toPending(Order o) {
-        return new Pending(o.getId(), o.getUserId(), o.getAccountId(), o.getSide(),
+        return new Pending(o.getId(), o.getUserId(), o.getAccountId(), o.getExchange(), o.getSide(),
                 o.getPrice(), o.getOrderQuantity(), o.getCurrency());
+    }
+
+    /** 종목의 PENDING 중 아무 것의 거래소(같은 종목이면 모두 동일). 비었으면 null. */
+    private static String anyExchange(Map<Long, Pending> orders) {
+        for (Pending p : orders.values()) {
+            return p.exchange();
+        }
+        return null;
     }
 
     private static BigDecimal first(BigDecimal[] arr) {
         return arr != null && arr.length > 0 && arr[0] != null ? arr[0] : BigDecimal.ZERO;
     }
 
-    /** long[] 호가/잔량 → BigDecimal[](REST 스냅샷 매핑). */
+    /** long[] 호가/잔량 → BigDecimal[](국내 LS REST 스냅샷 매핑). */
     private static BigDecimal[] toDec(long[] arr) {
         BigDecimal[] out = new BigDecimal[arr.length];
         for (int i = 0; i < arr.length; i++) {
@@ -204,8 +280,17 @@ public class WholeOrderMatchingEngine {
         return out;
     }
 
+    /** String[] 호가/잔량 → BigDecimal[](해외 KIS REST 스냅샷 매핑, 빈 값 0). */
+    private static BigDecimal[] toDec(String[] arr) {
+        BigDecimal[] out = new BigDecimal[arr.length];
+        for (int i = 0; i < arr.length; i++) {
+            out[i] = dec(arr[i]);
+        }
+        return out;
+    }
+
     /** 매칭에 필요한 PENDING 주문 스냅샷(돈 이동 권한은 DB 조건부 전이가 최종 검증). */
-    private record Pending(Long orderId, Long userId, Long accountId, String side,
+    private record Pending(Long orderId, Long userId, Long accountId, String exchange, String side,
                            BigDecimal limitPrice, BigDecimal quantity, String currency) {
     }
 }
