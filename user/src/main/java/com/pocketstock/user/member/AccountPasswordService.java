@@ -30,10 +30,6 @@ public class AccountPasswordService {
     /** 계좌 비밀번호 형식 — 숫자 4자리. */
     private static final Pattern FORMAT = Pattern.compile("^\\d{4}$");
 
-    /** 거래 인증 상태 키 규약: txn-auth:{userId} (주문/이체 도메인과 공유). */
-    private static final String TXN_AUTH_KEY = "txn-auth:";
-    private static final Duration TXN_AUTH_TTL = Duration.ofMinutes(30);
-
     private final AccountPasswordMapper accountPasswordMapper;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redis;
@@ -54,6 +50,10 @@ public class AccountPasswordService {
         accountPasswordMapper.upsert(ap);
     }
 
+    /**
+     * 거래 인증 — 계좌 비밀번호 대조. "비밀번호 유지"(keepAuth) ON일 때만 30분 거래 세션을 기록한다.
+     * OFF면 이번 1회만 통과하고 세션을 남기지 않아(키 미기록), 다음 거래에서 다시 비밀번호를 묻는다.
+     */
     public VerifyAccountPasswordResponse verify(Long userId, VerifyAccountPasswordRequest req) {
         requireAuth(userId);
         String raw = req == null ? null : req.accountPassword();
@@ -75,6 +75,11 @@ public class AccountPasswordService {
         // 검증 성공 시 항상 인증 키 발급. 토글에 따라 값/TTL만 다르게 둔다.
         //  ON  → KEEP(30분 유지, 여러 거래 통과)  /  OFF → ONCE(직후 1건만, 가드가 소비)
         LocalDateTime verifiedAt = LocalDateTime.now();
+        String value = req.keepAuth() ? TxnAuth.VALUE_KEEP : TxnAuth.VALUE_ONCE;
+        Duration ttl = req.keepAuth() ? TxnAuth.TTL : TxnAuth.ONCE_TTL;
+        redis.opsForValue().set(TxnAuth.key(userId), value, ttl);
+
+        LocalDateTime expiresAt = verifiedAt.plus(ttl);
         return new VerifyAccountPasswordResponse(verifiedAt, expiresAt);
     }
 
