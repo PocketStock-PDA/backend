@@ -38,4 +38,15 @@ class SignupVerifyStoreTest {
 
         assertThat(store.verify("v3", "482")).isFalse();  // 만료
     }
+
+    @Test
+    void save_purgesExpiredEntries_preventsUnboundedGrowth() throws InterruptedException {
+        store.save("old1", "111", Duration.ofMillis(10));
+        store.save("old2", "222", Duration.ofMillis(10));
+        Thread.sleep(30);                                  // old1·old2 만료
+
+        store.save("fresh", "333", Duration.ofMinutes(3)); // save 시 만료분 일괄 정리
+
+        assertThat(store.size()).isEqualTo(1);             // confirm 없이 쌓인 만료분 제거 → fresh만 남음
+    }
 }
