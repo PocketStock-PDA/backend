@@ -332,7 +332,7 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | DE
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 401 Unauthorized
 
-**Response Body**
+**Response Body** — 설정 보유 사용자(ON 예시)
 
 ```json
 {
@@ -343,6 +343,21 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | DE
   "enabled": true,
   "sourceAccountId": 12,
   "maxChargePerTx": 100000
+ }
+ }
+```
+
+**Response Body** — 설정 행이 없는 신규 사용자(OFF 기본값)
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "자동충전 설정 조회 성공",
+  "data": {
+  "enabled": false,
+  "sourceAccountId": null,
+  "maxChargePerTx": null
  }
  }
 ```

@@ -39,7 +39,12 @@ public class CmaAutoChargeSettingService {
                 : AutoChargeSettingResponse.disabled();
     }
 
-    @Transactional
+    /**
+     * 자동충전 설정 변경.
+     *
+     * <p>소유 검증(Feign 외부 호출)은 트랜잭션 밖에서 먼저 수행한다 — 단일 {@code upsert} 한 건이라
+     * 별도 트랜잭션 경계가 필요 없고, 외부 I/O 동안 DB 커넥션을 점유하지 않게 하기 위함이다.
+     */
     public void update(Long userId, AutoChargeSettingRequest request) {
         boolean enabled = Boolean.TRUE.equals(request.enabled());
 
@@ -48,7 +53,7 @@ public class CmaAutoChargeSettingService {
         setting.setIsEnabled(enabled);
 
         if (enabled) {
-            // ON일 때만 필수 항목 검증 + 충전 재원 소유 검증.
+            // ON일 때만 필수 항목 검증 + 충전 재원 소유 검증(Feign).
             validateForEnabled(userId, request);
             setting.setSourceAccountRef(request.sourceAccountId());
             setting.setMaxChargePerTx(request.maxChargePerTx());
