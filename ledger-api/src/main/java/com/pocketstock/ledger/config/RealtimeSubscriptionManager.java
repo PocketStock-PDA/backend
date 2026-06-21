@@ -52,6 +52,13 @@ public class RealtimeSubscriptionManager {
     private final Map<String, Integer> refCounts = new ConcurrentHashMap<>();
     /** sessionId → (subscriptionId → 등록키) — UNSUBSCRIBE·DISCONNECT 시 역추적용. */
     private final Map<String, Map<String, RealtimeKey>> sessionSubs = new ConcurrentHashMap<>();
+    /**
+     * 매칭 엔진이 켠 해외 호가 구독의 등록키 — stockCode → acquire 당시 key.
+     * 해외 tr_key는 세션(정규장 D / 주간 R)에 따라 바뀌므로 release 때 재계산하면 키가 달라져
+     * decrement가 빗나간다(refCount 누수·upstream 미해제). acquire 시점 key를 박제해 그대로 해제한다.
+     * (국내 UH1은 tr_key가 결정적이라 재계산해도 안전 → 별도 박제 불필요. 클라 구독은 sessionSubs가 담당.)
+     */
+    private final Map<String, RealtimeKey> foreignQuoteKeys = new ConcurrentHashMap<>();
 
     /**
      * 매칭 엔진 전용 — 종목 호가(UH1) 구독 ON. 클라 STOMP 구독과 같은 참조계수를 공유하므로
@@ -81,13 +88,14 @@ public class RealtimeSubscriptionManager {
     public void acquireForeignQuote(String stockCode) {
         RealtimeKey key = resolve(FOREIGN_QUOTE_PREFIX + stockCode);
         if (key != null) {
+            foreignQuoteKeys.put(stockCode, key);   // acquire 당시 key 박제 → release 때 재계산 안 함
             increment(key);
         }
     }
 
     /** 매칭 엔진 전용 — 해외 종목 호가(HDFSASP0) 구독 해제(그 종목 마지막 PENDING 종료 시). */
     public void releaseForeignQuote(String stockCode) {
-        RealtimeKey key = resolve(FOREIGN_QUOTE_PREFIX + stockCode);
+        RealtimeKey key = foreignQuoteKeys.remove(stockCode);   // acquire 당시 key로 정확히 해제(세션 변동 무관)
         if (key != null) {
             decrement(key);
         }
