@@ -3,6 +3,7 @@ package com.pocketstock.core.asset;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.common.response.ApiResponse;
+import com.pocketstock.core.asset.dto.SpendingReportResponse;
 import com.pocketstock.core.asset.dto.SpendingResponse;
 import com.pocketstock.user.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
@@ -31,5 +32,19 @@ public class SpendingController {
 
         SpendingResponse data = spendingService.getSpending(userId, year, month);
         return ResponseEntity.ok(ApiResponse.ok("소비패턴 분석 결과 조회 성공", data));
+    }
+
+    @GetMapping("/spending/report")
+    public ResponseEntity<ApiResponse<SpendingReportResponse>> getSpendingReport(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        SpendingReportResponse data = spendingService.getSpendingReport(userId, year, month);
+        return ResponseEntity.ok(ApiResponse.ok("소비분석 리포트 조회 성공", data));
     }
 }
