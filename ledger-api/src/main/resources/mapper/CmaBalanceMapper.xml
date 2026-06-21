@@ -25,6 +25,15 @@
           AND currency = #{currency}
     </select>
 
+    <!-- 잔액 변경 전 잠금 읽기. uq_cb(cma_account_id, currency) 행을 잠가 동시 입출금을 직렬화 -->
+    <select id="findByAccountIdAndCurrencyForUpdate" resultMap="cmaBalance">
+        SELECT id, cma_account_id, currency, balance, interest_rate, updated_at
+        FROM cma_balances
+        WHERE cma_account_id = #{cmaAccountId}
+          AND currency = #{currency}
+        FOR UPDATE
+    </select>
+
     <insert id="upsertBalance" parameterType="com.pocketstock.ledger.cma.domain.CmaBalance">
         INSERT INTO cma_balances (cma_account_id, currency, balance, interest_rate, updated_at)
         VALUES (#{cmaAccountId}, #{currency}, #{balance}, #{interestRate}, NOW())

@@ -6,6 +6,7 @@ import com.pocketstock.ledger.cma.dto.response.CmaAccountResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
+import com.pocketstock.ledger.cma.dto.response.CollectResult;
 import com.pocketstock.ledger.cma.service.CmaAccountService;
 import com.pocketstock.ledger.cma.service.CmaCollectService;
 import com.pocketstock.ledger.cma.service.CmaQueryService;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/cma")
@@ -57,6 +59,39 @@ public class CmaController {
         return ApiResponse.ok("CMA 잔액 조회 성공", queryService.getBalance(userId));
     }
 
+    /** 통합 수집 — 활성 소스 전체 실행(부분 성공 허용). 멱등키는 소스별 접미사로 파생된다. */
+    @PostMapping("/collect")
+    public ApiResponse<List<CollectResult>> collectAll(
+            @CurrentUserId Long userId,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok("잔돈 모으기 실행 완료",
+                collectService.collectAll(userId, resolveKey(idempotencyKey)));
+    }
+
+    @PostMapping("/collect/account")
+    public ApiResponse<CollectResult> collectAccount(
+            @CurrentUserId Long userId,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok("계좌 끝전 적립 완료",
+                collectService.collectFromAccount(userId, resolveKey(idempotencyKey)));
+    }
+
+    @PostMapping("/collect/card")
+    public ApiResponse<CollectResult> collectCard(
+            @CurrentUserId Long userId,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok("카드 라운드업 적립 완료",
+                collectService.collectFromCard(userId, resolveKey(idempotencyKey)));
+    }
+
+    @PostMapping("/collect/point")
+    public ApiResponse<CollectResult> collectPoint(
+            @CurrentUserId Long userId,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok("포인트 전환 적립 완료",
+                collectService.collectFromPoint(userId, resolveKey(idempotencyKey)));
+    }
+
     @GetMapping("/collect/history")
     public ApiResponse<List<CmaTransactionResponse>> getCollectHistory(
             @CurrentUserId Long userId,
@@ -85,5 +120,14 @@ public class CmaController {
             @RequestBody @Valid CollectionSettingRequest request) {
         collectService.updateSettings(userId, request);
         return ApiResponse.ok("적립 소스 설정 완료", null);
+    }
+
+    /**
+     * 헤더가 유효하면 클라이언트 멱등키 사용, 비어 있거나(공백 포함) 없으면 서버에서 1회용 키 생성.
+     * 공백 키("", "  ")를 그대로 두면 서로 다른 요청이 같은 키로 충돌해 잘못 멱등 처리될 수 있어 정규화한다.
+     */
+    private static String resolveKey(String idempotencyKey) {
+        return (idempotencyKey != null && !idempotencyKey.isBlank())
+                ? idempotencyKey : UUID.randomUUID().toString();
     }
 }

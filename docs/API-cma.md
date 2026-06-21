@@ -68,49 +68,42 @@ CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서
 
 ## 잔돈수집
 
+> **수집 대상·금액은 요청 바디로 받지 않는다.** 어떤 소스를 얼마나 모을지는 `PUT /collect/settings`로 저장된 활성 소스(ON)와 자산 도메인(core-api) 데이터에서 서버가 계산한다. 단건 API도 바디가 없다.
+> **멱등키(선택)**: `X-Idempotency-Key` 헤더를 보내면 동일 키 재요청 시 중복 적립이 방지된다(없으면 서버가 1회용 키 자동 생성).
+> **적립 금액 산정**: 끝전 = 연동 계좌 잔액 % 설정 threshold(1000/5000/10000), 라운드업 = 카드 결제액 천원 올림 차액, 포인트 = 전환 가능 포인트(1P=1원).
+
 ### POST `/api/cma/collect`
 
-잔돈 모으기 실행 (통합)
+잔돈 모으기 실행 (통합) — 활성 소스(ACCOUNT/CARD/POINT) 전체를 **독립 실행**한다. 한 소스가 실패해도 나머지는 진행되는 **부분 성공** 모델이라, 응답은 소스별 결과 배열이다.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **Request Body**: 없음
+- **HTTP Status Code**: 200 OK / 401 Unauthorized / 404 Not Found(CMA 계좌 없음)
 
-**Request Body**
-
-```json
-{}
-```
-
-**Response Body**
+**Response Body** — `status`: `SUCCESS`(적립됨) / `SKIPPED`(소스 비활성·수집 잔돈 없음) / `FAILED`(예기치 못한 오류)
 
 ```json
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "잔돈 모으기 성공",
-  "data": {
-  "collectedAmount": 8430,
-  "newBalance": 1258430
- }
- }
+  "message": "잔돈 모으기 실행 완료",
+  "data": [
+    { "sourceType": "ACCOUNT", "status": "SUCCESS", "amount": 7500, "balanceAfter": 412990, "errorMessage": null },
+    { "sourceType": "CARD",    "status": "SUCCESS", "amount": 280,  "balanceAfter": 413270, "errorMessage": null },
+    { "sourceType": "POINT",   "status": "SKIPPED", "amount": 0,    "balanceAfter": null,   "errorMessage": "수집 가능한 잔돈이 없습니다." }
+  ]
+}
 ```
 
 ---
 
 ### POST `/api/cma/collect/account`
 
-계좌 끝전 적립
+계좌 끝전 적립 — 활성 ACCOUNT 계좌들의 (잔액 % threshold) 합산을 적립한다.
 
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-
-**Request Body**
-
-```json
-{
-  "accountId": 101
- }
-```
+- **Request Headers**: Authorization: Bearer {accessToken} · (선택) X-Idempotency-Key: {uuid}
+- **Request Body**: 없음
+- **HTTP Status Code**: 200 OK / 400 Bad Request(수집 잔돈 없음·소스 비활성) / 401 Unauthorized / 404 Not Found
 
 **Response Body**
 
@@ -118,28 +111,20 @@ CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "계좌 끝전 적립 성공",
-  "data": {
-  "amount": 3450,
-  "newBalance": 1253450
- }
- }
+  "message": "계좌 끝전 적립 완료",
+  "data": { "sourceType": "ACCOUNT", "status": "SUCCESS", "amount": 7500, "balanceAfter": 412990, "errorMessage": null }
+}
 ```
 
 ---
 
 ### POST `/api/cma/collect/card`
 
-카드 라운드업 적립
+카드 라운드업 적립 — 미수집 카드 거래의 천원 올림 차액 합산. 적립 후 해당 카드 거래를 수집 완료로 표시한다.
 
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-
-**Request Body**
-
-```json
-{}
-```
+- **Request Headers**: Authorization: Bearer {accessToken} · (선택) X-Idempotency-Key: {uuid}
+- **Request Body**: 없음
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized / 404 Not Found
 
 **Response Body**
 
@@ -147,31 +132,20 @@ CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "카드 라운드업 적립 성공",
-  "data": {
-  "amount": 2980,
-  "newBalance": 1252980
- }
- }
+  "message": "카드 라운드업 적립 완료",
+  "data": { "sourceType": "CARD", "status": "SUCCESS", "amount": 280, "balanceAfter": 413270, "errorMessage": null }
+}
 ```
 
 ---
 
 ### POST `/api/cma/collect/point`
 
-포인트 전환 적립
+포인트 전환 적립 — 전환 가능 포인트를 CMA 원화 풀로 입금한다.
 
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-
-**Request Body**
-
-```json
-{
-  "provider": "OK캐쉬백",
-  "points": 5000
- }
-```
+- **Request Headers**: Authorization: Bearer {accessToken} · (선택) X-Idempotency-Key: {uuid}
+- **Request Body**: 없음
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized / 404 Not Found
 
 **Response Body**
 
@@ -179,12 +153,9 @@ CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "포인트 전환 적립 성공",
-  "data": {
-  "convertedAmount": 2000,
-  "newBalance": 1252000
- }
- }
+  "message": "포인트 전환 적립 완료",
+  "data": { "sourceType": "POINT", "status": "SUCCESS", "amount": 5000, "balanceAfter": 418270, "errorMessage": null }
+}
 ```
 
 ---

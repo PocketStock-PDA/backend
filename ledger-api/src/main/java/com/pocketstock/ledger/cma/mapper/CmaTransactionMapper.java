@@ -13,6 +13,9 @@ public interface CmaTransactionMapper {
 
     int insert(CmaTransaction tx);
 
+    /** 멱등키로 기존 원장행 조회 — 재호출(replay) 시 잔액 재반영 없이 기존 balance_after를 돌려주기 위함 */
+    CmaTransaction findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
+
     List<CmaTransaction> findByUserIdAndFilter(
             @Param("userId") Long userId,
             @Param("txType") String txType,

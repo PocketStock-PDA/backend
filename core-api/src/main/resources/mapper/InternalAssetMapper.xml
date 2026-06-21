@@ -24,10 +24,12 @@
           AND is_cancelled = FALSE
     </select>
 
+    <!-- 수집 확정 시 실현 라운드업(천원 올림 차액)을 함께 기록(E-3) — 시드의 "수집된 행=roundup_amount 채움" 컨벤션과 일치 -->
     <update id="markRoundupCollected">
         UPDATE card_transactions
         SET is_roundup_collected = TRUE,
-            roundup_collected_at = NOW()
+            roundup_collected_at = NOW(),
+            roundup_amount = CEIL(amount / 1000) * 1000 - amount
         WHERE user_id = #{userId}
           AND is_roundup_collected = FALSE
           AND id IN
