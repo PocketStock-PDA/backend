@@ -250,7 +250,7 @@ CMA 잔액·성과율 (원화RP/외화RP) 조회
  }
 ```
 
-> ⚠️ **TODO (환전 도메인 의존)**: `totalKrwEquivalent`는 위 예시처럼 USD 잔액을 환율로 환산해 KRW와 합산한 값이어야 하지만, 환율 조회/환전 API(`/api/exchange/*`, `docs/API-exchange.md` 참고)가 아직 구현되지 않아 **현재 구현(`CmaQueryService.getBalance()`)은 KRW 잔액만 반환하고 USD는 합산하지 않는다.** Exchange 도메인 구현 후 환율을 곱해 USD 잔액을 KRW로 환산·합산하는 로직을 추가해야 함.
+> ℹ️ **`totalKrwEquivalent` 환산 규칙**: `KRW 잔액 + (USD 잔액 × 매매기준율)`, 원화 정수 반올림(HALF_UP). 환율은 환전 도메인 SSOT(`ExchangeRateService.getUsdKrwRate().baseRate`, LS CUR 실시간 매매기준율)를 사용한다. USD 미보유(행 없음/0)면 환율을 조회하지 않아 KRW 전용 계좌는 항상 성공한다. USD>0 인데 환율 캐시가 비어 있으면(콜드스타트) 과소 총액을 노출하지 않도록 환전 API와 동일하게 `502 EXTERNAL_API_ERROR`가 전파된다.
 
 ---
 

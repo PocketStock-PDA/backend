@@ -15,7 +15,8 @@ INSERT INTO cma_accounts (id,user_id,account_no_enc,status,opened_at,created_at,
 (1,1,NULL,'ACTIVE','2026-01-20 10:00:00','2026-01-20 10:00:00','2026-01-20 10:00:00');
 
 INSERT INTO cma_balances (id,cma_account_id,currency,balance,interest_rate,created_at,updated_at) VALUES
-(1,1,'KRW',405490.0000,3.5000,'2026-01-20 10:00:00','2026-06-15 09:00:00');
+(1,1,'KRW',405490.0000,3.5000,'2026-01-20 10:00:00','2026-06-15 09:00:00'),
+(2,1,'USD',250.0000,4.2000,'2026-03-10 10:00:00','2026-06-15 09:00:00');  -- 환전 1회 거친 사용자 가정(달러풀). totalKrwEquivalent USD 환산 합산 시연용.
 
 INSERT INTO collection_settings (id,user_id,source_type,source_ref_id,is_enabled,threshold,created_at,updated_at) VALUES
 (1,1,'ACCOUNT',1,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00'),
