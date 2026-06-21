@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,22 +44,26 @@ public class DividendBatchService {
         List<StockEventUpsertRequest> events = new ArrayList<>();
         for (KisDividendResponse.Item item : items) {
             if (item.recordDate() == null || item.recordDate().isBlank()) continue;
+            try {
+                LocalDate recordDate     = parseDate(item.recordDate());
+                LocalDate exDividendDate = recordDate.minusDays(1);
 
-            LocalDate recordDate    = parseDate(item.recordDate());
-            LocalDate exDividendDate = recordDate.minusDays(1);
+                String detail = String.format("현금배당금: %s원, 배당률: %s%%",
+                        item.perStoDiviAmt(), item.diviRate());
 
-            String detail = String.format("현금배당금: %s원, 배당률: %s%%",
-                    item.perStoDiviAmt(), item.diviRate());
-
-            events.add(new StockEventUpsertRequest(
-                    item.shtCd(), EVENT_TYPE_EX_DIVIDEND, exDividendDate,
-                    item.isinName() + " 배당락", detail));
-
-            if (item.diviPayDt() != null && !item.diviPayDt().isBlank()) {
-                LocalDate payDate = parseDate(item.diviPayDt());
                 events.add(new StockEventUpsertRequest(
-                        item.shtCd(), EVENT_TYPE_PAY, payDate,
-                        item.isinName() + " 배당금 지급", detail));
+                        item.shtCd(), EVENT_TYPE_EX_DIVIDEND, exDividendDate,
+                        item.isinName() + " 배당락", detail));
+
+                if (item.diviPayDt() != null && !item.diviPayDt().isBlank()) {
+                    LocalDate payDate = parseDate(item.diviPayDt());
+                    events.add(new StockEventUpsertRequest(
+                            item.shtCd(), EVENT_TYPE_PAY, payDate,
+                            item.isinName() + " 배당금 지급", detail));
+                }
+            } catch (DateTimeParseException e) {
+                log.warn("[배당배치] 날짜 파싱 실패 — skip shtCd={} recordDate={} diviPayDt={}",
+                        item.shtCd(), item.recordDate(), item.diviPayDt());
             }
         }
 
@@ -83,20 +88,24 @@ public class DividendBatchService {
         List<StockEventUpsertRequest> events = new ArrayList<>();
         for (KisDividendResponse.Item item : items) {
             if (item.recordDate() == null || item.recordDate().isBlank()) continue;
+            try {
+                LocalDate exDividendDate = parseDate(item.recordDate()).minusDays(1);
+                String detail = String.format("현금배당금: %s원, 배당률: %s%%",
+                        item.perStoDiviAmt(), item.diviRate());
 
-            LocalDate exDividendDate = parseDate(item.recordDate()).minusDays(1);
-            String detail = String.format("현금배당금: %s원, 배당률: %s%%",
-                    item.perStoDiviAmt(), item.diviRate());
-
-            events.add(new StockEventUpsertRequest(
-                    item.shtCd(), EVENT_TYPE_EX_DIVIDEND, exDividendDate,
-                    item.isinName() + " 배당락", detail));
-
-            if (item.diviPayDt() != null && !item.diviPayDt().isBlank()) {
-                LocalDate payDate = parseDate(item.diviPayDt());
                 events.add(new StockEventUpsertRequest(
-                        item.shtCd(), EVENT_TYPE_PAY, payDate,
-                        item.isinName() + " 배당금 지급", detail));
+                        item.shtCd(), EVENT_TYPE_EX_DIVIDEND, exDividendDate,
+                        item.isinName() + " 배당락", detail));
+
+                if (item.diviPayDt() != null && !item.diviPayDt().isBlank()) {
+                    LocalDate payDate = parseDate(item.diviPayDt());
+                    events.add(new StockEventUpsertRequest(
+                            item.shtCd(), EVENT_TYPE_PAY, payDate,
+                            item.isinName() + " 배당금 지급", detail));
+                }
+            } catch (DateTimeParseException e) {
+                log.warn("[배당배치] 날짜 파싱 실패 — skip shtCd={} recordDate={} diviPayDt={}",
+                        item.shtCd(), item.recordDate(), item.diviPayDt());
             }
         }
 
