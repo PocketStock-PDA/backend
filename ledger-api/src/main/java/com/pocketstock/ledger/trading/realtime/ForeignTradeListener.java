@@ -14,7 +14,8 @@ import static com.pocketstock.ledger.trading.support.MarketFields.lng;
 
 /**
  * KIS HDFSCNT0(해외 실시간지연체결가) 데이터 프레임을 {@link ForeignTradeResponse}로 매핑해
- * {@code /topic/foreign/transaction/{RSYM}}로 push 한다.
+ * {@code /topic/foreign/transaction/{stock_code}}로 push 한다.
+ * 토픽 키는 세션에 따라 바뀌는 RSYM이 아니라 안정적인 SYMB(=stock_code, 예 AAPL)를 쓴다.
  *
  * <p>필드 순서(캐럿 구분, 0-base):
  * RSYM0 SYMB1 ZDIV2 TYMD3 XYMD4 XHMS5 KYMD6 KHMS7 OPEN8 HIGH9 LOW10 LAST11
@@ -45,9 +46,10 @@ public class ForeignTradeListener implements KisRealtimeListener {
         }
 
         String realtimeCode = f[0]; // RSYM (구독 tr_key와 동일)
+        String symbol = f[1];       // SYMB (= stock_code, 안정적 토픽 키)
         String sign = f[12];        // SIGN 1상한·2상승·3보합·4하한·5하락
         ForeignTradeResponse payload = new ForeignTradeResponse(
-                f[1],            // SYMB
+                symbol,          // SYMB
                 realtimeCode,
                 f[5],            // XHMS 현지시간
                 dec(f[11]),      // LAST 현재가 → currentPrice
@@ -60,7 +62,8 @@ public class ForeignTradeListener implements KisRealtimeListener {
                 lng(f[19]),      // EVOL 이번 틱 체결량 → lastTradeVolume
                 dec(f[24]));     // STRN 체결강도 → tradeStrength
 
-        messagingTemplate.convertAndSend(TOPIC_PREFIX + realtimeCode, payload);
+        // 토픽 키 = SYMB(안정적 stock_code). 구독 tr_key(RSYM)는 세션에 따라 D/R로 바뀌므로 토픽엔 안 씀.
+        messagingTemplate.convertAndSend(TOPIC_PREFIX + symbol, payload);
     }
 
     /** SIGN(4하한·5하락)이면 음수로. 절대값으로 오는 전일대비에 방향을 적용. */
