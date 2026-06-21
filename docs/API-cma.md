@@ -327,10 +327,12 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | DE
 
 부족금액 자동충전 설정 조회 (SETTLE-006)
 
+설정 행이 없는 신규 사용자는 OFF 기본값 `{ "enabled": false, "sourceAccountId": null, "maxChargePerTx": null }`을 200으로 반환한다(404 아님).
+
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 401 Unauthorized
 
-**Response Body**
+**Response Body** — 설정 보유 사용자(ON 예시)
 
 ```json
 {
@@ -345,11 +347,30 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | DE
  }
 ```
 
+**Response Body** — 설정 행이 없는 신규 사용자(OFF 기본값)
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "자동충전 설정 조회 성공",
+  "data": {
+  "enabled": false,
+  "sourceAccountId": null,
+  "maxChargePerTx": null
+ }
+ }
+```
+
 ---
 
 ### PUT `/api/cma/auto-charge-settings`
 
 부족금액 자동충전 설정 (ON/OFF·1회 한도·충전 재원 계좌). 매수·정기적립 시 CMA 원화풀 부족분만 연동 은행계좌에서 자동 이체(on-demand). '매일 자동충전' 정기 선충전은 미지원.
+
+- `enabled=true`: `sourceAccountId` 필수 + `maxChargePerTx > 0`. `sourceAccountId`는 본인 명의 연동 은행계좌여야 한다(아니면 400).
+- `enabled=false`: `sourceAccountId`·`maxChargePerTx`는 null 허용(끄기). 검증·소유확인 생략.
+- 이번 범위는 **설정 저장만**이며, 실행(부족분 감지 → 자동 이체)은 후속 작업이다.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
