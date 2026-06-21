@@ -44,6 +44,7 @@ public class DividendBatchService {
         List<StockEventUpsertRequest> events = new ArrayList<>();
         for (KisDividendResponse.Item item : items) {
             if (item.recordDate() == null || item.recordDate().isBlank()) continue;
+            if (item.shtCd() == null || item.shtCd().isBlank()) continue;
             try {
                 LocalDate recordDate     = parseDate(item.recordDate());
                 LocalDate exDividendDate = recordDate.minusDays(1);
@@ -88,6 +89,7 @@ public class DividendBatchService {
         List<StockEventUpsertRequest> events = new ArrayList<>();
         for (KisDividendResponse.Item item : items) {
             if (item.recordDate() == null || item.recordDate().isBlank()) continue;
+            if (item.shtCd() == null || item.shtCd().isBlank()) continue;
             try {
                 LocalDate exDividendDate = parseDate(item.recordDate()).minusDays(1);
                 String detail = String.format("현금배당금: %s원, 배당률: %s%%",
