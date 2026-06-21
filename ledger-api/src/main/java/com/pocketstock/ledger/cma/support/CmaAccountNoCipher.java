@@ -51,7 +51,14 @@ public class CmaAccountNoCipher {
         }
     }
 
+    /**
+     * 암호문이 없으면(레거시·시드 등 {@code account_no_enc}가 NULL/빈 값) {@code null} 반환.
+     * 계좌번호는 식별키가 아닌 표시 전용 값이라, 미설정 계좌는 번호 없이도 응답이 성립한다.
+     */
     public String decrypt(byte[] data) {
+        if (data == null || data.length == 0) {
+            return null;
+        }
         try {
             byte[] iv = Arrays.copyOfRange(data, 0, IV_LENGTH);
             byte[] ciphertext = Arrays.copyOfRange(data, IV_LENGTH, data.length);
