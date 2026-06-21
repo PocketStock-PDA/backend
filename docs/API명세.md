@@ -57,6 +57,8 @@
 | 자산연동 | 보유 은행 계좌 목록 조회(1원 인증·재원 계좌 선택 공용) | GET | `/api/assets/bank-accounts` |  | C·강문군 | ✅ |
 | 자산연동 | 계좌 1원 인증 송금요청(코드 푸시 발송) | POST | `/api/assets/bank-accounts/{accountId}/verification` |  | C·강문군 | ✅ |
 | 자산연동 | 계좌 1원 인증 확인(코드 검증) | POST | `/api/assets/bank-accounts/{accountId}/verification/confirm` |  | C·강문군 | ✅ |
+| 자산연동 | 가입단계 계좌 1원 인증 송금요청(공개·mock, 응답에 코드) | POST | `/api/auth/account-verify/request` |  | C·강문군 | ✅ |
+| 자산연동 | 가입단계 계좌 1원 인증 확인(공개·코드 대조) | POST | `/api/auth/account-verify/confirm` |  | C·강문군 | ✅ |
 | 자산연동 | 연동 자산 새로고침(최신화) | POST | `/api/assets/refresh` |  | C·강문군 |  |
 | 자산연동 | 잠자는 잔돈 스캔 | GET | `/api/assets/scan` |  | C·강문군 |  |
 | 자산연동 | 휴면계좌 조회 | GET | `/api/assets/dormant` |  | C·강문군 |  |

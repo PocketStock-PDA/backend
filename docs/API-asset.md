@@ -180,7 +180,7 @@
 계좌 1원 인증 — 송금요청
 
 대상 연동 은행 계좌로 **1원을 입금하는 시뮬레이션**이다(은행 계좌 연동은 목데이터 영역 → 실제 자금 이동 없음).
-4자리 인증 코드를 생성해 Redis 챌린지로 저장(TTL 5분)하고, **웹푸시로 "1원 입금" 목 알림**을 보낸다.
+3자리 인증 코드를 생성해 Redis 챌린지로 저장(TTL 5분)하고, **웹푸시로 "1원 입금" 목 알림**을 보낸다.
 입금자명에 코드가 실려 오며(은행 거래내역 시뮬), 사용자는 그 코드를 확인 API로 제출한다.
 **코드는 응답에 포함되지 않는다**(푸시로만 전달). 재요청 시 기존 코드·시도수는 초기화된다.
 
@@ -207,7 +207,7 @@
 > **⚠️ 푸시 수신 선행조건 (시연 시 필수).** 코드는 웹푸시로만 전달되며, 발송은 현재 **WEB(VAPID) 구독에 한해** 동작한다.
 > 사용자가 `platform != WEB`이거나 미구독(`push_token` 없음)이면 발송은 조용히 no-op 된다(앱 알림 정책과 동일, 발송 실패는 요청을 막지 않음).
 > 따라서 폰으로 목 푸시를 받으려면 프론트에서 **`POST /api/notifications/token`으로 WEB 구독을 먼저 등록**해야 한다.
-> 로컬 개발에선 구독 없이도 서버 DEBUG 로그(`[1원인증] ... code=####`)로 코드를 확인해 흐름을 검증할 수 있다(목 데이터 전용).
+> 로컬 개발에선 구독 없이도 알림함(`GET /api/notifications`) 본문으로 코드를 확인해 흐름을 검증할 수 있다(목 데이터 전용). 코드 자체는 로그에 남기지 않는다.
 >
 > **보안 주의(현재 목/시연 전제).** 인증 코드가 알림함 본문에 평문으로 남는다. 운영 전환 시 재검토 대상.
 
@@ -226,7 +226,7 @@
 
 ```json
 {
-  "code": "1234"
+  "code": "482"
  }
 ```
 
@@ -253,6 +253,78 @@
 | `VERIFICATION_ATTEMPTS_EXCEEDED` | 5회 초과 → 챌린지 폐기, 재요청 필요 |
 | `ACCOUNT_ALREADY_VERIFIED` | 이미 인증된 계좌 |
 | `NOT_FOUND` | 본인 소유가 아니거나 없는 계좌 |
+
+---
+
+## 가입단계 계좌 1원 인증 (공개)
+
+회원가입 단계(로그인 전)의 계좌 1원 인증. 위 `/api/assets/bank-accounts/...`(로그인 후, 연동계좌 `is_verified` 마킹·푸시)와는 **별개 흐름**이다.
+
+- **공개 API**(인증 토큰 불필요). 로그인 전이라 userId·연동계좌·DB에 묶이지 않는 **순수 휘발성 mock**이다.
+- 코드 전달 채널(알림함·푸시)이 없어 **응답에 `depositorName`·`code`를 그대로 노출**한다(`depositorName`=데모 화면용, `code`=테스트 보조). 인증 코드는 입금자명 끝 **3자리**.
+- 세션은 인메모리 저장, TTL **180초**, 성공 시 1회 소비. DB 변경 없음.
+- ⚠️ 운영(실 펌뱅킹) 전환 시 응답에서 `code`·`depositorName` 제거 필요.
+
+### POST `/api/auth/account-verify/request`
+
+가입단계 1원 인증 — 송금요청(mock). 입금자명 `포켓스톡###`(랜덤 3자리)을 구성해 응답으로 내려준다.
+
+- **HTTP Status Code**: 200 OK / 400 Bad Request(accountId 누락)
+- **데이터 출처**: 순수 mock(인메모리). 실제 송금·DB 없음.
+
+**Request Body**
+
+```json
+{
+  "accountId": 1
+ }
+```
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "1원을 입금했습니다. 입금자명을 확인해 주세요.",
+  "data": {
+    "verificationId": "b1f2c3d4-...",
+    "depositorName": "포켓스톡482",
+    "code": "482",
+    "expiresIn": 180
+  }
+ }
+```
+
+---
+
+### POST `/api/auth/account-verify/confirm`
+
+가입단계 1원 인증 — 확인. 입금자명 끝 3자리를 대조한다. 만료·불일치는 `verified=false`로 응답(별도 에러코드 없음).
+
+- **HTTP Status Code**: 200 OK / 400 Bad Request(형식 오류)
+
+**Request Body**
+
+```json
+{
+  "verificationId": "b1f2c3d4-...",
+  "code": "482"
+ }
+```
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "계좌 인증 확인",
+  "data": {
+    "verified": true
+  }
+ }
+```
 
 ---
 
