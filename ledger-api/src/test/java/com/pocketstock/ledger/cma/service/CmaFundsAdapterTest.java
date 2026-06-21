@@ -77,6 +77,28 @@ class CmaFundsAdapterTest {
     }
 
     @Test
+    @DisplayName("fxTransactionId가 null이면 INVALID_INPUT을 던진다(FX:null 멱등키 충돌 방지)")
+    void applyFxLegs_nullTxId() {
+        assertThatThrownBy(() -> adapter.applyFxLegs(USER_ID,
+                "KRW", new BigDecimal("100000"), "USD", new BigDecimal("70.12"), null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+
+        verify(ledgerWriter, never()).applyEntry(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("금액이 0 이하이면 INVALID_INPUT을 던진다(부호 역전 방지)")
+    void applyFxLegs_nonPositiveAmount() {
+        assertThatThrownBy(() -> adapter.applyFxLegs(USER_ID,
+                "KRW", new BigDecimal("-100000"), "USD", new BigDecimal("70.12"), FX_TX_ID))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+
+        verify(ledgerWriter, never()).applyEntry(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("CMA 계좌가 없으면 NOT_FOUND를 던지고 원장을 건드리지 않는다")
     void applyFxLegs_noAccount() {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(null);

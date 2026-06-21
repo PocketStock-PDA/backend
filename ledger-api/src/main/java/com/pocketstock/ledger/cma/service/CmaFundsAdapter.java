@@ -41,6 +41,19 @@ public class CmaFundsAdapter implements CmaFundsPort {
                                    String fromCurrency, BigDecimal fromAmount,
                                    String toCurrency, BigDecimal toAmount,
                                    Long fxTransactionId) {
+        // 입력 계약 강제 — fromAmount.negate()가 음수 입력 시 출금을 입금으로 둔갑시키거나,
+        // fxTransactionId=null이면 멱등키가 "FX:null:..."로 충돌하는 것을 막는다.
+        if (fxTransactionId == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "환전 거래 ID가 필요합니다.");
+        }
+        if (fromCurrency == null || toCurrency == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "환전 통화가 필요합니다.");
+        }
+        if (fromAmount == null || fromAmount.signum() <= 0
+                || toAmount == null || toAmount.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "환전 금액은 0보다 커야 합니다.");
+        }
+
         CmaAccount account = accountMapper.findByUserId(userId);
         if (account == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌가 없어 환전을 반영할 수 없습니다.");
