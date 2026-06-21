@@ -5,11 +5,13 @@ early_access: false
 tone_instructions: "간결하고 핵심만. 칭찬보다 개선점 위주로, 근거와 함께 제안."
 
 reviews:
-  profile: "chill"               # chill=핵심 위주(덜 깐깐), assertive=엄격
+  profile: "chill"               # chill=핵심 위주(덜 깐깐), assertive=엄격. 리뷰 강도는 이 값으로만 정함(유지)
   request_changes_workflow: false # 승인 강제 안 함 (우리 정책: 리뷰 승인 0명)
   high_level_summary: true        # PR 상단에 변경 요약
   review_status: true
   poem: false                     # 시(poem) 코멘트 끄기
+  sequence_diagrams: false        # 속도: 시퀀스 다이어그램 생성 생략 — 코드 리뷰 깊이와 무관한 워크스루 부가물
+  changed_files_summary: false    # 속도: 변경파일 요약 생략 — diff로 충분, 리뷰 강도 영향 없음
   collapse_walkthrough: false
   auto_review:
     enabled: true
