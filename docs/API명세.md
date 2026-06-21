@@ -109,7 +109,7 @@
 | 소수점투자 | 소수점 매수(금액/수량) → LS 합산 온주주문 | POST | `/api/trading/orders/buy` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 소수점 매도(금액/전량) → LS 합산 온주주문 | POST | `/api/trading/orders/sell` | CSPAT00601(국내)·COSMT00300(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 온주 매수/매도(호가 기반) | POST | `/api/trading/orders/whole` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 | ✅ |
-| 소수점투자 | 주문 취소(소수점 QUEUED·온주 PENDING 공용) | DELETE | `/api/trading/orders/{orderId}` | CSPAT00801(국내)·COSAT00311(해외) [자체 시뮬] | B·김준형 |  |
+| 소수점투자 | 주문 취소(소수점 QUEUED·온주 PENDING 공용) | DELETE | `/api/trading/orders/{orderId}` | CSPAT00801(국내)·COSAT00311(해외) [자체 시뮬] | B·김준형 | ✅ |
 | 소수점투자 | 거래내역 조회(매수·매도·달성) | GET | `/api/trading/orders` |  | B·김준형 | ✅ |
 | 소수점투자 | 미체결 주문 조회 | GET | `/api/trading/orders/pending` |  | B·김준형 |  |
 | 소수점투자 | 보유종목·잔고(평가·수익률) 조회 | GET | `/api/trading/holdings` |  | B·김준형 | ✅ |

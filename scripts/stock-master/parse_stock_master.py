@@ -43,7 +43,7 @@ US_FILES = ["NASMST.COD", "NYSMST.COD", "AMSMST.COD"]
 US_SECTYPE = {"2": "STOCK", "3": "ETF"}
 
 COLS = ["stock_code", "exchange", "standard_code", "stock_name", "english_name",
-        "rt_symbol", "currency", "sec_type", "is_fractional", "is_active"]
+        "currency", "sec_type", "is_fractional", "is_active"]
 
 
 def parse_kr(fname):
@@ -73,7 +73,6 @@ def parse_kr(fname):
                 "standard_code": std,
                 "stock_name": name,
                 "english_name": "",
-                "rt_symbol": "",          # KR: stock_code 그대로 LS tr_key
                 "currency": "KRW",
                 "sec_type": sec,
                 "is_fractional": 1,
@@ -90,7 +89,7 @@ def parse_us(fname):
             p = line.rstrip("\n").split("\t")
             if len(p) < 10:
                 continue
-            excd, symb, rsym, knam, enam, stis, curr = p[2], p[4], p[5], p[6], p[7], p[8], p[9]
+            excd, symb, knam, enam, stis, curr = p[2], p[4], p[6], p[7], p[8], p[9]
             sec = US_SECTYPE.get(stis)
             mkt = US_MARKET.get(excd)
             if not sec or not mkt or not symb:
@@ -101,7 +100,6 @@ def parse_us(fname):
                 "standard_code": "",
                 "stock_name": (knam or enam).strip(),
                 "english_name": enam.strip(),
-                "rt_symbol": rsym.strip(),   # US: 실시간 시세 구독 심볼(NASAACB 등)
                 "currency": (curr or "USD").strip(),
                 "sec_type": sec,
                 "is_fractional": 1,
@@ -185,7 +183,7 @@ def main():
         f.write("-- 자동생성: parse_stock_master.py (한투 마스터 정제)\n")
         f.write("USE pocketstock_ledger;\n")
         f.write("SET NAMES utf8mb4;  -- 적재 client charset 고정(미지정 시 한글 이중인코딩)\n\n")
-        cols = "stock_code, exchange, standard_code, stock_name, english_name, rt_symbol, currency, sec_type, is_fractional, is_active"
+        cols = "stock_code, exchange, standard_code, stock_name, english_name, currency, sec_type, is_fractional, is_active"
         CHUNK = 1000
         for i in range(0, len(dedup), CHUNK):
             f.write(f"INSERT INTO tradable_stocks ({cols}) VALUES\n")

@@ -1,9 +1,15 @@
 package com.pocketstock.ledger.config;
 
+import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.ledger.kis.KisRealtimeClient;
 import com.pocketstock.ledger.ls.LsRealtimeClient;
 import com.pocketstock.ledger.realtime.RealtimeUpstream;
+import com.pocketstock.ledger.trading.domain.TradableStock;
+import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.support.KisTrKey;
+import com.pocketstock.ledger.trading.support.MarketSessionResolver;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
@@ -27,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 환율({@code /topic/currency/usd-krw}, CUR)은 온디맨드가 아니라 상시구독이라
  * 여기서 다루지 않는다 — {@code CurrencyRatePinner} 참조.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class RealtimeSubscriptionManager {
@@ -38,6 +45,8 @@ public class RealtimeSubscriptionManager {
 
     private final LsRealtimeClient lsClient;
     private final KisRealtimeClient kisClient;
+    private final StockMapper stockMapper;
+    private final MarketSessionResolver sessionResolver;
 
     /** "broker|trCode|trKey" → 구독자 수. */
     private final Map<String, Integer> refCounts = new ConcurrentHashMap<>();
@@ -141,19 +150,44 @@ public class RealtimeSubscriptionManager {
         }
         if (destination.startsWith(FOREIGN_QUOTE_PREFIX)) {
             String code = destination.substring(FOREIGN_QUOTE_PREFIX.length()).trim();
-            if (!code.isEmpty()) {
-                // KIS tr_key = R/D + 시장(3) + 종목 (예: RBAQAAPL). 클라가 완성형 코드로 구독.
-                return new RealtimeKey(kisClient, "HDFSASP0", code);
-            }
+            return resolveForeign("HDFSASP0", code);
         }
         if (destination.startsWith(FOREIGN_TRADE_PREFIX)) {
             String code = destination.substring(FOREIGN_TRADE_PREFIX.length()).trim();
-            if (!code.isEmpty()) {
-                return new RealtimeKey(kisClient, "HDFSCNT0", code);
-            }
+            return resolveForeign("HDFSCNT0", code);
         }
         // 환율(CUR)은 상시구독(CurrencyRatePinner)이라 온디맨드 매핑에서 제외.
         return null;
+    }
+
+    /**
+     * 해외 구독 destination(순수 종목코드, 예 AAPL) → KIS 등록키.
+     * 종목코드로 거래소 조회 → 현재 세션(정규장/주간) 판정 → KIS tr_key(DNASAAPL/RBAQAAPL) 조립.
+     * 클라는 prefix(D/R)·주간 시장코드(BAQ 등)를 몰라도 되며, 서버가 서버시각으로 자동 결정한다.
+     * 종목 미존재·CLOSED(미국 장 사이·주말)면 null → 등록 스킵.
+     */
+    private RealtimeKey resolveForeign(String trCode, String stockCode) {
+        if (stockCode.isEmpty()) {
+            return null;
+        }
+        TradableStock stock = stockMapper.findByCode(stockCode);
+        if (stock == null) {
+            log.warn("해외 실시간 구독: 미존재 종목 {}", stockCode);
+            return null;
+        }
+        String trKey;
+        try {
+            trKey = KisTrKey.of(sessionResolver.current(), stock);
+        } catch (BusinessException e) {
+            // 매핑 불가 거래소(예: 국내 종목을 해외 토픽에 구독) → 스킵. 구독 흐름으로 예외 전파 안 함.
+            log.warn("해외 실시간 구독: tr_key 조립 실패 {} - {}", stockCode, e.getMessage());
+            return null;
+        }
+        if (trKey == null) {
+            log.info("해외 실시간 구독 스킵(장 마감): {}", stockCode);
+            return null;
+        }
+        return new RealtimeKey(kisClient, trCode, trKey);
     }
 
     private record RealtimeKey(RealtimeUpstream upstream, String trCode, String trKey) {

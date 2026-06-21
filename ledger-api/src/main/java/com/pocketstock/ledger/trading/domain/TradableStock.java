@@ -26,7 +26,6 @@ public class TradableStock {
     private String standardCode;    // 표준코드/ISIN (KR)
     private String stockName;       // 한글종목명
     private String englishName;     // 영문명(US)
-    private String rtSymbol;        // 실시간 시세 구독 심볼(null이면 stockCode 사용)
     private String currency;        // KRW | USD
     private String secType;         // STOCK | ETF
     private Boolean isFractional;

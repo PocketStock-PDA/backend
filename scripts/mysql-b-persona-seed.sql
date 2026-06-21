@@ -4,12 +4,12 @@ USE pocketstock_ledger;
 SET NAMES utf8mb4;
 
 -- tradable_stocks: INSERT IGNORE — 02-seed.sql(tradable_stocks_seed)과 중복 방지
-INSERT IGNORE INTO tradable_stocks (id,stock_code,exchange,standard_code,stock_name,english_name,rt_symbol,currency,sec_type,is_fractional,is_active,logo_url,created_at,updated_at) VALUES
-(1,'005930','KOSPI','KR7005930003','삼성전자','Samsung Electronics',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
-(2,'000660','KOSPI','KR7000660001','SK하이닉스','SK Hynix',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
-(3,'066570','KOSPI','KR7066570003','LG전자','LG Electronics',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
-(4,'035420','KOSPI','KR7035420009','NAVER','NAVER Corporation',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
-(5,'051910','KOSPI','KR7051910008','LG화학','LG Chem',NULL,'KRW','STOCK',TRUE,TRUE,NULL,'2026-01-01 00:00:00','2026-01-01 00:00:00');
+INSERT IGNORE INTO tradable_stocks (id, stock_code, exchange, standard_code, stock_name, english_name, currency, sec_type, is_fractional, is_active, logo_url, created_at, updated_at) VALUES
+(1, '005930', 'KOSPI', 'KR7005930003', '삼성전자', 'Samsung Electronics', 'KRW', 'STOCK', TRUE, TRUE, NULL, '2026-01-01 00:00:00', '2026-01-01 00:00:00'),
+(2, '000660', 'KOSPI', 'KR7000660001', 'SK하이닉스', 'SK Hynix', 'KRW', 'STOCK', TRUE, TRUE, NULL, '2026-01-01 00:00:00', '2026-01-01 00:00:00'),
+(3, '066570', 'KOSPI', 'KR7066570003', 'LG전자', 'LG Electronics', 'KRW', 'STOCK', TRUE, TRUE, NULL, '2026-01-01 00:00:00', '2026-01-01 00:00:00'),
+(4, '035420', 'KOSPI', 'KR7035420009', 'NAVER', 'NAVER Corporation', 'KRW', 'STOCK', TRUE, TRUE, NULL, '2026-01-01 00:00:00', '2026-01-01 00:00:00'),
+(5, '051910', 'KOSPI', 'KR7051910008', 'LG화학', 'LG Chem', 'KRW', 'STOCK', TRUE, TRUE, NULL, '2026-01-01 00:00:00', '2026-01-01 00:00:00');
 
 INSERT INTO cma_accounts (id,user_id,account_no_enc,status,opened_at,created_at,updated_at) VALUES
 (1,1,NULL,'ACTIVE','2026-01-20 10:00:00','2026-01-20 10:00:00','2026-01-20 10:00:00');
