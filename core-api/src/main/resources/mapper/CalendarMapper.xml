@@ -12,10 +12,12 @@
                se.title,
                se.detail
         FROM stock_events se
-        INNER JOIN holdings_replica hr
-            ON hr.stock_code = se.stock_code
-           AND hr.user_id    = #{userId}
-        WHERE se.event_date >= #{from}
+        WHERE EXISTS (
+            SELECT 1 FROM holdings_replica hr
+            WHERE hr.stock_code = se.stock_code
+              AND hr.user_id    = #{userId}
+        )
+          AND se.event_date >= #{from}
           AND se.event_date &lt;= #{to}
         ORDER BY se.event_date ASC, se.event_type ASC
     </select>
