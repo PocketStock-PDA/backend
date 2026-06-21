@@ -172,16 +172,18 @@ public class WholeOrderMatchingEngine {
 
     /** @return 제거로 그 종목 PENDING이 0건이 되면 true(구독 OFF 트리거). */
     private boolean remove(String stockCode, Long orderId) {
-        Map<Long, Pending> m = index.get(stockCode);
-        if (m == null) {
-            return false;
-        }
-        m.remove(orderId);
-        if (m.isEmpty()) {
-            index.remove(stockCode);
-            return true;
-        }
-        return false;
+        boolean[] becameEmpty = {false};
+        // compute로 원자 처리 — isEmpty와 매핑 제거 사이에 put(computeIfAbsent)이 끼어 새 주문이
+        // 통째로 유실되는 레이스 차단(같은 키의 compute/computeIfAbsent는 ConcurrentHashMap이 직렬화).
+        index.computeIfPresent(stockCode, (code, m) -> {
+            m.remove(orderId);
+            if (m.isEmpty()) {
+                becameEmpty[0] = true;
+                return null;   // 매핑 원자 제거
+            }
+            return m;
+        });
+        return becameEmpty[0];
     }
 
     private Pending toPending(Order o) {

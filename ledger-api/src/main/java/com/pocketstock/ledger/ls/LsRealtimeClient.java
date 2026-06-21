@@ -109,7 +109,10 @@ public class LsRealtimeClient implements RealtimeUpstream {
                     everConnected = true;
                 } catch (Exception e) {
                     session = null;
-                    Thread.currentThread().interrupt();
+                    // 인터럽트일 때만 플래그 복원 — 그 외 예외(연결·실행 오류)엔 호출 스레드 오염 금지.
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
                     throw new IllegalStateException("LS 실시간 WebSocket 연결 실패: " + url, e);
                 }
             }

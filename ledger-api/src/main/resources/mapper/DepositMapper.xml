@@ -39,11 +39,13 @@
           AND balance - held &gt;= #{amount}
     </update>
 
-    <!-- hold 환원: held -= amount (취소·미체결). -->
+    <!-- hold 환원: held -= amount (취소·미체결). held>=amount 가드로 언더플로우(음수 held=환상 주문가능) 차단.
+         정상은 환원=hold 1:1이라 항상 통과 — 0행이면 hold 회계 버그(서비스가 경고). -->
     <update id="releaseHold">
         UPDATE account_balances
         SET held = held - #{amount}
         WHERE account_id = #{accountId}
+          AND held &gt;= #{amount}
     </update>
 
     <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.DepositTransaction"

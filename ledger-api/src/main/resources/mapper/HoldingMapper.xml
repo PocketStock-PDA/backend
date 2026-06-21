@@ -46,11 +46,13 @@
           AND quantity - held_quantity - #{qty} &gt;= 0
     </update>
 
-    <!-- 수량 hold 환원: held_quantity -= qty (취소·미체결). -->
+    <!-- 수량 hold 환원: held_quantity -= qty (취소·미체결). held_quantity>=qty 가드로 음수(매도가능 왜곡) 차단.
+         정상은 환원=hold 1:1이라 항상 통과 — 0행이면 수량 hold 회계 버그. -->
     <update id="releaseSellReserve">
         UPDATE holdings
         SET held_quantity = held_quantity - #{qty}
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+          AND held_quantity &gt;= #{qty}
     </update>
 
     <select id="findByUserId" resultMap="holding">
