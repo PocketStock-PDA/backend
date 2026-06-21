@@ -93,7 +93,9 @@ public class SpendingService {
             return new SpendingReportResponse(period, "이번 달 소비 내역이 없습니다.", null, null);
         }
 
-        String topCategory = current.get(0).getCategory();
+        String topCategory = current.stream()
+                .max(java.util.Comparator.comparing(CategoryAmountRow::getAmount))
+                .get().getCategory();
 
         Map<String, BigDecimal> prevMap = prev.stream()
                 .collect(java.util.stream.Collectors.toMap(
