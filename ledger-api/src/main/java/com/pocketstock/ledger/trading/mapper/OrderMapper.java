@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -35,4 +36,10 @@ public interface OrderMapper {
 
     /** 유저 거래내역(최신순) */
     List<Order> findByUserId(@Param("userId") Long userId);
+
+    /**
+     * 지정가 미체결(PENDING) 주문을 거래소 집합으로 조회 — 매칭 엔진 부팅 재적재용(국내 한정).
+     * SSOT=DB에서 인덱스(종목→PENDING)를 재구성한다.
+     */
+    List<Order> findPendingByExchanges(@Param("exchanges") Collection<String> exchanges);
 }

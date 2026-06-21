@@ -44,6 +44,26 @@ public class RealtimeSubscriptionManager {
     /** sessionId → (subscriptionId → 등록키) — UNSUBSCRIBE·DISCONNECT 시 역추적용. */
     private final Map<String, Map<String, RealtimeKey>> sessionSubs = new ConcurrentHashMap<>();
 
+    /**
+     * 매칭 엔진 전용 — 종목 호가(UH1) 구독 ON. 클라 STOMP 구독과 같은 참조계수를 공유하므로
+     * 누가 켜든 상류엔 1번만 등록되고, 클라·PENDING이 모두 빠질 때만 실제 해제된다.
+     * (국내 한정 — 해외 RSYM 키 매핑은 후속 범위.)
+     */
+    public void acquireAsking(String stockCode) {
+        RealtimeKey key = resolve(ASKING_PREFIX + stockCode);
+        if (key != null) {
+            increment(key);
+        }
+    }
+
+    /** 매칭 엔진 전용 — 종목 호가(UH1) 구독 해제(그 종목 마지막 PENDING 종료 시). */
+    public void releaseAsking(String stockCode) {
+        RealtimeKey key = resolve(ASKING_PREFIX + stockCode);
+        if (key != null) {
+            decrement(key);
+        }
+    }
+
     @EventListener
     public void onSubscribe(SessionSubscribeEvent event) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
