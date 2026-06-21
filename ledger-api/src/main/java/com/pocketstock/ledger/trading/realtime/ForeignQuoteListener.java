@@ -11,6 +11,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -73,7 +74,8 @@ public class ForeignQuoteListener implements KisRealtimeListener {
                 asks,
                 bids,
                 dec(f[8]),       // AVOL 매도총잔량
-                dec(f[7]));      // BVOL 매수총잔량
+                dec(f[7]),       // BVOL 매수총잔량
+                Instant.now().toString());   // asOf — 실시간 push라 항상 현재 시각
 
         // 토픽 키 = SYMB(안정적 stock_code). 구독 tr_key(RSYM)는 세션에 따라 D/R로 바뀌므로 토픽엔 안 씀.
         messagingTemplate.convertAndSend(TOPIC_PREFIX + symbol, payload);
