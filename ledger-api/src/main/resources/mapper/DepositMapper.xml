@@ -8,13 +8,14 @@
         VALUES (#{accountId}, #{currency}, 0)
     </insert>
 
-    <!-- 잔액 원자 갱신: balance += delta. 출금(delta<0) 시 balance+delta>=0 가드로 음수 차단.
+    <!-- 잔액 원자 갱신: balance += delta. 출금(delta<0) 시 balance+delta>=held 가드로
+         음수 차단 + 미체결 주문에 묶인 held는 못 건드리게(M2). held=0이면 기존 음수가드와 동일.
          조건부 UPDATE의 행 잠금이 lost update(#77)·음수 예수금(#78)을 한 패턴으로 막음. -->
     <update id="applyBalanceDelta">
         UPDATE account_balances
         SET balance = balance + #{delta}
         WHERE account_id = #{accountId}
-          AND balance + #{delta} &gt;= 0
+          AND balance + #{delta} &gt;= held
     </update>
 
     <select id="findBalanceByAccount" resultType="java.math.BigDecimal">
@@ -22,6 +23,28 @@
         FROM account_balances
         WHERE account_id = #{accountId}
     </select>
+
+    <!-- 미체결 매수 주문에 묶인 금액(M2). 주문가능 = balance − held. -->
+    <select id="findHeldByAccount" resultType="java.math.BigDecimal">
+        SELECT held
+        FROM account_balances
+        WHERE account_id = #{accountId}
+    </select>
+
+    <!-- 매수 PENDING hold: held += amount, 주문가능(balance−held)>=amount 가드. affected=0 → 주문가능 부족. -->
+    <update id="addHold">
+        UPDATE account_balances
+        SET held = held + #{amount}
+        WHERE account_id = #{accountId}
+          AND balance - held &gt;= #{amount}
+    </update>
+
+    <!-- hold 환원: held -= amount (취소·미체결). -->
+    <update id="releaseHold">
+        UPDATE account_balances
+        SET held = held - #{amount}
+        WHERE account_id = #{accountId}
+    </update>
 
     <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.DepositTransaction"
             useGeneratedKeys="true" keyProperty="id">

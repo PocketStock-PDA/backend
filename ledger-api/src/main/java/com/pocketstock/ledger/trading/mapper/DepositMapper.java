@@ -21,6 +21,18 @@ public interface DepositMapper {
     /** 계좌 예수금 현재잔액(account_balances). 없으면 null. */
     BigDecimal findBalanceByAccount(@Param("accountId") Long accountId);
 
+    /** 계좌의 미체결 매수 묶인 금액(held, M2). 주문가능 = balance − held. 없으면 null. */
+    BigDecimal findHeldByAccount(@Param("accountId") Long accountId);
+
+    /**
+     * 매수 PENDING 진입 시 예수금 hold — held += amount, 주문가능(balance−held) 가드.
+     * @return 갱신 행 수(0이면 주문가능 부족)
+     */
+    int addHold(@Param("accountId") Long accountId, @Param("amount") BigDecimal amount);
+
+    /** hold 환원 — held -= amount (취소·미체결 만료). */
+    int releaseHold(@Param("accountId") Long accountId, @Param("amount") BigDecimal amount);
+
     /** 예수금 거래 역사 INSERT (불변 journal, append-only) */
     int insert(DepositTransaction tx);
 }

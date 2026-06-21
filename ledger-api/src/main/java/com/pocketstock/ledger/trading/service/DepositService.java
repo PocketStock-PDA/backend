@@ -28,6 +28,23 @@ public class DepositService {
     }
 
     /**
+     * 매수 PENDING 진입 시 예수금 hold(M2) — 잔액은 그대로, 주문가능(balance−held)만 줄인다.
+     * 주문가능 부족이면 INSUFFICIENT_BALANCE. 체결 시 released+실차감, 취소·미체결 시 release.
+     */
+    @Transactional
+    public void hold(Long accountId, BigDecimal amount) {
+        if (depositMapper.addHold(accountId, amount) == 0) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "주문가능 예수금이 부족합니다.");
+        }
+    }
+
+    /** hold 환원 — 취소·미체결 만료 시 묶인 금액을 주문가능으로 되돌린다(잔액 불변). */
+    @Transactional
+    public void releaseHold(Long accountId, BigDecimal amount) {
+        depositMapper.releaseHold(accountId, amount);
+    }
+
+    /**
      * 예수금 1건 반영 — 잔액 원자 갱신(출금 음수 가드) 후 역사 1줄 append, 갱신된 잔액 반환.
      * @param signedAmount +입금(SELL/IN_TRANSFER) / −출금(BUY). 출금이 잔액 초과면 INSUFFICIENT_BALANCE.
      * @param idempotencyKey 같은 키 재적재는 UNIQUE로 차단(결정적 키, 예: order:{orderId}). null 허용.

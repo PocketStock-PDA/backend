@@ -96,12 +96,20 @@ public class SecuritiesAccountService {
     public DepositResponse getDeposit(Long userId) {
         requireAuth(userId);
         SecuritiesAccount domestic = accountMapper.findByUserIdAndMarket(userId, "DOMESTIC");
-        BigDecimal balance = (domestic == null) ? null : depositMapper.findBalanceByAccount(domestic.getId());
+        if (domestic == null) {
+            return new DepositResponse(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+        BigDecimal balance = depositMapper.findBalanceByAccount(domestic.getId());
+        BigDecimal held = depositMapper.findHeldByAccount(domestic.getId());
         if (balance == null) {
             balance = BigDecimal.ZERO;
         }
-        // 자금 유입·미체결 증거금 흐름 구현 전까지 동일값
-        return new DepositResponse(balance, balance, balance);
+        if (held == null) {
+            held = BigDecimal.ZERO;
+        }
+        // 예수금=balance, 출금가능·주문가능 = balance − held(미체결 매수 hold 제외, M2).
+        BigDecimal available = balance.subtract(held);
+        return new DepositResponse(balance, available, available);
     }
 
     // ---- helpers ----

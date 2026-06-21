@@ -22,12 +22,25 @@ public interface HoldingMapper {
                   @Param("currency") String currency);
 
     /**
-     * 매도 — 보유 수량 원자 차감 + 음수 가드. 평단은 유지.
-     * @return 갱신 행 수(0이면 보유 부족 또는 보유 없음)
+     * 매도 — 보유 수량 원자 차감 + 음수 가드(매도가능 = quantity − held_quantity 기준). 평단은 유지.
+     * @return 갱신 행 수(0이면 매도가능 부족 또는 보유 없음)
      */
     int reduceForSell(@Param("accountId") Long accountId,
                       @Param("stockCode") String stockCode,
                       @Param("qty") java.math.BigDecimal qty);
+
+    /**
+     * 매도 PENDING 진입 시 수량 hold(M2 대칭) — held_quantity += qty, 매도가능 가드.
+     * @return 갱신 행 수(0이면 매도가능 부족 또는 보유 없음)
+     */
+    int reserveForSell(@Param("accountId") Long accountId,
+                       @Param("stockCode") String stockCode,
+                       @Param("qty") java.math.BigDecimal qty);
+
+    /** 수량 hold 환원 — held_quantity -= qty (취소·미체결 만료). */
+    int releaseSellReserve(@Param("accountId") Long accountId,
+                           @Param("stockCode") String stockCode,
+                           @Param("qty") java.math.BigDecimal qty);
 
     /** 유저 보유종목 전체(수량>0) */
     List<Holding> findByUserId(@Param("userId") Long userId);
