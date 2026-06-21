@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.trading.calendar.mapper.CalendarMapper">
+
+    <select id="findEventsByDateRange"
+            resultType="com.pocketstock.core.trading.calendar.dto.CalendarEventRow">
+        SELECT se.event_date AS eventDate,
+               se.stock_code AS stockCode,
+               se.event_type AS eventType,
+               se.title,
+               se.detail
+        FROM stock_events se
+        WHERE EXISTS (
+            SELECT 1 FROM holdings_replica hr
+            WHERE hr.stock_code = se.stock_code
+              AND hr.user_id    = #{userId}
+        )
+          AND se.event_date >= #{from}
+          AND se.event_date &lt;= #{to}
+        ORDER BY se.event_date ASC, se.event_type ASC
+    </select>
+
+</mapper>
