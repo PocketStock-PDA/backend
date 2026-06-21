@@ -51,6 +51,11 @@ public class CmaLedgerWriter {
                                  String txType, String sourceType, BigDecimal signedAmount,
                                  String refType, Long refId, String idempotencyKey) {
 
+        // 0) 금액 계약 강제 — 0/null 레그는 무의미한 원장행이므로 거부(null이면 잔액 계산 시 NPE).
+        if (signedAmount == null || signedAmount.signum() == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "원장 기록 금액은 0이 될 수 없습니다.");
+        }
+
         // 1) 멱등 선행 조회 — 이미 기록된 키면 잔액/잠금 손대지 않고 기존 결과 반환(불필요한 FOR UPDATE 회피)
         if (idempotencyKey != null) {
             CmaTransaction existing = transactionMapper.findByIdempotencyKey(idempotencyKey);

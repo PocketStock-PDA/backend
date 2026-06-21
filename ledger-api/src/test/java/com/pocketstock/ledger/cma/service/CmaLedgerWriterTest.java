@@ -195,4 +195,32 @@ class CmaLedgerWriterTest {
             verify(balanceMapper).upsertBalance(any());
         }
     }
+
+    @Nested
+    @DisplayName("금액 계약")
+    class AmountContract {
+
+        @Test
+        @DisplayName("금액이 0이면 INVALID_INPUT을 던지고 원장/잔액을 손대지 않는다")
+        void zeroAmount_rejected() {
+            assertThatThrownBy(() -> writer.applyEntry(USER_ID, ACC_ID, "KRW",
+                    "COLLECT", "ACCOUNT", BigDecimal.ZERO,
+                    "LINKED_BANK_ACCOUNT", 3L, "k1"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+
+            verify(transactionMapper, never()).insert(any());
+            verify(balanceMapper, never()).upsertBalance(any());
+        }
+
+        @Test
+        @DisplayName("금액이 null이면 INVALID_INPUT을 던진다(NPE 방지)")
+        void nullAmount_rejected() {
+            assertThatThrownBy(() -> writer.applyEntry(USER_ID, ACC_ID, "KRW",
+                    "COLLECT", "ACCOUNT", null,
+                    "LINKED_BANK_ACCOUNT", 3L, "k1"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+        }
+    }
 }
