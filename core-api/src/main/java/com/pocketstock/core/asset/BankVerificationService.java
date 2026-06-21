@@ -113,7 +113,7 @@ public class BankVerificationService {
     }
 
     private String generateCode() {
-        int bound = (int) Math.pow(10, BankVerification.CODE_DIGITS);   // 4자리 → 10000
+        int bound = (int) Math.pow(10, BankVerification.CODE_DIGITS);   // 3자리 → 1000
         return String.format("%0" + BankVerification.CODE_DIGITS + "d", random.nextInt(bound));
     }
 
