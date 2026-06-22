@@ -99,15 +99,13 @@
 | 시세 | [해외] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=overseas` | HHDFS76200200 (해외 현재가상세) [KIS 실전] | B·김준형 | ✅ |
 | 시세 | [국내] 호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=domestic` | t8450 (현재가호가) [LS 실전] | B·김준형 | ✅ |
 | 시세 | [해외] 현재가·호가 조회(온주 전용) | GET | `/api/trading/stocks/{stockCode}/orderbook?market=overseas` | HHDFS76200100 (해외 현재가호가) [KIS 실전] | B·김준형 | ✅ |
-| 시세 | [국내] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=domestic` | t3320 (FNG요약) [LS 실전] | B·김준형 |  |
-| 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | HHDFS76200200 (해외 현재가상세) [KIS 실전] | B·김준형 |  |
 | 실시간시세 | [국내] 실시간 체결가(소수점·온주) | WS | `/topic/stock/trade/{stockCode}` | US3 (통합 체결) [LS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [국내] 실시간 호가(온주) | WS | `/topic/asking/{stockCode}` | UH1 (통합 호가잔량) [LS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [해외] 실시간 체결가 | WS | `/topic/foreign/transaction/{symbol}` | HDFSCNT0 (해외 실시간지연체결가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [해외] 실시간 호가(온주) | WS | `/topic/foreign/quote/{symbol}` | HDFSASP0 (해외 실시간호가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | 실시간 체결통보(주문 결과) | WS | `/topic/order-notification` | SC1(국내)·AS1(해외) [자체 시뮬] | B·김준형 |  |
-| 소수점투자 | 소수점 매수(금액/수량) → LS 합산 온주주문 | POST | `/api/trading/orders/buy` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 |  |
-| 소수점투자 | 소수점 매도(금액/전량) → LS 합산 온주주문 | POST | `/api/trading/orders/sell` | CSPAT00601(국내)·COSMT00300(해외) [자체 시뮬] | B·김준형 |  |
+| 소수점투자 | 소수점 매수(금액/수량) → LS 합산 온주주문 | POST | `/api/trading/orders/fractional/buy` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 |  |
+| 소수점투자 | 소수점 매도(금액/전량) → LS 합산 온주주문 | POST | `/api/trading/orders/fractional/sell` | CSPAT00601(국내)·COSMT00300(해외) [자체 시뮬] | B·김준형 |  |
 | 소수점투자 | 온주 매수/매도(호가 기반) | POST | `/api/trading/orders/whole` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 | ✅ |
 | 소수점투자 | 주문 취소(소수점 QUEUED·온주 PENDING 공용) | DELETE | `/api/trading/orders/{orderId}` | CSPAT00801(국내)·COSAT00311(해외) [자체 시뮬] | B·김준형 | ✅ |
 | 소수점투자 | 거래내역 조회(매수·매도·달성) | GET | `/api/trading/orders` |  | B·김준형 | ✅ |
@@ -125,6 +123,8 @@
 | 웰컴보상 | 보상 지급 내역 조회 | GET | `/api/trading/rewards` |  | B·김준형 | ✅ |
 | 증권캘린더 | 보유 종목 증권 캘린더(월별 일정) 조회 | GET | `/api/trading/calendar` |  | D·김서현 | ✅ |
 | 증권캘린더 | 보유 종목 주요일정(배당·실적) 조회 | GET | `/api/trading/calendar/events` |  | D·김서현 | ✅ |
+| 시세 | [국내] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=domestic` | t3320 (FNG요약) [LS 실전] | B·김준형 | 잠정폐지 |
+| 시세 | [해외] 종목 기업정보 | GET | `/api/trading/stocks/{stockCode}/info?market=overseas` | HHDFS76200200 (해외 현재가상세) [KIS 실전] | B·김준형 | 잠정폐지 |
 
 > 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
 >
