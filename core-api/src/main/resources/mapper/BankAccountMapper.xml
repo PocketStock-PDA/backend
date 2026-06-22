@@ -20,6 +20,7 @@
         JOIN linked_institutions li ON li.id = lba.institution_id
         JOIN institution_master im ON im.id = li.institution_master_id
         WHERE lba.user_id = #{userId}
+          AND lba.closed_at IS NULL
         ORDER BY im.sort_order ASC, lba.id ASC
     </select>
 
