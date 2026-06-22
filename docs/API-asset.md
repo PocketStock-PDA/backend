@@ -20,14 +20,24 @@
   "message": "연동 가능 기관 목록 조회 성공",
   "data": [
   {
-  "institutionId": "001",
-  "name": "신한은행",
-  "type": "BANK",
-  "logoUrl": "https://..."
+  "category": "BANK",
+  "companyCode": "SHINHAN_BANK",
+  "companyName": "신한은행",
+  "logoUrl": null,
+  "linkStatus": "LINKED"
+  },
+  {
+  "category": "BANK",
+  "companyCode": "WOORI_BANK",
+  "companyName": "우리은행",
+  "logoUrl": null,
+  "linkStatus": "AVAILABLE"
   }
  ]
  }
 ```
+
+> 외부 식별자 = `companyCode`(F-B, 숫자 아님). `linkStatus`: 해당 유저가 이미 연동했으면 `LINKED`, 선택 가능하면 `AVAILABLE`. 활성 카탈로그(`is_active=true`)를 `sort_order` 순으로 반환.
 
 ---
 
@@ -526,16 +536,17 @@ SOL트래블 외화잔액 연동
   "message": "휴면계좌 조회 성공",
   "data": [
   {
-  "accountId": 12,
-  "accountNo": "110-***-111222",
-  "bankName": "신한은행",
-  "balance": 50000
+  "accountId": 4,
+  "bankName": "국민은행",
+  "accountName": "KB 정기예금",
+  "balance": 2000000.0000,
+  "currency": "KRW"
   }
  ]
  }
 ```
 
-> `dormantSince`(휴면 시작일) 제거 — 와이어프레임에 시작일 표기 없음 → `linked_bank_accounts`에 휴면시작일 컬럼 추가 불필요. 해지 요청용 식별자로 `accountId` 노출(`accountNo`는 마스킹 표시용).
+> `dormantSince`(휴면 시작일) 제거 — 와이어프레임에 시작일 표기 없음 → `linked_bank_accounts`에 휴면시작일 컬럼 추가 불필요. 해지 요청용 식별자로 `accountId` 노출. **계좌번호(`account_no_enc`)는 AES 암호화 컬럼(시드 NULL)이라 노출하지 않고**, 기존 `bank-accounts` 조회 관례대로 은행명 + 상품명(`accountName`)으로 표시. 정렬: 잔액 큰 순.
 
 ---
 
