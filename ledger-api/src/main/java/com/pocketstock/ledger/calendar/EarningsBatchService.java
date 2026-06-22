@@ -68,7 +68,11 @@ public class EarningsBatchService {
         }
 
         if (!events.isEmpty()) {
-            calendarFeignClient.upsertStockEvents(events);
+            try {
+                calendarFeignClient.upsertStockEvents(events);
+            } catch (Exception e) {
+                log.error("[실적배치] core-api upsert 실패 — {}건 유실: {}", events.size(), e.getMessage());
+            }
         }
         log.info("[실적배치] 완료 — {}건 처리", events.size());
     }
@@ -95,7 +99,12 @@ public class EarningsBatchService {
         }
 
         if (!events.isEmpty()) {
-            calendarFeignClient.upsertStockEvents(events);
+            try {
+                calendarFeignClient.upsertStockEvents(events);
+            } catch (Exception e) {
+                log.error("[실적배치] core-api upsert 실패 stockCode={} — {}건 유실: {}",
+                        stockCode, events.size(), e.getMessage());
+            }
         }
     }
 
