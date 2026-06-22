@@ -34,7 +34,8 @@ import static com.pocketstock.ledger.trading.support.MarketFields.lng;
 public class StockPriceService {
 
     private static final int RATE_SCALE = 2;
-    private static final String TYPE_PRICE = "price";
+    private static final String TYPE_PRICE_DOMESTIC = "price-domestic";
+    private static final String TYPE_PRICE_FOREIGN = "price-foreign";
 
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
@@ -46,7 +47,7 @@ public class StockPriceService {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        return snapshotCache.readThrough(TYPE_PRICE, stockCode,
+        return snapshotCache.readThrough(TYPE_PRICE_DOMESTIC, stockCode,
                 () -> buildDomesticPrice(stockCode), StockPriceService::hasPrice,
                 StockPriceResponse.class, "국내 현재가");
     }
@@ -81,7 +82,7 @@ public class StockPriceService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
         }
         String excd = OverseasExchangeCode.of(stock);
-        return snapshotCache.readThrough(TYPE_PRICE, stockCode,
+        return snapshotCache.readThrough(TYPE_PRICE_FOREIGN, stockCode,
                 () -> buildOverseasPrice(stock, excd), StockPriceService::hasPrice,
                 StockPriceResponse.class, "해외 현재가");
     }
