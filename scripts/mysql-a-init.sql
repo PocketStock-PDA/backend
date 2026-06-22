@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS linked_bank_accounts (
   start_date DATE NULL,                      -- 예적금만 (가입일)
   maturity_date DATE NULL,                   -- 예적금만 (만기일)
   is_dormant BOOLEAN DEFAULT FALSE,
+  closed_at DATETIME NULL,                    -- 소프트 해지 시각 (NULL=미해지, #140 휴면계좌 해지). is_dormant는 이력으로 보존
+  closed_amount DECIMAL(18,4) NULL,           -- 해지 시 CMA로 이체된 잔액 (감사 추적)
   is_verified BOOLEAN NOT NULL DEFAULT FALSE,  -- 1원 인증(계좌 소유권 확인) 완료 여부
   verified_at DATETIME NULL,                   -- 1원 인증 성공 시각
   last_synced_at DATETIME,
