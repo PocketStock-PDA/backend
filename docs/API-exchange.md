@@ -85,14 +85,16 @@
 원화 → 달러 환전
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized / 409 Conflict
 - **거래 인증**: 본문 비밀번호 대신 사전 거래 세션(txn-auth)으로 처리. 호출 전 `POST /api/users/account-password/verify`로 인증해야 하며, 미인증 시 401 `TXN_AUTH_REQUIRED`.
+- **멱등(#96)**: `idempotencyKey` **필수**(클라 발급, 빈 값 400). 따닥 탭·재전송으로 같은 키 재요청 시 신규 체결 없이 **기존 결과를 반환**(잔액은 현재 풀 조회값). 다른 유저가 쓴 키면 409 `IDEMPOTENCY_CONFLICT`.
 
 **Request Body**
 
 ```json
 {
-  "krwAmount": 100000
+  "krwAmount": 100000,
+  "idempotencyKey": "a1b2c3d4-..."
  }
 ```
 
@@ -120,14 +122,16 @@
 달러 → 원화 환전
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized / 409 Conflict
 - **거래 인증**: 본문 비밀번호 대신 사전 거래 세션(txn-auth)으로 처리. 호출 전 `POST /api/users/account-password/verify`로 인증해야 하며, 미인증 시 401 `TXN_AUTH_REQUIRED`.
+- **멱등(#96)**: `idempotencyKey` **필수**(클라 발급, 빈 값 400). 따닥 탭·재전송으로 같은 키 재요청 시 신규 체결 없이 **기존 결과를 반환**(잔액은 현재 풀 조회값). 다른 유저가 쓴 키면 409 `IDEMPOTENCY_CONFLICT`.
 
 **Request Body**
 
 ```json
 {
-  "usdAmount": 50.00
+  "usdAmount": 50.00,
+  "idempotencyKey": "a1b2c3d4-..."
  }
 ```
 

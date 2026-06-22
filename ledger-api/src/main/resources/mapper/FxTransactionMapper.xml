@@ -31,6 +31,14 @@
         ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
     </insert>
 
+    <select id="findByIdempotencyKey" resultMap="fxTransaction">
+        SELECT id, user_id, from_currency, to_currency, from_amount, to_amount,
+               exchange_rate, fee, trigger_type, ref_order_id, status, idempotency_key,
+               created_at, updated_at
+        FROM fx_transactions
+        WHERE idempotency_key = #{key}
+    </select>
+
     <select id="findByUser" resultMap="fxTransaction">
         SELECT id, user_id, from_currency, to_currency, from_amount, to_amount,
                exchange_rate, fee, trigger_type, ref_order_id, status, idempotency_key,
