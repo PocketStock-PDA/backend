@@ -43,7 +43,7 @@ public class WholeShareService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "보유하지 않은 종목입니다: " + stockCode);
         }
         BigDecimal fractional = h.getFractionalQty() == null ? BigDecimal.ZERO : h.getFractionalQty();
-        BigDecimal held = h.getHeldQuantity() == null ? BigDecimal.ZERO : h.getHeldQuantity();
+        BigDecimal held = h.getHeldFractional() == null ? BigDecimal.ZERO : h.getHeldFractional();
         // 전환 가능 소수 = 소수보유 − 미체결 매도분(held). 그 정수부만 온주로 굳힌다.
         int wholeQty = fractional.subtract(held).setScale(0, RoundingMode.FLOOR).max(BigDecimal.ZERO).intValueExact();
         if (wholeQty < 1) {

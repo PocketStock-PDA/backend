@@ -150,9 +150,11 @@ CREATE TABLE IF NOT EXISTS holdings (
   -- 소수점(신탁/수익증권) 보유분(<1, 즉시 floor 전환 후 끝수만 잔류). 온주(직접소유) = quantity − fractional_qty.
   -- 소수 매도는 이 값 이하로만 허용(온주→소수 분할 금지, FRAC-010 #157). 온주 매도는 정수+quantity 가드로 floor 상한 자동.
   fractional_qty DECIMAL(18,6) NOT NULL DEFAULT 0,
-  -- 미체결 매도 주문에 묶인 수량(수량 hold, M2 대칭). 매도가능 = quantity − held_quantity.
-  -- 지정가 매도 PENDING 진입 시 += qty, 체결 시 held_quantity·quantity 동시차감, 취소·미체결 시 −= qty(#80, H4).
-  held_quantity DECIMAL(18,6) NOT NULL DEFAULT 0,
+  -- 미체결 매도에 묶인 수량(수량 hold, M2). 버킷 분리(#157): held_whole=온주 예약, held_fractional=소수 예약.
+  -- 온주 매도가능 = (quantity−fractional_qty) − held_whole / 소수 매도가능 = fractional_qty − held_fractional.
+  -- 진입 시 해당 버킷 += qty, 체결 시 동시차감, 취소·미체결 시 −= qty(#80, H4).
+  held_whole DECIMAL(18,6) NOT NULL DEFAULT 0,
+  held_fractional DECIMAL(18,6) NOT NULL DEFAULT 0,
   avg_buy_price DECIMAL(18,4) DEFAULT 0,    -- 종목 통화 기준 평단(국내 KRW / 해외 USD)
   krw_cost_basis DECIMAL(18,4) DEFAULT 0,   -- 원화 누적 취득원가(매수 시 체결환율로 환산). 평균매입환율·환차손익 파생용. 국내는 = quantity*avg_buy_price
   currency VARCHAR(3),

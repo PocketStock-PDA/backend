@@ -65,9 +65,9 @@ public class PendingFillService {
             // 복식부기 주식 leg: 유저 holdings 증가의 짝으로 회사 옴니버스 재고 −qty.
             operatingInventoryService.record(cmd.stockCode(), -cmd.quantity().intValueExact());
         } else {
-            // 묶은 수량 해제 → 보유 수량 실차감(release 후 매도가능이 복원돼 reduceForSell 가드 통과).
-            holdingMapper.releaseSellReserve(cmd.accountId(), cmd.stockCode(), cmd.quantity());
-            if (holdingMapper.reduceForSell(cmd.accountId(), cmd.stockCode(), cmd.quantity()) == 0) {
+            // 묶은 온주 수량 해제 → 보유 수량 실차감(release 후 온주 매도가능 복원돼 가드 통과).
+            holdingMapper.releaseWholeReserve(cmd.accountId(), cmd.stockCode(), cmd.quantity());
+            if (holdingMapper.reduceWholeForSell(cmd.accountId(), cmd.stockCode(), cmd.quantity()) == 0) {
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "매도 체결 수량 차감 실패(보유 부족)");
             }
             depositService.record(cmd.userId(), cmd.accountId(), "SELL",

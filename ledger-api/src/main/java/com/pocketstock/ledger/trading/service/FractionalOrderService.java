@@ -144,7 +144,7 @@ public class FractionalOrderService {
                     .orderAmount(r.orderAmount())
                     .orderQuantity(r.orderQuantity())
                     .estQuantity(r.estQuantity())
-                    .heldAmount(r.heldAmount())         // 매수=잠근 KRW / 매도=NULL(수량은 holdings.held_quantity)
+                    .heldAmount(r.heldAmount())         // 매수=잠근 KRW / 매도=NULL(수량은 holdings.held_fractional)
                     .status(OrderStatus.QUEUED)         // 접수 즉시 차수 대기(전송 전 취소 가능)
                     .source("MANUAL")
                     .roundId(round.getId())
@@ -215,7 +215,7 @@ public class FractionalOrderService {
     }
 
     /**
-     * 매도 hold — 보유수량 잠금(holdings.held_quantity). ALL=매도가능 전량, AMOUNT=예상가 환산 주수.
+     * 매도 hold — 소수 보유수량 잠금(holdings.held_fractional). ALL=소수 매도가능 전량, AMOUNT=예상가 환산 주수.
      * held_amount는 NULL(매도 hold 기준은 수량). 잠근 주수를 order_quantity로 기록(환원·집행 기준).
      */
     private Reserve reserveSell(Long accountId, String stockCode, String method,

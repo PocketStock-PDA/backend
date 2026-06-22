@@ -26,36 +26,38 @@ public interface HoldingMapper {
                   @Param("fractionalDelta") java.math.BigDecimal fractionalDelta);
 
     /**
-     * 매도 — 보유 수량 원자 차감 + 음수 가드(매도가능 = quantity − held_quantity 기준). 평단은 유지.
-     * @return 갱신 행 수(0이면 매도가능 부족 또는 보유 없음)
+     * 온주 매도 체결 — 보유 수량 원자 차감 + 음수 가드(온주 매도가능 = (quantity−fractional_qty) − held_whole).
+     * 원화원가 비례 차감, fractional_qty 불변. @return 갱신 행 수(0이면 온주 매도가능 부족).
      */
-    int reduceForSell(@Param("accountId") Long accountId,
-                      @Param("stockCode") String stockCode,
-                      @Param("qty") java.math.BigDecimal qty);
-
-    /**
-     * 매도 PENDING 진입 시 수량 hold(M2 대칭) — held_quantity += qty, 매도가능 가드.
-     * @return 갱신 행 수(0이면 매도가능 부족 또는 보유 없음)
-     */
-    int reserveForSell(@Param("accountId") Long accountId,
-                       @Param("stockCode") String stockCode,
-                       @Param("qty") java.math.BigDecimal qty);
-
-    /** 수량 hold 환원 — held_quantity -= qty (취소·미체결 만료). */
-    int releaseSellReserve(@Param("accountId") Long accountId,
+    int reduceWholeForSell(@Param("accountId") Long accountId,
                            @Param("stockCode") String stockCode,
                            @Param("qty") java.math.BigDecimal qty);
 
-    /** 매도가능 수량(quantity − held_quantity). 보유행 없으면 null. (온주·총합 기준) */
-    java.math.BigDecimal findAvailableQuantity(@Param("accountId") Long accountId,
-                                               @Param("stockCode") String stockCode);
+    /** 온주 매도 PENDING hold — held_whole += qty, 온주 매도가능 가드. @return 0이면 온주 매도가능 부족. */
+    int reserveWholeForSell(@Param("accountId") Long accountId,
+                            @Param("stockCode") String stockCode,
+                            @Param("qty") java.math.BigDecimal qty);
 
-    /** 소수 매도가능(fractional_qty − held_quantity, 보수적 공유 held). 보유행 없으면 null. 소수점 매도 hold 산정용. */
+    /** 온주 수량 hold 환원 — held_whole -= qty (취소·미체결 만료). */
+    int releaseWholeReserve(@Param("accountId") Long accountId,
+                            @Param("stockCode") String stockCode,
+                            @Param("qty") java.math.BigDecimal qty);
+
+    /** 온주 매도가능((quantity−fractional_qty) − held_whole). 보유행 없으면 null. */
+    java.math.BigDecimal findAvailableWhole(@Param("accountId") Long accountId,
+                                            @Param("stockCode") String stockCode);
+
+    /** 소수 매도가능(fractional_qty − held_fractional). 보유행 없으면 null. 소수점 매도 hold 산정용. */
     java.math.BigDecimal findAvailableFractional(@Param("accountId") Long accountId,
                                                  @Param("stockCode") String stockCode);
 
-    /** 소수점 매도 hold — held_quantity += qty, 소수 매도가능(fractional_qty − held_quantity) ≥ qty 가드(소수부 초과 차단). */
+    /** 소수점 매도 hold — held_fractional += qty, 소수 매도가능(fractional_qty − held_fractional) ≥ qty 가드. */
     int reserveFractionalForSell(@Param("accountId") Long accountId,
+                                 @Param("stockCode") String stockCode,
+                                 @Param("qty") java.math.BigDecimal qty);
+
+    /** 소수 수량 hold 환원 — held_fractional -= qty (취소·미체결 만료). */
+    int releaseFractionalReserve(@Param("accountId") Long accountId,
                                  @Param("stockCode") String stockCode,
                                  @Param("qty") java.math.BigDecimal qty);
 
@@ -67,12 +69,12 @@ public interface HoldingMapper {
     /** 유저 보유종목 전체(수량>0) */
     List<Holding> findByUserId(@Param("userId") Long userId);
 
-    /** 특정 종목 보유 1건(account_id·fractional_qty·held_quantity 포함). 온주 전환용. 없으면 null. */
+    /** 특정 종목 보유 1건(account_id·fractional_qty·held_fractional 포함). 온주 전환용. 없으면 null. */
     Holding findByUserIdAndStock(@Param("userId") Long userId, @Param("stockCode") String stockCode);
 
     /**
      * 온주 전환 — fractional_qty에서 정수부(wholeQty)를 덜어낸다(소수→온주, FRAC-010 #157).
-     * 가드: 미체결 매도분(held_quantity) 제외하고 wholeQty만큼 남아야 함(전환 후 fractional_qty − held ≥ 0).
+     * 가드: 소수 미체결 매도분(held_fractional) 제외하고 wholeQty만큼 남아야 함(전환 후 fractional_qty − held_fractional ≥ 0).
      * quantity는 불변(온주=quantity−fractional_qty가 자동으로 +wholeQty). 0이면 전환 가능분 변경(경합).
      */
     int reduceFractionalForConvert(@Param("accountId") Long accountId,

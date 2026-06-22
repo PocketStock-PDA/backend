@@ -10,7 +10,8 @@
         <result property="stockCode"     column="stock_code"/>
         <result property="quantity"      column="quantity"/>
         <result property="fractionalQty" column="fractional_qty"/>
-        <result property="heldQuantity"  column="held_quantity"/>
+        <result property="heldWhole"      column="held_whole"/>
+        <result property="heldFractional" column="held_fractional"/>
         <result property="avgBuyPrice"   column="avg_buy_price"/>
         <result property="currency"    column="currency"/>
         <result property="createdAt"   column="created_at"/>
@@ -32,54 +33,61 @@
             quantity       = quantity + #{qty}
     </insert>
 
-    <!-- 매도 원자 차감 + 가드. 평단 유지, 원화원가는 남은 수량 비례 차감(옛 수량으로 먼저 계산).
-         매도가능 = quantity − held_quantity 기준 → PENDING에 묶인 수량은 즉시매도가 못 건드림(M2). -->
-    <update id="reduceForSell">
+    <!-- 온주 매도 차감 + 가드. 원화원가 비례 차감(옛 수량 기준), fractional_qty 불변.
+         온주 매도가능 = (quantity−fractional_qty) − held_whole → 소수분·온주 예약을 못 건드림(M2). -->
+    <update id="reduceWholeForSell">
         UPDATE holdings
         SET krw_cost_basis = krw_cost_basis * (quantity - #{qty}) / quantity,
             quantity       = quantity - #{qty}
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
-          AND quantity - held_quantity - #{qty} &gt;= 0
+          AND quantity - fractional_qty - held_whole - #{qty} &gt;= 0
     </update>
 
-    <!-- 매도 PENDING 수량 hold: held_quantity += qty, 매도가능(quantity−held_quantity)>=qty 가드. -->
-    <update id="reserveForSell">
+    <!-- 온주 매도 PENDING hold: held_whole += qty, 온주 매도가능((quantity−fractional_qty)−held_whole)>=qty 가드. -->
+    <update id="reserveWholeForSell">
         UPDATE holdings
-        SET held_quantity = held_quantity + #{qty}
+        SET held_whole = held_whole + #{qty}
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
-          AND quantity - held_quantity - #{qty} &gt;= 0
+          AND quantity - fractional_qty - held_whole - #{qty} &gt;= 0
     </update>
 
-    <!-- 수량 hold 환원: held_quantity -= qty (취소·미체결). held_quantity>=qty 가드로 음수(매도가능 왜곡) 차단.
-         정상은 환원=hold 1:1이라 항상 통과 — 0행이면 수량 hold 회계 버그. -->
-    <update id="releaseSellReserve">
+    <!-- 온주 hold 환원: held_whole -= qty. held_whole>=qty 가드. 0행이면 온주 hold 회계 버그. -->
+    <update id="releaseWholeReserve">
         UPDATE holdings
-        SET held_quantity = held_quantity - #{qty}
+        SET held_whole = held_whole - #{qty}
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
-          AND held_quantity &gt;= #{qty}
+          AND held_whole &gt;= #{qty}
     </update>
 
-    <!-- 매도가능 = quantity − held_quantity (PENDING/QUEUED에 묶인 수량 제외). 보유행 없으면 NULL. -->
-    <select id="findAvailableQuantity" resultType="java.math.BigDecimal">
-        SELECT quantity - held_quantity
+    <!-- 온주 매도가능 = (quantity−fractional_qty) − held_whole. 보유행 없으면 NULL. -->
+    <select id="findAvailableWhole" resultType="java.math.BigDecimal">
+        SELECT quantity - fractional_qty - held_whole
         FROM holdings
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
     </select>
 
-    <!-- 소수 매도가능 = fractional_qty − held_quantity(보수적 공유 held — 온주 PENDING 예약분도 차감, 안전). -->
+    <!-- 소수 매도가능 = fractional_qty − held_fractional (소수 예약만 차감 — 온주 예약과 분리). -->
     <select id="findAvailableFractional" resultType="java.math.BigDecimal">
-        SELECT fractional_qty - held_quantity
+        SELECT fractional_qty - held_fractional
         FROM holdings
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
     </select>
 
-    <!-- 소수점 매도 hold: held_quantity += qty, 소수 매도가능(fractional_qty − held_quantity) ≥ qty 가드.
+    <!-- 소수점 매도 hold: held_fractional += qty, 소수 매도가능(fractional_qty − held_fractional) ≥ qty 가드.
          온주→소수 분할 금지(FRAC-010) — 소수부를 초과하는 소수 매도를 0행으로 차단. -->
     <update id="reserveFractionalForSell">
         UPDATE holdings
-        SET held_quantity = held_quantity + #{qty}
+        SET held_fractional = held_fractional + #{qty}
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
-          AND fractional_qty - held_quantity - #{qty} &gt;= 0
+          AND fractional_qty - held_fractional - #{qty} &gt;= 0
+    </update>
+
+    <!-- 소수 hold 환원: held_fractional -= qty. held_fractional>=qty 가드. -->
+    <update id="releaseFractionalReserve">
+        UPDATE holdings
+        SET held_fractional = held_fractional - #{qty}
+        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+          AND held_fractional &gt;= #{qty}
     </update>
 
     <!-- 소수점 매도 체결: quantity·fractional_qty 동시 차감 + 가드(fractional_qty ≥ qty). 원화원가 비례 차감(옛 수량 기준). -->
@@ -100,19 +108,19 @@
     </select>
 
     <select id="findByUserIdAndStock" resultMap="holding">
-        SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, held_quantity,
+        SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, held_whole, held_fractional,
                avg_buy_price, currency, created_at, updated_at
         FROM holdings
         WHERE user_id = #{userId} AND stock_code = #{stockCode}
     </select>
 
-    <!-- 온주 전환: fractional_qty −= wholeQty(정수). 가드 = 미체결 매도(held) 제외하고 남아야 함.
+    <!-- 온주 전환: fractional_qty −= wholeQty(정수). 가드 = 소수 미체결 매도(held_fractional) 제외하고 남아야 함.
          quantity 불변(온주=quantity−fractional_qty가 +wholeQty). 0행이면 전환가능분 변경(경합). -->
     <update id="reduceFractionalForConvert">
         UPDATE holdings
         SET fractional_qty = fractional_qty - #{wholeQty}
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
-          AND fractional_qty - held_quantity - #{wholeQty} &gt;= 0
+          AND fractional_qty - held_fractional - #{wholeQty} &gt;= 0
     </update>
 
     <select id="findAllDistinctStockCodes" resultType="string">

@@ -130,8 +130,8 @@ public class FractionalGroupSettler {
                 holdingMapper.upsertBuy(o.getUserId(), o.getAccountId(), stockCode,
                         f.qty(), fillPrice, gross, CURRENCY_KRW, f.qty());
             } else {
-                // 접수 수량 hold 해제 → 소수 보유 실인도(quantity·fractional_qty 동시 차감).
-                holdingMapper.releaseSellReserve(o.getAccountId(), stockCode, f.qty());
+                // 접수 소수 수량 hold 해제 → 소수 보유 실인도(quantity·fractional_qty 동시 차감).
+                holdingMapper.releaseFractionalReserve(o.getAccountId(), stockCode, f.qty());
                 if (holdingMapper.reduceFractionalForSell(o.getAccountId(), stockCode, f.qty()) == 0) {
                     throw new BusinessException(ErrorCode.INTERNAL_ERROR, "소수 매도 체결 수량 차감 실패(소수 잔고 부족)");
                 }
@@ -211,7 +211,7 @@ public class FractionalGroupSettler {
                 depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
             }
         } else {
-            holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
+            holdingMapper.releaseFractionalReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
         }
     }
 

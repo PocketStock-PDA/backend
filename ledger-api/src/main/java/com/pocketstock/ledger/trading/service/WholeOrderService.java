@@ -233,7 +233,7 @@ public class WholeOrderService {
             if ("BUY".equals(o.getSide())) {
                 depositService.releaseHold(o.getAccountId(), o.getPrice().multiply(o.getOrderQuantity()));
             } else {
-                holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
+                holdingMapper.releaseWholeReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
             }
             // 커밋 후 매칭 엔진이 인덱스 제거·그 종목 PENDING 0건이면 호가 구독 OFF.
             eventPublisher.publishEvent(new PendingOrderClosedEvent(orderId, o.getStockCode(), o.getExchange()));
@@ -245,7 +245,7 @@ public class WholeOrderService {
                     depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
                 }
             } else {
-                holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
+                holdingMapper.releaseFractionalReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
             }
         }
         return new OrderCancelResponse(orderId, OrderStatus.CANCELLED.name());
@@ -341,8 +341,8 @@ public class WholeOrderService {
         BigDecimal notional = limitPrice.multiply(quantity);
         if ("BUY".equals(side)) {
             depositService.hold(accountId, notional);   // 주문가능 부족이면 INSUFFICIENT_BALANCE
-        } else if (holdingMapper.reserveForSell(accountId, stockCode, quantity) == 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도가능 보유 수량이 부족합니다.");
+        } else if (holdingMapper.reserveWholeForSell(accountId, stockCode, quantity) == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "온주 매도가능 수량이 부족합니다.");
         }
         return notional;
     }
@@ -382,10 +382,10 @@ public class WholeOrderService {
         return rate.exchangeRate();
     }
 
-    /** 매도 — 보유 수량 원자 차감(음수 가드). 전량매도 시 quantity=0으로 row 보존. */
+    /** 온주 매도 — 보유 수량 원자 차감(온주 매도가능 가드). 전량매도 시 quantity=0으로 row 보존. */
     private void applySell(Long accountId, String stockCode, BigDecimal qty) {
-        if (holdingMapper.reduceForSell(accountId, stockCode, qty) == 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "보유 수량이 부족합니다.");
+        if (holdingMapper.reduceWholeForSell(accountId, stockCode, qty) == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "온주 보유 수량이 부족합니다.");
         }
     }
 
