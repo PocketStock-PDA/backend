@@ -42,6 +42,10 @@ public interface HoldingMapper {
                            @Param("stockCode") String stockCode,
                            @Param("qty") java.math.BigDecimal qty);
 
+    /** 매도가능 수량(quantity − held_quantity). 보유행 없으면 null. 소수점 전량/금액 매도 hold 산정용. */
+    java.math.BigDecimal findAvailableQuantity(@Param("accountId") Long accountId,
+                                               @Param("stockCode") String stockCode);
+
     /** 유저 보유종목 전체(수량>0) */
     List<Holding> findByUserId(@Param("userId") Long userId);
 

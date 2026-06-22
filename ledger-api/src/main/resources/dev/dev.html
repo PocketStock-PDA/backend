@@ -15,6 +15,11 @@
     th { background: #f0f0f0; }
     .muted { color: #888; font-size: 12px; }
     .up { color: #d33; } .down { color: #2255cc; }
+    .tabs { position: sticky; top: 0; background: #fff; padding: 8px 0; border-bottom: 2px solid #ddd; margin-bottom: 14px; z-index: 10; }
+    .tabs button { margin-right: 4px; border: 1px solid #ccc; background: #f4f4f4; border-radius: 4px 4px 0 0; }
+    .tabs button.active { background: #1d76db; color: #fff; border-color: #1d76db; font-weight: bold; }
+    .tab { display: none; }
+    .tab.active { display: block; }
   </style>
 </head>
 <body>
@@ -27,6 +32,15 @@
   <div class="muted">/dev/token 으로 발급한 JWT를 localStorage에 저장해 이후 호출에 Bearer로 사용.</div>
 </fieldset>
 
+<div class="tabs">
+  <button data-tab="quote" class="active" onclick="showTab('quote')">시세·종목</button>
+  <button data-tab="trade" onclick="showTab('trade')">거래(온주·소수점)</button>
+  <button data-tab="account" onclick="showTab('account')">계좌·보상</button>
+  <button data-tab="realtime" onclick="showTab('realtime')">실시간(WS)</button>
+  <button data-tab="fx" onclick="showTab('fx')">환율·환전</button>
+</div>
+
+<section id="tab-quote" class="tab active">
 <fieldset>
   <legend>1-1) 종목 검색 / 상세 (search · {code})</legend>
   검색어 <input id="searchQ" value="삼성" size="10"/>
@@ -61,7 +75,9 @@
   <div id="obView"></div>
   <pre id="obRaw" class="muted">결과 raw JSON</pre>
 </fieldset>
+</section>
 
+<section id="tab-trade" class="tab">
 <fieldset>
   <legend>4) 온주 주문 (whole) + 보유/내역</legend>
   <button onclick="credit()">예수금 1천만원 충전</button>
@@ -89,6 +105,29 @@
 </fieldset>
 
 <fieldset>
+  <legend>4-2) 소수점 주문 (fractional · 접수=QUEUED 비동기)</legend>
+  종목 <input id="fracCode" value="005930" size="8"/>
+  <select id="fracSide" onchange="fracToggle()">
+    <option value="BUY">매수</option><option value="SELL">매도</option>
+  </select>
+  방식 <select id="fracMethod" onchange="fracToggle()">
+    <option value="AMOUNT">금액(AMOUNT)</option>
+    <option value="QUANTITY">수량(QUANTITY·매수)</option>
+    <option value="ALL">전량(ALL·매도)</option>
+  </select>
+  금액 <input id="fracAmount" value="10000" size="9"/>원
+  수량 <input id="fracQty" value="0.5" size="6" disabled/>주
+  <button onclick="placeFractional()">소수점 접수</button>
+  <div id="fracView"></div>
+  <pre id="fracRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">국내 먼저(D4). 매수=AMOUNT(금액·천원단위)/QUANTITY(수량) · 매도=AMOUNT(금액)/ALL(전량).
+    접수 즉시 현재 1분 차수에 QUEUED 편입 — 체결은 차수 집행기(스케줄러)가 수행(아직 미구현 #152·#153).
+    멱등키는 자동 생성. 거래내역·취소는 위 4)번 버튼 공용(QUEUED 취소 시 hold 환원).</div>
+</fieldset>
+</section>
+
+<section id="tab-account" class="tab">
+<fieldset>
   <legend>4-1) 웰컴 보상 (welcome) — 국내 거래대금 1·2위 + 해외 1·2위</legend>
   <button onclick="openAccounts()">계좌개설(국내+해외)</button>
   <button onclick="loadAccounts()">계좌 상태 조회</button>
@@ -99,7 +138,9 @@
   <div id="welcomeView"></div>
   <pre id="welcomeRaw" class="muted">결과 raw JSON</pre>
 </fieldset>
+</section>
 
+<section id="tab-realtime" class="tab">
 <fieldset>
   <legend>5) 실시간 호가 (WebSocket / STOMP · UH1)</legend>
   <button onclick="wsConnect()">연결</button>
@@ -151,7 +192,9 @@
   <div class="muted">상단 5번 연결 후 /topic/currency/usd-krw 구독 → LS 실시간(CUR) 현물USD 환율 push.
     종목코드 없는 단일 토픽. 외환시장 개장시간(평일 주간)에 데이터 수신.</div>
 </fieldset>
+</section>
 
+<section id="tab-fx" class="tab">
 <fieldset>
   <legend>10) 환율 조회 (REST · /api/exchange/rate)</legend>
   <button onclick="getExchangeRate()">환율 조회</button>
@@ -194,9 +237,11 @@
   <button onclick="settleFx()">환전 체결</button>
   <div id="fxSettleView"></div>
   <pre id="fxSettleRaw" class="muted">결과 raw JSON</pre>
-  <div class="muted">캐시(LS CUR)에 환율이 쌓인 뒤(콜드스타트 시 502) 체결. CMA 풀은 dev 스텁(인메모리, KRW 5,000,000 / USD 1,000 시드, 비번 1234).
-    체결 성공 시 11번 이력에 행이 쌓임.</div>
+  <div class="muted">캐시(LS CUR)에 환율이 쌓인 뒤(콜드스타트 시 502) 체결. CMA 풀은 <b>실물 cma_balances</b>(#56 실 어댑터, 스텁 제거 #57)
+    — `/api/cma/account` 개설 + `/api/cma/collect`로 원화 적립 후 환전. 체결 성공 시 11번 이력에 행이 쌓임.
+    원화→달러 환전분은 CMA USD풀에 적립되고, `/api/cma/transfer {market:OVERSEAS}`로 해외 위탁 USD 예수금까지 충전된다.</div>
 </fieldset>
+</section>
 
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script>
@@ -710,7 +755,10 @@ async function getDeposit() {
   const el = document.getElementById('depState');
   if (!b.success) { el.textContent = '실패: ' + b.message; return; }
   const d = b.data;
-  el.textContent = `예수금 ${won(d.deposit)} · 출금가능 ${won(d.withdrawable)} · 주문가능 ${won(d.orderable)}`;
+  // 통화별 분해(#137) — 국내 KRW · 해외 USD. 없으면 최상위 KRW만.
+  const per = (d.balances || []).map(x =>
+    `${x.market} ${x.currency} 예수금 ${won(x.deposit)}·주문가능 ${won(x.orderable)}`).join(' / ');
+  el.textContent = per || `예수금 ${won(d.deposit)} · 출금가능 ${won(d.withdrawable)} · 주문가능 ${won(d.orderable)}`;
 }
 
 async function loadAccounts() {
@@ -731,7 +779,51 @@ async function cancelOrder() {
   loadOrders();
 }
 
+// ---- 탭 전환 ----
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + id));
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+}
+
+// ---- 4-2) 소수점 주문 (fractional) ----
+// 방식에 따라 입력칸 활성/비활성 토글 + side와 모순되는 방식 자동 보정(매수 ALL X / 매도 QUANTITY X).
+function fracToggle() {
+  const side = document.getElementById('fracSide').value;
+  const m = document.getElementById('fracMethod');
+  if (side === 'BUY' && m.value === 'ALL') m.value = 'AMOUNT';
+  if (side === 'SELL' && m.value === 'QUANTITY') m.value = 'AMOUNT';
+  document.getElementById('fracAmount').disabled = m.value !== 'AMOUNT';
+  document.getElementById('fracQty').disabled = m.value !== 'QUANTITY';
+}
+
+async function placeFractional() {
+  const h = await authHeaders();
+  const side = document.getElementById('fracSide').value;
+  const method = document.getElementById('fracMethod').value;
+  const body = {
+    clientOrderId: 'frac-' + side + '-' + Date.now(),   // 멱등키 자동 생성(요청 1건당 1개)
+    stockCode: document.getElementById('fracCode').value.trim(),
+    orderType: method,
+    amount: method === 'AMOUNT' ? Number(document.getElementById('fracAmount').value) : null,
+    quantity: method === 'QUANTITY' ? Number(document.getElementById('fracQty').value) : null
+  };
+  const path = side === 'BUY' ? 'buy' : 'sell';
+  const res = await fetch('/api/trading/orders/fractional/' + path, {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const b = await res.json();
+  document.getElementById('fracRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('fracView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const d = b.data;
+  const held = d.heldAmount != null ? ` · hold ${won(d.heldAmount)}` : '';
+  v.innerHTML = `<p class="up">접수 #${d.orderId} (차수 ${d.roundId}): ${d.side} ${d.orderType} `
+    + `예상 ${Number(d.estQuantity)}주${held} → ${d.status}</p>`;
+  loadOrders();
+}
+
 setTokenState();
+fracToggle();
 </script>
 </body>
 </html>

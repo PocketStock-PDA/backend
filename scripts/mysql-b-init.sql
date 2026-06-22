@@ -203,6 +203,8 @@ CREATE TABLE IF NOT EXISTS orders (
   order_amount DECIMAL(18,4) NULL,
   order_quantity DECIMAL(18,6) NULL,
   est_quantity DECIMAL(18,6) NULL,
+  -- 소수점 접수 시 실제 잠근(hold) 금액(D1). 수량매수=예상금액×(1+버퍼)/금액매수=주문금액. 취소·부족제외·체결 환원의 정확한 기준(FRAC-014/015).
+  held_amount DECIMAL(18,4) NULL,
   price DECIMAL(18,4) NULL,
   -- 경로별 상태머신(ERD-04 §08·§08b). 소수점: RECEIVED|QUEUED|SENT|FILLED|CANCELLED|REJECTED
   -- 온주: RECEIVED|PENDING|FILLED|CANCELLED|REJECTED. 부분체결(PARTIALLY_FILLED)·이월(CARRIED_OVER) 미지원(#101).
