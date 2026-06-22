@@ -1,6 +1,7 @@
 package com.pocketstock.ledger.dev;
 
 import com.pocketstock.common.response.ApiResponse;
+import com.pocketstock.ledger.calendar.DividendBatchService;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
@@ -37,6 +38,7 @@ public class DevController {
     private final SecuritiesAccountService accountService;
     private final SecuritiesAccountMapper accountMapper;
     private final DepositService depositService;
+    private final DividendBatchService dividendBatchService;
 
     @GetMapping(value = "/dev", produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     public String page() throws IOException {
@@ -62,5 +64,13 @@ public class DevController {
                 amount, "KRW", "dev", null, null);   // dev 충전 — 멱등키 불요
         log.info("[DEV] 예수금 충전 userId={} amount={} balance={}", userId, amount, balance);
         return ApiResponse.ok("예수금 충전 완료", Map.of("balance", balance.toPlainString()));
+    }
+
+    /** KIS 배당일정 배치 수동 트리거 — 배치 동작 확인용. */
+    @GetMapping("/dev/dividend-batch")
+    public ApiResponse<String> triggerDividendBatch() {
+        log.info("[DEV] 배당배치 수동 트리거");
+        dividendBatchService.syncDividendEvents();
+        return ApiResponse.ok("배당 배치 완료", null);
     }
 }

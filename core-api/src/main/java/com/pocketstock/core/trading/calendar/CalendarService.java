@@ -1,11 +1,6 @@
 package com.pocketstock.core.trading.calendar;
 
-import com.pocketstock.core.trading.calendar.dto.CalendarDayEntry;
-import com.pocketstock.core.trading.calendar.dto.CalendarEventRow;
-import com.pocketstock.core.trading.calendar.dto.CalendarEventSummary;
-import com.pocketstock.core.trading.calendar.dto.CalendarEventsResponse;
-import com.pocketstock.core.trading.calendar.dto.EventItem;
-import com.pocketstock.core.trading.calendar.dto.TradingCalendarResponse;
+import com.pocketstock.core.trading.calendar.dto.*;
 import com.pocketstock.core.trading.calendar.mapper.CalendarMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,9 +27,7 @@ public class CalendarService {
 
         Map<String, List<CalendarEventRow>> byDate = rows.stream()
                 .collect(Collectors.groupingBy(
-                        r -> r.getEventDate().format(DateTimeFormatter.ISO_LOCAL_DATE),
-                        Collectors.toList()
-                ));
+                        r -> r.getEventDate().format(DateTimeFormatter.ISO_LOCAL_DATE)));
 
         List<CalendarDayEntry> days = byDate.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())

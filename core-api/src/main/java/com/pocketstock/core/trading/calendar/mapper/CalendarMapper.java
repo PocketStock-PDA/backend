@@ -15,4 +15,10 @@ public interface CalendarMapper {
             @Param("from") LocalDate from,
             @Param("to") LocalDate to
     );
+
+    void upsertEvent(@Param("stockCode") String stockCode,
+                     @Param("eventType") String eventType,
+                     @Param("eventDate") LocalDate eventDate,
+                     @Param("title") String title,
+                     @Param("detail") String detail);
 }
