@@ -31,4 +31,12 @@ public interface CmaFundsPort {
                             String fromCurrency, BigDecimal fromAmount,
                             String toCurrency, BigDecimal toAmount,
                             Long fxTransactionId);
+
+    /**
+     * CMA 통화풀 현재 잔액 조회(읽기 전용) — 멱등 재요청 시 기존 결과의 잔액 필드를 채우기 위함.
+     * 체결 경로가 아니라 잔액을 안 건드린다(원장 이동 없음). 풀이 아직 없으면 0.
+     *
+     * @throws com.pocketstock.common.exception.BusinessException CMA 계좌 없음 등
+     */
+    BigDecimal poolBalance(Long userId, String currency);
 }

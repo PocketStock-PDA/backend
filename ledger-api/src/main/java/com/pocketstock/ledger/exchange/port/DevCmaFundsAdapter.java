@@ -48,6 +48,11 @@ public class DevCmaFundsAdapter implements CmaFundsPort {
         return new FxLegResult(remainFrom, remainTo);
     }
 
+    @Override
+    public BigDecimal poolBalance(Long userId, String currency) {
+        return balance(userId, currency);
+    }
+
     private BigDecimal balance(Long userId, String currency) {
         return balances.computeIfAbsent(key(userId, currency),
                 k -> "USD".equals(currency) ? SEED_USD : SEED_KRW);
