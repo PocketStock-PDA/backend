@@ -498,7 +498,7 @@ SOL트래블 외화잔액 연동
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Response Body** — 잠자는 잔돈을 **소스별로 묶어** 표시(와이어프레임: SOL트래블 환전 잔돈 / 신한카드 잔돈 / 신한은행 끝전 + 총액).
+**Response Body** — 잠자는 잔돈을 **소스별로 묶어** 표시. 4개 소스(끝전 / 라운드업 / 포인트 / 외화 환전 잔돈) + 총액. 모두 KRW.
 
 ```json
 {
@@ -506,17 +506,24 @@ SOL트래블 외화잔액 연동
   "code": "SUCCESS",
   "message": "잠자는 잔돈 스캔 성공",
   "data": {
-  "totalAmount": 12450,
+  "totalAmount": 37201,
   "sources": [
-  {"sourceType": "ACCOUNT", "name": "신한은행 끝전",      "amount": 7450},
-  {"sourceType": "FX",      "name": "SOL트래블 환전 잔돈", "amount": 5000},
-  {"sourceType": "CARD",    "name": "신한카드 잔돈",       "amount": 0}
+  {"sourceType": "ACCOUNT", "name": "신한은행 끝전",        "amount": 2300},
+  {"sourceType": "CARD",    "name": "신한카드 잔돈",         "amount": 700},
+  {"sourceType": "POINT",   "name": "마이신한포인트 잔돈",   "amount": 28000},
+  {"sourceType": "FX",      "name": "SOL트래블 환전 잔돈",   "amount": 6201}
   ]
  }
  }
 ```
 
-> scan(연동 직후 발견 화면)과 CMA 홈 `collectSources`(상시 홈)는 **동일 계산을 단일 소스로 공유**한다. 필드 형태는 CMA `collectSources`(`sourceType`/`name`/`amount`)와 정렬. **정확한 소스 분류·끝전 계산 통일은 F-E**(`ASSET_DEVELOPMENT.md` §6, Phase 1 직전 확정)에서 확정 — 위 `sourceType`(ACCOUNT 끝전 / CARD 라운드업 잔돈 / FX 환전 잔돈)은 와이어프레임 기준 잠정안.
+- `sourceType` 의미: `ACCOUNT`=연동 계좌 끝전(`balance % threshold`) / `CARD`=카드 라운드업 잔돈 / `POINT`=포인트 잔액 / `FX`=외화 지갑(`currency='USD'`) 잔액의 KRW 환산.
+- `amount`는 모두 KRW 정수. FX는 USD 잔액 × **매매기준율**(CMA 홈 `totalKrwEquivalent`과 동일 환산), HALF_UP. USD 미보유면 환율 미조회·`amount=0`.
+- 비활성/미설정 소스도 `amount=0`으로 항상 4개를 반환한다(화면 고정 레이아웃).
+
+> **F-E=B 확정**: ACCOUNT·CARD·POINT는 CMA 홈 `collectSources`(상시 홈)와 **동일 계산을 단일 소스로 공유**한다 — scan(core)은 ledger `collection_settings`(끝전 임계값·활성 소스)만 내부 Feign read하고, 잔액 원천은 core 자체 DB로 로컬 계산한다(라운드업은 `InternalAssetService.getCardRoundup` 재사용). ledger 전체 수집 계산(`getHome`)을 다시 호출하지 않는다(core→ledger→core 순환 방지).
+>
+> **FX 입금(수집 실행)은 별도 후속(EXC-006)**: scan은 발견(표시) 전용이다. 실제 CMA 입금 시 통화 분기 — **달러 잔액→CMA USD 지갑 / 원화 잔액→CMA KRW 지갑 / 그 외 통화→달러로 환전 후 CMA USD 지갑** 입금 — 은 외화 잔돈 수집 실행(EXC-006)에서 구현한다. (그 외 통화 환전은 USD/KRW 외 환율 소스가 갖춰진 뒤.)
 
 ---
 
