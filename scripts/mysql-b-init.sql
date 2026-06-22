@@ -146,7 +146,10 @@ CREATE TABLE IF NOT EXISTS holdings (
   user_id BIGINT NOT NULL,
   account_id BIGINT NOT NULL,
   stock_code VARCHAR(20) NOT NULL,
-  quantity DECIMAL(18,6) DEFAULT 0,
+  quantity DECIMAL(18,6) DEFAULT 0,         -- 총 보유 주수(온주+소수 합). 표시·평가·리워드·포트폴리오 공용 기준
+  -- 소수점(신탁/수익증권) 보유분(<1, 즉시 floor 전환 후 끝수만 잔류). 온주(직접소유) = quantity − fractional_qty.
+  -- 소수 매도는 이 값 이하로만 허용(온주→소수 분할 금지, FRAC-010 #157). 온주 매도는 정수+quantity 가드로 floor 상한 자동.
+  fractional_qty DECIMAL(18,6) NOT NULL DEFAULT 0,
   -- 미체결 매도 주문에 묶인 수량(수량 hold, M2 대칭). 매도가능 = quantity − held_quantity.
   -- 지정가 매도 PENDING 진입 시 += qty, 체결 시 held_quantity·quantity 동시차감, 취소·미체결 시 −= qty(#80, H4).
   held_quantity DECIMAL(18,6) NOT NULL DEFAULT 0,

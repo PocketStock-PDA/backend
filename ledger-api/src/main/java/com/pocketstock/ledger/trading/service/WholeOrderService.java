@@ -369,7 +369,8 @@ public class WholeOrderService {
     /** 매수 — 보유 원자 upsert(수량 누적 + 평단 가중평균 + 원화원가 누적). 동시 매수 lost update 차단. */
     private void applyBuy(Long userId, Long accountId, String stockCode, BigDecimal qty, BigDecimal fillPrice,
                           BigDecimal krwAmount, String currency) {
-        holdingMapper.upsertBuy(userId, accountId, stockCode, qty, fillPrice, krwAmount, currency);
+        // 온주 매수 — fractionalDelta=0(소수분 없음, 직접소유 정수재고).
+        holdingMapper.upsertBuy(userId, accountId, stockCode, qty, fillPrice, krwAmount, currency, BigDecimal.ZERO);
     }
 
     /** 해외 매수 원화원가 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 콜드스타트(틱 미수신)면 502. */

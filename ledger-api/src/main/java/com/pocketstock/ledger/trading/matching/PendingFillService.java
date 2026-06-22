@@ -59,8 +59,9 @@ public class PendingFillService {
             operatingCashService.record("BUY", total, cmd.currency(), "order", cmd.orderId(), idemKey);
             // 원화 취득원가 = 국내는 체결대금 그대로, 해외는 체결 시점 실시간 환율로 환산(즉시체결 경로와 동일).
             BigDecimal krwAmount = CURRENCY_USD.equals(cmd.currency()) ? total.multiply(fxRateForKrwBasis()) : total;
+            // 온주 지정가 체결 — fractionalDelta=0(직접소유 정수재고).
             holdingMapper.upsertBuy(cmd.userId(), cmd.accountId(), cmd.stockCode(),
-                    cmd.quantity(), cmd.fillPrice(), krwAmount, cmd.currency());
+                    cmd.quantity(), cmd.fillPrice(), krwAmount, cmd.currency(), BigDecimal.ZERO);
             // 복식부기 주식 leg: 유저 holdings 증가의 짝으로 회사 옴니버스 재고 −qty.
             operatingInventoryService.record(cmd.stockCode(), -cmd.quantity().intValueExact());
         } else {

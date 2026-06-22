@@ -220,9 +220,10 @@ public class FractionalOrderService {
      */
     private Reserve reserveSell(Long accountId, String stockCode, String method,
                                 FractionalOrderRequest req, BigDecimal estPrice) {
-        BigDecimal available = holdingMapper.findAvailableQuantity(accountId, stockCode);
+        // 소수 매도가능 = fractional_qty − held (온주 분은 제외 — 온주→소수 분할 금지, FRAC-010 #157).
+        BigDecimal available = holdingMapper.findAvailableFractional(accountId, stockCode);
         if (available == null || available.signum() <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도가능 보유 수량이 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도가능 소수점 보유가 없습니다(온주는 온주 매도로).");
         }
         BigDecimal qty;
         BigDecimal orderAmount = null;
@@ -236,15 +237,17 @@ public class FractionalOrderService {
             orderAmount = amount;
             qty = amount.divide(estPrice, QTY_SCALE, RoundingMode.DOWN);
             if (qty.compareTo(available) > 0) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "매도금액이 보유 평가금액을 초과합니다.");
+                // 소수 매도가능(0.5)을 넘는 금액 → 거부(온주 0.3 떼기 불가). 온주 분은 온주 매도로.
+                throw new BusinessException(ErrorCode.INVALID_INPUT,
+                        "매도금액이 소수점 보유(" + available + "주)를 초과합니다. 온주 분은 온주 매도로 처리하세요.");
             }
         }
         if (qty.signum() <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "매도 수량이 0입니다.");
         }
-        // 수량 hold(매도가능 가드 포함) — 읽기-후-예약 사이 경합이면 0행 → 재요청 유도.
-        if (holdingMapper.reserveForSell(accountId, stockCode, qty) == 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도가능 수량이 변경되었습니다. 다시 시도해주세요.");
+        // 소수 수량 hold(소수 매도가능 가드) — 소수부 초과·경합이면 0행 → 거부.
+        if (holdingMapper.reserveFractionalForSell(accountId, stockCode, qty) == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "소수 매도가능 수량이 변경되었습니다. 다시 시도해주세요.");
         }
         return new Reserve(orderAmount, qty, qty, null);
     }

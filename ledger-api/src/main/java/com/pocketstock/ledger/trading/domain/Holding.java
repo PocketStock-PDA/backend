@@ -24,7 +24,9 @@ public class Holding {
     private Long userId;
     private Long accountId;
     private String stockCode;
-    private BigDecimal quantity;
+    private BigDecimal quantity;        // 총 보유(온주+소수 합)
+    private BigDecimal fractionalQty;   // 소수점(신탁) 보유분(자유 누적, ≥1 가능). 온주(직접소유) = quantity − fractionalQty
+    private BigDecimal heldQuantity;    // 미체결 매도에 묶인 수량(M2). 전환가능 소수 = fractionalQty − heldQuantity
     private BigDecimal avgBuyPrice;
     private String currency;
     private LocalDateTime createdAt;
