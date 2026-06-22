@@ -1,6 +1,7 @@
 package com.pocketstock.ledger.dart;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -26,8 +27,12 @@ public class OpenDartClient {
 
     public OpenDartClient(OpenDartProperties props) {
         this.props = props;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(10_000);
         this.restClient = RestClient.builder()
                 .baseUrl(props.getBaseUrl())
+                .requestFactory(factory)
                 .build();
     }
 
