@@ -93,6 +93,18 @@ public class KisRealtimeClient implements RealtimeUpstream {
         }
     }
 
+    /**
+     * 세션 유지(옵션 B, #127) — 등록 종목이 있는데 세션이 끊겼으면 재연결한다
+     * ({@code connectIfNeeded}가 activeKeys 재등록 + 재연결 이벤트 발행까지 수행).
+     * KIS는 LS의 환율(CUR)처럼 상시구독이 없어 세션이 자동 복구되지 않으므로, 매칭 엔진의 liveness
+     * 스케줄러가 해외 PENDING이 있는 동안 주기 호출해 장중 단절도 다음 주기에 되살린다.
+     */
+    public synchronized void reconnectIfStale() {
+        if (!activeKeys.isEmpty() && !isOpen()) {
+            connectIfNeeded();
+        }
+    }
+
     private void connectIfNeeded() {
         if (isOpen()) {
             return;

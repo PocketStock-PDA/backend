@@ -3,6 +3,8 @@ package com.pocketstock.ledger.trading.matching;
 import com.pocketstock.ledger.config.RealtimeSubscriptionManager;
 import com.pocketstock.ledger.kis.KisAskingPriceResponse;
 import com.pocketstock.ledger.kis.KisMarketClient;
+import com.pocketstock.ledger.kis.KisRealtimeClient;
+import com.pocketstock.ledger.ls.LsRealtimeClient;
 import com.pocketstock.ledger.realtime.RealtimeReconnectedEvent;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
 import com.pocketstock.ledger.trading.client.LsT8450Response;
@@ -14,11 +16,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,6 +64,8 @@ public class WholeOrderMatchingEngine {
     private final PendingFillService pendingFillService;
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
+    private final LsRealtimeClient lsRealtimeClient;
+    private final KisRealtimeClient kisRealtimeClient;
 
     /** stockCode → (orderId → PENDING 스냅샷). 매칭용 캐시(SSOT=DB). */
     private final Map<String, Map<Long, Pending>> index = new ConcurrentHashMap<>();
@@ -100,6 +106,57 @@ public class WholeOrderMatchingEngine {
         }
         log.info("{} 실시간 재연결 — 해당 PENDING 종목 REST 스냅샷 보정", e.broker());
         sweepSnapshot(filter);
+    }
+
+    /**
+     * PENDING 구독 생명관리(옵션 B, #127) — 15초마다 PENDING이 걸린 상류 세션이 살아있는지 확인하고
+     * 끊겼으면 재연결을 유도한다. {@code reconnectIfStale}가 재연결하면 activeKeys 재등록 +
+     * {@link RealtimeReconnectedEvent} 발행 → {@link #onReconnect}가 끊긴 동안의 cross를 REST
+     * 스냅샷으로 보정한다. PENDING이 없으면 세션을 억지로 살릴 이유가 없어 아무것도 안 한다.
+     *
+     * <p>국내·해외 공용으로 환율 핀 무임승차를 끊는다 — 종전엔 LS 세션 복구가 환율 도메인의
+     * {@code CurrencyRatePinner} 1분 하트비트에 얹혀 있었고(트레이딩↔환율 결합·복구지연 ≤60초),
+     * 해외(KIS)는 그런 핀이 없어 자동 복구가 아예 없었다(조용한 미체결). 매칭 엔진이 자기 PENDING의
+     * 세션을 직접 챙겨 그 의존을 끊고 해외 구멍도 메운다.
+     *
+     * <p>해외는 추가로 구독을 멱등 재무장한다 — 장 마감 중 생성된 PENDING은 {@code resolveForeign}이
+     * CLOSED라 스킵해 activeKeys에 없으므로, 개장 후 재무장해야 재연결 시 함께 재등록된다.
+     * (국내는 마감 무관하게 항상 등록돼 activeKeys에 있어 재연결만으로 충분.)
+     */
+    @Scheduled(initialDelay = 15_000, fixedDelay = 15_000)
+    public void keepPendingSubscriptionsAlive() {
+        boolean hasDomestic = false;
+        List<String> foreignStocks = new ArrayList<>();
+        for (Map.Entry<String, Map<Long, Pending>> entry : index.entrySet()) {
+            String exchange = anyExchange(entry.getValue());
+            if (exchange == null) {
+                continue;
+            }
+            if (OVERSEAS_EXCHANGES.contains(exchange)) {
+                foreignStocks.add(entry.getKey());
+            } else if (DOMESTIC_EXCHANGES.contains(exchange)) {
+                hasDomestic = true;
+            }
+        }
+        // 끊긴 세션을 먼저 되살린다(reconnectIfStale → activeKeys 재등록 + onReconnect 스냅샷 보정).
+        if (!foreignStocks.isEmpty()) {
+            kisRealtimeClient.reconnectIfStale();
+        }
+        if (hasDomestic) {
+            lsRealtimeClient.reconnectIfStale();
+        }
+        // 해외만: 장 마감 중 스킵돼 activeKeys에 없던 PENDING을 멱등 재무장(개장 후 등록 복구).
+        for (String stockCode : foreignStocks) {
+            try {
+                subscriptionManager.acquireForeignQuote(stockCode);
+                // 검사~재무장 사이 마지막 PENDING이 종료됐으면(TOCTOU) 방금 켠 구독을 되돌려 누수 방지.
+                if (!index.containsKey(stockCode)) {
+                    subscriptionManager.releaseForeignQuote(stockCode);
+                }
+            } catch (Exception e) {
+                log.warn("해외 PENDING 재무장 실패 stockCode={} — 다음 주기 재시도: {}", stockCode, e.getMessage());
+            }
+        }
     }
 
     /** PENDING 종목 중 거래소 필터에 맞는 것만 REST 호가 스냅샷 1회 → 매칭(부팅·재연결 공용). */

@@ -89,6 +89,18 @@ public class LsRealtimeClient implements RealtimeUpstream {
         }
     }
 
+    /**
+     * 세션 유지(옵션 B 지원, #127) — 등록 종목이 있는데 세션이 끊겼으면 재연결한다
+     * ({@code connectIfNeeded}가 activeKeys 재등록 + 재연결 이벤트 발행까지 수행).
+     * 평소엔 환율(CUR) 하트비트가 같은 LS 세션을 살려 사실상 no-op이지만, 매칭 엔진이 환율 핀에
+     * 의존하지 않고 PENDING 세션을 직접 챙기도록(국내·해외 동형) 호출 경로를 제공한다.
+     */
+    public synchronized void reconnectIfStale() {
+        if (!activeKeys.isEmpty() && !isOpen()) {
+            connectIfNeeded();
+        }
+    }
+
     private void connectIfNeeded() {
         if (isOpen()) {
             return;

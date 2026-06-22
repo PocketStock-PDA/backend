@@ -30,7 +30,6 @@ public class LsMarketClient {
     private static final String SUCCESS_CODE = "00000";
     /** LS 게이트웨이가 토큰 무효/만료를 알리는 rsp_cd — 401이 아니라 5xx 바디로 내려온다. */
     private static final Set<String> TOKEN_REJECTED_CODES = Set.of("IGW00121");
-    private static final String EXCHANGE_KRX = "K";
     private static final String EXCHANGE_UNIFIED = "U"; // KRX+NXT 통합 — 실시간(UH1 통합)과 사다리 일치
 
     private final LsTokenProvider tokenProvider;
@@ -43,10 +42,10 @@ public class LsMarketClient {
         this.restClient = lsRestClient;
     }
 
-    /** t1102 국내 현재가 조회(KRX). */
+    /** t1102 국내 현재가 조회(통합) — 호가(t8450)·실시간(UH1)과 같은 KRX+NXT 통합 기준. */
     public LsT1102Response.OutBlock getDomesticPrice(String shcode) {
         LsT1102Response res = callTr("t1102",
-                Map.of("t1102InBlock", Map.of("shcode", shcode, "exchgubun", EXCHANGE_KRX)),
+                Map.of("t1102InBlock", Map.of("shcode", shcode, "exchgubun", EXCHANGE_UNIFIED)),
                 LsT1102Response.class);
         LsT1102Response.OutBlock ob = (res == null) ? null : res.outBlock();
         verify(ob, (ob == null) ? null : ob.hname(),

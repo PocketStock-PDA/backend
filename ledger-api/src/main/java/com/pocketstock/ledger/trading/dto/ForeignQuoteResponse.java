@@ -18,7 +18,8 @@ public record ForeignQuoteResponse(
         List<Level> asks,             // 매도 1~10 (rank 1 = 최우선=최저)
         List<Level> bids,             // 매수 1~10 (rank 1 = 최우선=최고)
         BigDecimal totalAskVolume,    // AVOL 매도총잔량
-        BigDecimal totalBidVolume     // BVOL 매수총잔량
+        BigDecimal totalBidVolume,    // BVOL 매수총잔량
+        String asOf                   // 스냅샷 시각(ISO-8601). 캐시 폴백이면 과거값 → staleness 표시(#128)
 ) {
     /** 호가 한 단계. rank 1~10, price=호가, volume=잔량. {@link AskingResponse.Level}와 동형. */
     public record Level(int rank, BigDecimal price, BigDecimal volume) {

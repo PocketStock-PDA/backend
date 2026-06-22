@@ -15,7 +15,8 @@ public record OrderbookResponse(
         List<Level> asks,
         List<Level> bids,
         BigDecimal totalAskVolume,
-        BigDecimal totalBidVolume
+        BigDecimal totalBidVolume,
+        String asOf                 // 스냅샷 시각(ISO-8601). 캐시 폴백이면 과거값 → 프론트 "장마감 기준" 표시(#128)
 ) {
     /** 호가 한 단계. rank 1~10, price=호가, volume=잔량. */
     public record Level(int rank, BigDecimal price, BigDecimal volume) {

@@ -53,10 +53,11 @@ public class RealtimeSubscriptionManager {
     /** sessionId → (subscriptionId → 등록키) — UNSUBSCRIBE·DISCONNECT 시 역추적용. */
     private final Map<String, Map<String, RealtimeKey>> sessionSubs = new ConcurrentHashMap<>();
     /**
-     * 매칭 엔진이 켠 해외 호가 구독의 등록키 — stockCode → acquire 당시 key.
+     * 매칭 엔진이 켠 해외 호가 구독의 "현재 세션 등록키" — stockCode → 지금 구독 중인 key.
      * 해외 tr_key는 세션(정규장 D / 주간 R)에 따라 바뀌므로 release 때 재계산하면 키가 달라져
-     * decrement가 빗나간다(refCount 누수·upstream 미해제). acquire 시점 key를 박제해 그대로 해제한다.
-     * (국내 UH1은 tr_key가 결정적이라 재계산해도 안전 → 별도 박제 불필요. 클라 구독은 sessionSubs가 담당.)
+     * decrement가 빗나간다(refCount 누수·upstream 미해제). 그래서 등록한 key를 그대로 보관해 해제하고,
+     * 세션이 전환되면 {@link #acquireForeignQuote}가 옛 키를 해제하며 이 값을 새 키로 갱신한다.
+     * (국내 UH1은 tr_key가 결정적이라 보관 불필요. 클라 구독은 sessionSubs가 담당.)
      */
     private final Map<String, RealtimeKey> foreignQuoteKeys = new ConcurrentHashMap<>();
 
@@ -81,21 +82,37 @@ public class RealtimeSubscriptionManager {
     }
 
     /**
-     * 매칭 엔진 전용 — 해외 종목 호가(KIS HDFSASP0) 구독 ON. 국내 {@link #acquireAsking}과 동형으로
-     * 클라 STOMP 구독과 같은 참조계수를 공유한다. tr_key 조립(D/R·시장코드)은 {@code resolveForeign}이
-     * 서버시각으로 자동 결정 — 장 마감(CLOSED)이면 null이라 등록 스킵(틱이 안 와도 안전).
+     * 매칭 엔진·liveness 전용 — 해외 종목 호가(KIS HDFSASP0) 구독을 "현재 세션 기준"으로 보장.
+     * 멱등이라 반복 호출해도 안전하다(옵션 B liveness 스케줄러가 주기적으로 다시 부른다, #127):
+     * <ul>
+     *   <li>tr_key 조립은 {@code resolveForeign}이 서버시각으로 자동 결정 — 장 마감(CLOSED)이면
+     *       null이라 등록 스킵(개장 시 liveness가 재무장).</li>
+     *   <li>이미 같은 세션 키로 구독 중이면 no-op(참조계수 중복 증가 없음).</li>
+     *   <li>정규장↔주간 전환으로 tr_key가 바뀌면 옛 키를 해제하고 새 키로 재등록한다.</li>
+     * </ul>
+     * 클라 STOMP 구독과 같은 참조계수를 공유한다(국내 {@link #acquireAsking}과 동형).
      */
-    public void acquireForeignQuote(String stockCode) {
-        RealtimeKey key = resolve(FOREIGN_QUOTE_PREFIX + stockCode);
-        if (key != null) {
-            foreignQuoteKeys.put(stockCode, key);   // acquire 당시 key 박제 → release 때 재계산 안 함
-            increment(key);
+    public synchronized void acquireForeignQuote(String stockCode) {
+        RealtimeKey desired = resolve(FOREIGN_QUOTE_PREFIX + stockCode);
+        if (desired == null) {
+            return;   // 장 마감(CLOSED)·미매핑 — 개장 시 liveness가 재무장
+        }
+        RealtimeKey current = foreignQuoteKeys.get(stockCode);
+        if (current != null && current.id().equals(desired.id())) {
+            return;   // 이미 같은 세션 키로 구독 중 — 멱등(반복 호출 안전)
+        }
+        // 새 키를 먼저 등록한다 — increment가 등록 실패로 throw하면 상태를 남기지 않아
+        // 다음 liveness 호출이 같은 키로 재시도할 수 있다(실패 등록이 멱등 가드에 막혀 영구 정지되는 것 방지).
+        increment(desired);
+        foreignQuoteKeys.put(stockCode, desired);
+        if (current != null) {
+            decrement(current);   // 정규장↔주간 세션 전환 — 새 키 등록 성공 후 옛 키 해제(무중단)
         }
     }
 
     /** 매칭 엔진 전용 — 해외 종목 호가(HDFSASP0) 구독 해제(그 종목 마지막 PENDING 종료 시). */
-    public void releaseForeignQuote(String stockCode) {
-        RealtimeKey key = foreignQuoteKeys.remove(stockCode);   // acquire 당시 key로 정확히 해제(세션 변동 무관)
+    public synchronized void releaseForeignQuote(String stockCode) {
+        RealtimeKey key = foreignQuoteKeys.remove(stockCode);   // 보관 중인 현재 세션 키로 정확히 해제
         if (key != null) {
             decrement(key);
         }
@@ -138,7 +155,15 @@ public class RealtimeSubscriptionManager {
     private synchronized void increment(RealtimeKey key) {
         int count = refCounts.merge(key.id(), 1, Integer::sum);
         if (count == 1) {
-            key.upstream().register(key.trCode(), key.trKey());
+            try {
+                key.upstream().register(key.trCode(), key.trKey());
+            } catch (RuntimeException e) {
+                // 상류 등록 실패 → 참조계수 롤백(다음 호출이 0→1로 등록을 재시도하도록).
+                if (refCounts.merge(key.id(), -1, Integer::sum) <= 0) {
+                    refCounts.remove(key.id());
+                }
+                throw e;
+            }
         }
     }
 

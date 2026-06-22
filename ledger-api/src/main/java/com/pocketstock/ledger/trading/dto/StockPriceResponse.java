@@ -14,6 +14,7 @@ public record StockPriceResponse(
         BigDecimal highPrice,
         BigDecimal lowPrice,
         BigDecimal openPrice,
-        long volume
+        long volume,
+        String asOf                 // 스냅샷 시각(ISO-8601). 캐시 폴백이면 과거값 → staleness 표시(#128)
 ) {
 }
