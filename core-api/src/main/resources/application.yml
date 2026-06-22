@@ -30,6 +30,11 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
+# core→ledger 내부 호출(잔돈 스캔: collection_settings·환율 read). 원장 쓰기 아님(읽기 전용).
+feign:
+  ledger-api:
+    url: ${LEDGER_API_URL:http://localhost:8082}
+
 jwt:
   secret: ${JWT_SECRET}            # 필수(기본값 없음) — 미설정 시 기동 실패. 32바이트 이상
   validity-ms: 1800000          # access token 30분
