@@ -32,17 +32,25 @@ public class CalendarController {
         LocalDate today = LocalDate.now();
         int y = year  != null ? year  : today.getYear();
         int m = month != null ? month : today.getMonthValue();
-        if (m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
+        if (y < 2000 || y > 2100 || m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
 
         return ResponseEntity.ok(ApiResponse.ok("증권 캘린더 조회 성공",
                 calendarService.getMonthlyCalendar(userId, y, m)));
     }
 
     @GetMapping("/calendar/events")
-    public ResponseEntity<ApiResponse<CalendarEventsResponse>> getUpcomingEvents(
-            @CurrentUserId Long userId) {
+    public ResponseEntity<ApiResponse<CalendarEventsResponse>> getMonthlyEvents(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+
+        LocalDate today = LocalDate.now();
+        int y = year  != null ? year  : today.getYear();
+        int m = month != null ? month : today.getMonthValue();
+        if (y < 2000 || y > 2100 || m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
+
         return ResponseEntity.ok(ApiResponse.ok("보유 종목 주요일정 조회 성공",
-                calendarService.getUpcomingEvents(userId)));
+                calendarService.getMonthlyEvents(userId, y, m)));
     }
 }

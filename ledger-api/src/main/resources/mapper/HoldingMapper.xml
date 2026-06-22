@@ -62,4 +62,10 @@
         ORDER BY id
     </select>
 
+    <select id="findAllDistinctStockCodes" resultType="string">
+        SELECT DISTINCT stock_code
+        FROM holdings
+        WHERE quantity > 0
+    </select>
+
 </mapper>

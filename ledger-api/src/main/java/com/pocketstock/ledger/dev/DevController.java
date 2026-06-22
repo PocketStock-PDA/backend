@@ -2,6 +2,7 @@ package com.pocketstock.ledger.dev;
 
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.calendar.DividendBatchService;
+import com.pocketstock.ledger.calendar.EarningsBatchService;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
@@ -39,6 +40,7 @@ public class DevController {
     private final SecuritiesAccountMapper accountMapper;
     private final DepositService depositService;
     private final DividendBatchService dividendBatchService;
+    private final EarningsBatchService earningsBatchService;
 
     @GetMapping(value = "/dev", produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     public String page() throws IOException {
@@ -72,5 +74,13 @@ public class DevController {
         log.info("[DEV] 배당배치 수동 트리거");
         dividendBatchService.syncDividendEvents();
         return ApiResponse.ok("배당 배치 완료", null);
+    }
+
+    /** OpenDART 실적발표 배치 수동 트리거 — 배치 동작 확인용. */
+    @GetMapping("/dev/earnings-batch")
+    public ApiResponse<String> triggerEarningsBatch() {
+        log.info("[DEV] 실적배치 수동 트리거");
+        earningsBatchService.syncEarningsEvents();
+        return ApiResponse.ok("실적 배치 완료", null);
     }
 }

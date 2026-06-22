@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.asset.mapper.ExternalHoldingMapper">
+
+    <!-- 타사 보유 종목 평면 조회.
+         external_holdings.institution_id → linked_institutions.id → institution_master(증권사) 체인.
+         Service에서 companyCode 기준으로 그룹핑. 정렬: 증권사 sort_order → 종목코드. -->
+    <select id="findExternalHoldings" resultType="com.pocketstock.core.asset.dto.ExternalHoldingRow">
+        SELECT im.company_code  AS companyCode,
+               im.company_name  AS companyName,
+               eh.stock_code    AS stockCode,
+               eh.stock_name    AS stockName,
+               eh.quantity      AS quantity,
+               eh.eval_amount   AS evaluated
+        FROM external_holdings eh
+        JOIN linked_institutions li ON li.id = eh.institution_id
+        JOIN institution_master im ON im.id = li.institution_master_id
+        WHERE eh.user_id = #{userId}
+        ORDER BY im.sort_order ASC, eh.stock_code ASC
+    </select>
+
+</mapper>

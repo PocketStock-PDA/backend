@@ -1012,11 +1012,15 @@
 
 ## 증권 캘린더
 
-> 사용자가 **보유한 종목** 기준으로 필터된 이벤트(배당락일·실적발표 등). 전체 시장 캘린더가 아님.
+> 사용자가 **보유한 종목** 기준으로 필터된 이벤트. 전체 시장 캘린더가 아님.  
+> `eventType`: `DIVIDEND`(배당락일) · `EARNINGS`(실적발표) · `RECOMMEND`(추천)  
+> **데이터 흐름**: ledger-api 배치 수집 → `CalendarFeignClient` → core-api `stock_events` 테이블 upsert → 조회 시 `holdings_replica` JOIN으로 보유 종목 필터링
 
-### GET `/api/trading/calendar`
+---
 
-보유 종목 증권 캘린더 (월별 일정) 조회<br> Query: `year` (number, 필수), `month` (number, 필수)
+### GET `/api/trading/calendar` ✅ 구현완료
+
+보유 종목 증권 캘린더 (월별 일정) 조회<br> Query: `year` (number, 선택), `month` (number, 선택) — 미지정 시 현재 월
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -1031,18 +1035,18 @@
   "data": {
     "year": 2026,
     "month": 6,
-    "events": [
+    "days": [
       {
         "date": "2026-06-27",
-        "type": "DIVIDEND",
-        "title": "삼성전자 배당락일",
-        "stockCode": "005930"
+        "events": [
+          { "stockCode": "005930", "eventType": "DIVIDEND", "title": "삼성전자 배당락일" }
+        ]
       },
       {
-        "date": "2026-06-28",
-        "type": "DIVIDEND",
-        "title": "LG전자 배당락일",
-        "stockCode": "066570"
+        "date": "2026-06-30",
+        "events": [
+          { "stockCode": "005930", "eventType": "EARNINGS", "title": "삼성전자 2Q 실적발표" }
+        ]
       }
     ]
   }
@@ -1051,9 +1055,9 @@
 
 ---
 
-### GET `/api/trading/calendar/events`
+### GET `/api/trading/calendar/events` ✅ 구현완료
 
-특정 날짜 보유 종목 주요일정 조회<br> Query: `date` (string, 선택) — 예: 2026-06-27, 미지정 시 오늘
+보유 종목 주요 일정 목록 조회 (지정 월 전체)<br> Query: `year` (number, 선택), `month` (number, 선택) — 미지정 시 현재 월 / year 범위: 2000~2100
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -1064,15 +1068,53 @@
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "종목 주요일정 조회 성공",
-  "data": [
-    {
-      "stockCode": "005930",
-      "stockName": "삼성전자",
-      "date": "2026-06-27",
-      "eventType": "DIVIDEND",
-      "description": "주당 배당금 361원"
-    }
-  ]
+  "message": "보유 종목 주요일정 조회 성공",
+  "data": {
+    "events": [
+      {
+        "stockCode": "005930",
+        "eventType": "DIVIDEND",
+        "eventDate": "2026-06-27",
+        "title": "삼성전자 배당락일",
+        "detail": "주당 배당금 361원"
+      },
+      {
+        "stockCode": "005930",
+        "eventType": "EARNINGS",
+        "eventDate": "2026-06-30",
+        "title": "삼성전자 2Q 실적발표",
+        "detail": "2026년 2분기"
+      }
+    ]
+  }
 }
+```
+
+---
+
+### [배치] 실적발표 일정 수집 — `EarningsBatchService` (feat/trading-calendar-ledger/#118)
+
+> 외부 API로 보유 종목의 실적 발표 일정을 수집해 `CalendarFeignClient`로 upsert. 컨트롤러 없음.
+
+**트리거**
+- `@Scheduled` 주 1회 (월요일 새벽 2시)
+- 매수 체결 이벤트 시 해당 종목 즉시 수집 (선택)
+
+**외부 API 후보**
+- KIS: 실적 발표 일정 API 지원 여부 우선 확인
+- OpenDART `fnlttSinglAcntAll`: 보고서 제출일 기준 (발표 예정일 아님에 유의)
+
+**upsert 요청 포맷** (`POST /internal/calendar/stock-events`)
+
+```json
+[
+  {
+    "stockCode": "005930",
+    "eventType": "EARNINGS",
+    "eventDate": "2026-06-30",
+    "title": "삼성전자 2Q 실적발표",
+    "detail": "2026년 2분기"
+  }
+]
+```
 ```

@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -31,9 +32,9 @@ public class DividendBatchService {
     private final KisDividendClient kisDividendClient;
     private final CalendarFeignClient calendarFeignClient;
 
-    @Scheduled(cron = "0 0 2 1 1 *")
+    @Scheduled(cron = "0 0 2 1 1 *", zone = "Asia/Seoul")
     public void syncDividendEvents() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         LocalDate oneYearLater = today.plusYears(1);
 
         log.info("[배당배치] 조회 기간: {} ~ {}", today, oneYearLater);
@@ -80,7 +81,7 @@ public class DividendBatchService {
 
     /** 매수 체결 이벤트 수신 시 해당 종목만 즉시 적재 (Kafka 연동 예정). */
     public void syncByStockCode(String stockCode) {
-        LocalDate today       = LocalDate.now();
+        LocalDate today        = LocalDate.now(ZoneId.of("Asia/Seoul"));
         LocalDate oneYearLater = today.plusYears(1);
 
         List<KisDividendResponse.Item> items =

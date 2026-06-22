@@ -8,6 +8,7 @@
         SELECT id, account_type, balance, currency
         FROM linked_bank_accounts
         WHERE user_id = #{userId}
+          AND closed_at IS NULL
           AND id IN
           <foreach item="id" collection="ids" open="(" separator="," close=")">
               #{id}

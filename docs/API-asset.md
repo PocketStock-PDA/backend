@@ -20,14 +20,37 @@
   "message": "연동 가능 기관 목록 조회 성공",
   "data": [
   {
-  "institutionId": "001",
-  "name": "신한은행",
-  "type": "BANK",
-  "logoUrl": "https://..."
+  "category": "BANK",
+  "companyCode": "SHINHAN_BANK",
+  "companyName": "신한은행",
+  "logoUrl": null,
+  "linkStatus": "LINKED"
+  },
+  {
+  "category": "BANK",
+  "companyCode": "WOORI_BANK",
+  "companyName": "우리은행",
+  "logoUrl": null,
+  "linkStatus": "AVAILABLE"
   }
  ]
  }
 ```
+
+> 외부 식별자 = `companyCode`(숫자 아님). `linkStatus`: 해당 유저가 이미 연동했으면 `LINKED`, 선택 가능하면 `AVAILABLE`. 활성 카탈로그(`is_active=true`)를 `sort_order` 순으로 반환.
+
+---
+
+## 연동 실행(links) 공통 규칙
+
+> 아래 `links/auth` · `links` · `links/{bank|card|point|fx|securities}` · `refresh`에 공통 적용된다(2026-06-22 확정).
+>
+> - **데이터 출처 = 전부 목데이터.** 마이데이터/은행/카드 외부 API를 실제로 호출하지 않는다. 연동 시 생성되는 자산(잔액·거래·포인트·외화)은 **고정 시나리오 시드/템플릿을 해당 사용자로 복제 적재**한다(임의 값 생성 아님).
+> - **기관 식별자 = `companyCode`**(`GET /institutions` 응답과 동일, 예: `SHINHAN_BANK`·`SHINHAN_CARD`). 아래 예시에 남아 있는 `"001"/"088"`·기관 한글명은 플레이스홀더이며, **실제 요청 본문은 `companyCode`를 쓴다.**
+> - **통합인증 토큰(`authToken`)은 무상태(stateless) mock**: `/links/auth`는 토큰 문자열만 발급하고 **어디에도 저장하지 않으며**, `POST /links`는 이 토큰을 **검증하지 않는다**(Redis 미사용). "인증 → 연동" 순서는 화면 흐름으로만 유지한다.
+> - **멱등**: 이미 연동된(`LINKED`) 기관을 다시 연동하면 중복 생성 없이 skip하고 기존 상태를 반환한다.
+> - **계좌번호 비요구·비노출**: 마이데이터 흐름상 사용자가 계좌번호를 입력하지 않는다(인증 후 템플릿 적재). 응답에도 `account_no_enc`(암호화 컬럼)를 노출하지 않는다.
+> - **일괄 vs 개별**: `POST /links`는 온보딩 때 선택 기관을 한 번에 연동하고, `POST /links/{type}`는 연동 후 계좌·카드 등을 한 건씩 추가한다.
 
 ---
 
@@ -38,11 +61,11 @@
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 인증할 기관(`companyCode` 목록).
 
 ```json
 {
-  "institutions": ["001", "002", "003"]
+  "institutions": ["SHINHAN_BANK", "SHINHAN_CARD", "SHINHAN_POINT"]
  }
 ```
 
@@ -59,6 +82,8 @@
  }
 ```
 
+> `authToken`은 무상태 mock(공통 규칙 참조) — 형식만 갖춘 토큰을 발급하며 검증·저장하지 않는다.
+
 ---
 
 ### POST `/api/assets/links`
@@ -68,12 +93,12 @@
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 통합인증 토큰 + 연동할 기관(`companyCode` 목록).
 
 ```json
 {
   "authToken": "MYD-AUTH-TOKEN",
-  "institutions": ["001", "002"]
+  "institutions": ["SHINHAN_BANK", "SHINHAN_CARD"]
  }
 ```
 
@@ -90,21 +115,22 @@
  }
 ```
 
+> 선택 기관을 한 번에 연동(온보딩). 이미 연동된 기관은 멱등 skip하며 `linkedCount`는 **이번에 새로 연동된 수**만 센다. 각 기관의 자산은 고정 시나리오 템플릿으로 적재(공통 규칙 참조).
+
 ---
 
 ### POST `/api/assets/links/bank`
 
-은행 계좌 연동
+은행 계좌 연동 (개별 — 연동 후 한 건씩 추가)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 은행(`companyCode`). 계좌번호는 입력하지 않는다(마이데이터 흐름, 템플릿 적재 — 공통 규칙 참조).
 
 ```json
 {
-  "bankCode": "088",
-  "accountNumber": "110-123-456789"
+  "companyCode": "KB_BANK"
  }
 ```
 
@@ -330,16 +356,16 @@
 
 ### POST `/api/assets/links/card`
 
-카드 연동
+카드 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 카드사(`companyCode`).
 
 ```json
 {
-  "cardCompany": "신한카드"
+  "companyCode": "SHINHAN_CARD"
  }
 ```
 
@@ -361,16 +387,16 @@
 
 ### POST `/api/assets/links/point`
 
-포인트 연동
+포인트 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 포인트사(`companyCode`).
 
 ```json
 {
-  "provider": "OK캐쉬백"
+  "companyCode": "OKCASHBAG_POINT"
  }
 ```
 
@@ -382,7 +408,7 @@
   "code": "SUCCESS",
   "message": "포인트 연동 성공",
   "data": {
-  "provider": "OK캐쉬백",
+  "companyCode": "OKCASHBAG_POINT",
   "balance": 25000
  }
  }
@@ -392,12 +418,12 @@
 
 ### POST `/api/assets/links/fx`
 
-SOL트래블 외화잔액 연동
+SOL트래블 외화잔액 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — SOL트래블 외화지갑 고정이라 본문 없음(빈 객체).
 
 ```json
 {}
@@ -421,17 +447,16 @@ SOL트래블 외화잔액 연동
 
 ### POST `/api/assets/links/securities`
 
-타 증권사 연동
+타 증권사 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 증권사(`companyCode`). 계좌번호는 입력하지 않는다(템플릿 적재 — 공통 규칙 참조).
 
 ```json
 {
-  "company": "키움증권",
-  "accountNo": "123-456789"
+  "companyCode": "KIWOOM_SEC"
  }
 ```
 
@@ -445,34 +470,6 @@ SOL트래블 외화잔액 연동
   "data": {
   "linked": true,
   "holdingsCount": 5
- }
- }
-```
-
----
-
-### GET `/api/assets`
-
-연동 자산 전체 조회
-
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-
-**Response Body**
-
-```json
-{
-  "success": true,
-  "code": "SUCCESS",
-  "message": "연동 자산 전체 조회 성공",
-  "data": {
-  "totalAsset": 52000000,
-  "categories": [
-  {"type": "BANK", "label": "은행", "amount": 20000000},
-  {"type": "SECURITIES", "label": "증권", "amount": 15000000},
-  {"type": "CARD", "label": "카드", "amount": 3000000},
-  {"type": "POINT", "label": "포인트", "amount": 25000}
-  ]
  }
  }
 ```
@@ -499,20 +496,24 @@ SOL트래블 외화잔액 연동
   "success": true,
   "code": "SUCCESS",
   "message": "자산 새로고침 성공",
-  "data": null
+  "data": {
+  "syncedAt": "2026-06-22T14:30:00"
+ }
  }
 ```
+
+> 시드가 고정이라 **잔액 재계산 없는 no-op** — 유저의 연동 기관(`linked_institutions`) `last_synced_at`만 현재 시각으로 갱신하고, 그 값(DB가 찍은 시각)을 그대로 `syncedAt`으로 반환한다. 연동된 기관이 없으면 갱신 대상이 없다. 연동 자산 화면의 "새로고침" 버튼을 위해 명세를 유지한다.
 
 ---
 
 ### GET `/api/assets/scan`
 
-잠자는 잔돈 스캔
+잠자는 잔돈 스캔 (연동 직후 발견 화면)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Response Body**
+**Response Body** — 잠자는 잔돈을 **소스별로 묶어** 표시. 4개 소스(끝전 / 라운드업 / 포인트 / 외화 환전 잔돈) + 총액. 모두 KRW.
 
 ```json
 {
@@ -520,14 +521,24 @@ SOL트래블 외화잔액 연동
   "code": "SUCCESS",
   "message": "잠자는 잔돈 스캔 성공",
   "data": {
-  "totalAmount": 12450,
-  "accounts": [
-  {"bankName": "신한은행", "accountNo": "110-***-456789", "amount": 7450},
-  {"bankName": "국민은행", "accountNo": "012-***-123456", "amount": 5000}
+  "totalAmount": 37201,
+  "sources": [
+  {"sourceType": "ACCOUNT", "name": "신한은행 끝전",        "amount": 2300},
+  {"sourceType": "CARD",    "name": "신한카드 잔돈",         "amount": 700},
+  {"sourceType": "POINT",   "name": "마이신한포인트 잔돈",   "amount": 28000},
+  {"sourceType": "FX",      "name": "SOL트래블 환전 잔돈",   "amount": 6201}
   ]
  }
  }
 ```
+
+- `sourceType` 의미: `ACCOUNT`=연동 계좌 끝전(`balance % threshold`) / `CARD`=카드 라운드업 잔돈 / `POINT`=포인트 잔액 / `FX`=외화 지갑(`currency='USD'`) 잔액의 KRW 환산.
+- `amount`는 모두 KRW 정수. FX는 USD 잔액 × **매매기준율**(CMA 홈 `totalKrwEquivalent`과 동일 환산), HALF_UP. USD 미보유면 환율 미조회·`amount=0`.
+- 비활성/미설정 소스도 `amount=0`으로 항상 4개를 반환한다(화면 고정 레이아웃).
+
+> **F-E=B 확정**: ACCOUNT·CARD·POINT는 CMA 홈 `collectSources`(상시 홈)와 **동일 계산을 단일 소스로 공유**한다 — scan(core)은 ledger `collection_settings`(끝전 임계값·활성 소스)만 내부 Feign read하고, 잔액 원천은 core 자체 DB로 로컬 계산한다(라운드업은 `InternalAssetService.getCardRoundup` 재사용). ledger 전체 수집 계산(`getHome`)을 다시 호출하지 않는다(core→ledger→core 순환 방지).
+>
+> **FX 입금(수집 실행)은 별도 후속(EXC-006)**: scan은 발견(표시) 전용이다. 실제 CMA 입금 시 통화 분기 — **달러 잔액→CMA USD 지갑 / 원화 잔액→CMA KRW 지갑 / 그 외 통화→달러로 환전 후 CMA USD 지갑** 입금 — 은 외화 잔돈 수집 실행(EXC-006)에서 구현한다. (그 외 통화 환전은 USD/KRW 외 환율 소스가 갖춰진 뒤.)
 
 ---
 
@@ -547,30 +558,32 @@ SOL트래블 외화잔액 연동
   "message": "휴면계좌 조회 성공",
   "data": [
   {
-  "accountNo": "110-***-111222",
-  "bankName": "신한은행",
-  "balance": 50000,
-  "dormantSince": "2023-01-01"
+  "accountId": 4,
+  "bankName": "국민은행",
+  "accountName": "KB 정기예금",
+  "balance": 2000000.0000,
+  "currency": "KRW"
   }
  ]
  }
 ```
 
+> `dormantSince`(휴면 시작일) 제거 — 와이어프레임에 시작일 표기 없음 → `linked_bank_accounts`에 휴면시작일 컬럼 추가 불필요. 해지 요청용 식별자로 `accountId` 노출. **계좌번호(`account_no_enc`)는 AES 암호화 컬럼(시드 NULL)이라 노출하지 않고**, 기존 `bank-accounts` 조회 관례대로 은행명 + 상품명(`accountName`)으로 표시. 정렬: 잔액 큰 순. 소프트 해지된 계좌(`closed_at IS NOT NULL`)는 휴면 목록에서 제외한다.
+
 ---
 
 ### POST `/api/assets/dormant/close`
 
-휴면계좌 해지·잔액 이체
+휴면계좌 일괄 해지 → CMA 이체 (다중 선택)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 휴면계좌 **다중 체크 선택**(`accountIds`). 목적지는 사용자 CMA로 **고정**(요청에 `targetAccount` 없음).
 
 ```json
 {
-  "accountNo": "110-***-111222",
-  "targetAccount": "110-456-789012"
+  "accountIds": [12, 15]
  }
 ```
 
@@ -580,12 +593,34 @@ SOL트래블 외화잔액 연동
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "휴면계좌 해지 및 이체 성공",
+  "message": "휴면계좌 해지 및 CMA 이체 성공",
   "data": {
-  "transferredAmount": 50000
- }
+    "closedCount": 2,
+    "transferredAmount": 130000,
+    "allCompleted": true,
+    "results": [
+      {
+        "accountId": 12,
+        "amount": 30000,
+        "currency": "KRW",
+        "status": "COMPLETED"
+      },
+      {
+        "accountId": 15,
+        "amount": 100000,
+        "currency": "KRW",
+        "status": "COMPLETED"
+      }
+    ]
+  }
  }
 ```
+
+> 화면(와이어프레임 14·17·20번) = 다중 체크 → 일괄 소프트 해지 + CMA 이체. 해지 잔액은 CMA에 `txType=DORMANT` 입금(core→ledger Feign, ledger가 멱등키 `DORMANT:{accountId}` 파생) — **F-D**(`DECISIONS.md` F-D / `ASSET_DEVELOPMENT.md` §6) 참조.
+>
+> `accountIds`는 비어 있거나 중복될 수 없고, 각 ID는 요청 사용자 소유의 미해지 휴면계좌 또는 과거 이 요청으로 이미 소프트 해지된 계좌여야 한다. 타인·미존재·비휴면 계좌는 원장 호출 전 400으로 거절한다. 원장 입금 뒤 DB A 계좌는 `balance=0`, `closed_at`, `closed_amount`로 소프트 해지하고, 현재 계좌/휴면 조회에서는 제외한다.
+>
+> `results[].status`는 `COMPLETED`(이번 호출 완료), `ALREADY_CLOSED`(과거 호출로 이미 완료되어 원장 재기록 없음), `FAILED`(정상 검증 후 실행 중 실패) 중 하나다. `closedCount`·`transferredAmount`는 이번 호출에서 새로 완료된 건만 합산한다. `allCompleted=false`인 경우에도 각 계좌 상태를 사용해 UI가 결과를 표시한다.
 
 ---
 
