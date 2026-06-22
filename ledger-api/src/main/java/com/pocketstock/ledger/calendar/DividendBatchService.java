@@ -31,7 +31,7 @@ public class DividendBatchService {
     private final KisDividendClient kisDividendClient;
     private final CalendarFeignClient calendarFeignClient;
 
-    @Scheduled(cron = "0 0 2 1 1 *")
+    @Scheduled(cron = "0 0 2 1 1 *", zone = "Asia/Seoul")
     public void syncDividendEvents() {
         LocalDate today = LocalDate.now();
         LocalDate oneYearLater = today.plusYears(1);

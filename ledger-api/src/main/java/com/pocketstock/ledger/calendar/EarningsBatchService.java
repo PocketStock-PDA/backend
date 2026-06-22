@@ -33,7 +33,7 @@ public class EarningsBatchService {
     private final OpenDartClient openDartClient;
     private final CalendarFeignClient calendarFeignClient;
 
-    @Scheduled(cron = "0 0 3 * * MON")
+    @Scheduled(cron = "0 0 3 * * MON", zone = "Asia/Seoul")
     public void syncEarningsEvents() {
         List<String> stockCodes = holdingMapper.findAllDistinctStockCodes();
         if (stockCodes.isEmpty()) {
