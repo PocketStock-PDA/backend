@@ -6,6 +6,7 @@ import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.core.asset.dto.DormantAccountResponse;
 import com.pocketstock.core.asset.dto.ExternalHoldingResponse;
 import com.pocketstock.core.asset.dto.InstitutionResponse;
+import com.pocketstock.core.asset.dto.ScanResponse;
 import com.pocketstock.user.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -58,5 +59,16 @@ public class AssetQueryController {
         }
         List<ExternalHoldingResponse> data = assetQueryService.getExternalHoldings(userId);
         return ResponseEntity.ok(ApiResponse.ok("타사 보유 소수점 조회 성공", data));
+    }
+
+    /** 잠자는 잔돈 스캔(연동 직후 발견 화면) — 끝전·라운드업·포인트·외화 환산 잔돈 소스별 묶음. */
+    @GetMapping("/scan")
+    public ResponseEntity<ApiResponse<ScanResponse>> scan(
+            @CurrentUserId Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        ScanResponse data = assetQueryService.getScan(userId);
+        return ResponseEntity.ok(ApiResponse.ok("잠자는 잔돈 스캔 성공", data));
     }
 }
