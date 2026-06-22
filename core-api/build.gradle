@@ -17,6 +17,9 @@ dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
 
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    // Feign 기본 HTTP 클라이언트(java.net.HttpURLConnection)는 PATCH 미지원 → OkHttp로 교체.
+    // 현재 PATCH Feign 호출은 없으나, 추후 추가 시 동일 결함을 막기 위한 선제 적용(ledger-api와 동일).
+    implementation 'io.github.openfeign:feign-okhttp'
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
 
     // 웹푸시(VAPID) 발송 — BouncyCastle 트랜지티브 포함
