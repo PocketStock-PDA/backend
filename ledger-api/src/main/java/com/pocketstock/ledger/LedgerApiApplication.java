@@ -18,7 +18,7 @@ import java.util.TimeZone;
         "com.pocketstock.common",
         "com.pocketstock.user.security"
 })
-@MapperScan("com.pocketstock.ledger.**.mapper")
+@MapperScan({"com.pocketstock.ledger.**.mapper", "com.pocketstock.ledger.recon"})
 public class LedgerApiApplication {
     public static void main(String[] args) {
         // 서버 타임존을 UTC로 고정 — 로컬(KST)·EC2(UTC) 환경차로 시간이 흔들리는 것 방지.

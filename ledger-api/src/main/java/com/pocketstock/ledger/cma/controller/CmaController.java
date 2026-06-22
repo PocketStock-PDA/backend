@@ -2,17 +2,20 @@ package com.pocketstock.ledger.cma.controller;
 
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.cma.dto.request.AutoChargeSettingRequest;
+import com.pocketstock.ledger.cma.dto.request.CmaTransferRequest;
 import com.pocketstock.ledger.cma.dto.request.CollectionSettingRequest;
 import com.pocketstock.ledger.cma.dto.response.AutoChargeSettingResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaAccountResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
+import com.pocketstock.ledger.cma.dto.response.CmaTransferResponse;
 import com.pocketstock.ledger.cma.dto.response.CollectResult;
 import com.pocketstock.ledger.cma.service.CmaAccountService;
 import com.pocketstock.ledger.cma.service.CmaAutoChargeSettingService;
 import com.pocketstock.ledger.cma.service.CmaCollectService;
 import com.pocketstock.ledger.cma.service.CmaQueryService;
+import com.pocketstock.ledger.cma.service.CmaTransferService;
 import com.pocketstock.user.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +35,7 @@ public class CmaController {
     private final CmaCollectService collectService;
     private final CmaAccountService accountService;
     private final CmaAutoChargeSettingService autoChargeSettingService;
+    private final CmaTransferService transferService;
 
     /** CMA 계좌 개설(멱등) — 온보딩 마지막 단계. 이미 있으면 기존 계좌 반환. */
     @PostMapping("/account")
@@ -116,6 +120,17 @@ public class CmaController {
         int safeSize = Math.min(Math.max(1, size), 100);
         return ApiResponse.ok("자금 이동 이력 조회 성공",
                 queryService.getTransfers(userId, safePage, safeSize));
+    }
+
+    /**
+     * CMA 풀 → 위탁 예수금 자금이동(BUY_TRANSFER) — 모은 자금을 매수용 예수금으로 충전.
+     * market(DOMESTIC/OVERSEAS)이 출금 통화풀·입금 예수금을 함께 결정한다. 사전 txn-auth 필요.
+     */
+    @PostMapping("/transfer")
+    public ApiResponse<CmaTransferResponse> transfer(
+            @CurrentUserId Long userId,
+            @RequestBody @Valid CmaTransferRequest request) {
+        return ApiResponse.ok("CMA 자금 이동 성공", transferService.transfer(userId, request));
     }
 
     @PutMapping("/collect/settings")
