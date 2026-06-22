@@ -147,8 +147,14 @@ public class WholeOrderMatchingEngine {
         }
         // 해외만: 장 마감 중 스킵돼 activeKeys에 없던 PENDING을 멱등 재무장(개장 후 등록 복구).
         for (String stockCode : foreignStocks) {
-            if (index.containsKey(stockCode)) {
+            try {
                 subscriptionManager.acquireForeignQuote(stockCode);
+                // 검사~재무장 사이 마지막 PENDING이 종료됐으면(TOCTOU) 방금 켠 구독을 되돌려 누수 방지.
+                if (!index.containsKey(stockCode)) {
+                    subscriptionManager.releaseForeignQuote(stockCode);
+                }
+            } catch (Exception e) {
+                log.warn("해외 PENDING 재무장 실패 stockCode={} — 다음 주기 재시도: {}", stockCode, e.getMessage());
             }
         }
     }

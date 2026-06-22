@@ -101,11 +101,13 @@ public class RealtimeSubscriptionManager {
         if (current != null && current.id().equals(desired.id())) {
             return;   // 이미 같은 세션 키로 구독 중 — 멱등(반복 호출 안전)
         }
-        if (current != null) {
-            decrement(current);   // 정규장↔주간 세션 전환 — 옛 tr_key 해제 후 새 키 등록
-        }
-        foreignQuoteKeys.put(stockCode, desired);
+        // 새 키를 먼저 등록한다 — increment가 등록 실패로 throw하면 상태를 남기지 않아
+        // 다음 liveness 호출이 같은 키로 재시도할 수 있다(실패 등록이 멱등 가드에 막혀 영구 정지되는 것 방지).
         increment(desired);
+        foreignQuoteKeys.put(stockCode, desired);
+        if (current != null) {
+            decrement(current);   // 정규장↔주간 세션 전환 — 새 키 등록 성공 후 옛 키 해제(무중단)
+        }
     }
 
     /** 매칭 엔진 전용 — 해외 종목 호가(HDFSASP0) 구독 해제(그 종목 마지막 PENDING 종료 시). */
@@ -153,7 +155,15 @@ public class RealtimeSubscriptionManager {
     private synchronized void increment(RealtimeKey key) {
         int count = refCounts.merge(key.id(), 1, Integer::sum);
         if (count == 1) {
-            key.upstream().register(key.trCode(), key.trKey());
+            try {
+                key.upstream().register(key.trCode(), key.trKey());
+            } catch (RuntimeException e) {
+                // 상류 등록 실패 → 참조계수 롤백(다음 호출이 0→1로 등록을 재시도하도록).
+                if (refCounts.merge(key.id(), -1, Integer::sum) <= 0) {
+                    refCounts.remove(key.id());
+                }
+                throw e;
+            }
         }
     }
 
