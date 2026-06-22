@@ -12,7 +12,8 @@ import java.util.List;
 
 /**
  * OpenDART 공시 목록 조회.
- * pblntf_ty=I (공정공시) 중 "잠정" 포함 공시 → 실적 발표일로 사용.
+ * pblntf_ty 미지정(전체 타입) — 공정공시(I) 한정 시 잠정실적이 0건으로 누락됨을 확인해 제거.
+ * reportNm에 "잠정" 포함 여부로 잠정실적 공시를 식별한다.
  */
 @Slf4j
 @Component
