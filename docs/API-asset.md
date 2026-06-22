@@ -451,34 +451,6 @@ SOL트래블 외화잔액 연동
 
 ---
 
-### GET `/api/assets`
-
-연동 자산 전체 조회
-
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-
-**Response Body**
-
-```json
-{
-  "success": true,
-  "code": "SUCCESS",
-  "message": "연동 자산 전체 조회 성공",
-  "data": {
-  "totalAsset": 52000000,
-  "categories": [
-  {"type": "BANK", "label": "은행", "amount": 20000000},
-  {"type": "SECURITIES", "label": "증권", "amount": 15000000},
-  {"type": "CARD", "label": "카드", "amount": 3000000},
-  {"type": "POINT", "label": "포인트", "amount": 25000}
-  ]
- }
- }
-```
-
----
-
 ### POST `/api/assets/refresh`
 
 연동 자산 새로고침 (최신화)
@@ -499,20 +471,24 @@ SOL트래블 외화잔액 연동
   "success": true,
   "code": "SUCCESS",
   "message": "자산 새로고침 성공",
-  "data": null
+  "data": {
+  "syncedAt": "2026-06-22T14:30:00"
+ }
  }
 ```
+
+> 시드가 고정이라 잔액 재계산 변화는 없음 → 동작은 **no-op + `linked_institutions.last_synced_at` 갱신**(F-G). 연동 자산 화면에서 "새로고침" 버튼이 붙을 여지를 위해 명세 유지(de-scope 대상이던 GET /assets와 달리 보존).
 
 ---
 
 ### GET `/api/assets/scan`
 
-잠자는 잔돈 스캔
+잠자는 잔돈 스캔 (연동 직후 발견 화면)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Response Body**
+**Response Body** — 잠자는 잔돈을 **소스별로 묶어** 표시(와이어프레임: SOL트래블 환전 잔돈 / 신한카드 잔돈 / 신한은행 끝전 + 총액).
 
 ```json
 {
@@ -521,13 +497,16 @@ SOL트래블 외화잔액 연동
   "message": "잠자는 잔돈 스캔 성공",
   "data": {
   "totalAmount": 12450,
-  "accounts": [
-  {"bankName": "신한은행", "accountNo": "110-***-456789", "amount": 7450},
-  {"bankName": "국민은행", "accountNo": "012-***-123456", "amount": 5000}
+  "sources": [
+  {"sourceType": "ACCOUNT", "name": "신한은행 끝전",      "amount": 7450},
+  {"sourceType": "FX",      "name": "SOL트래블 환전 잔돈", "amount": 5000},
+  {"sourceType": "CARD",    "name": "신한카드 잔돈",       "amount": 0}
   ]
  }
  }
 ```
+
+> scan(연동 직후 발견 화면)과 CMA 홈 `collectSources`(상시 홈)는 **동일 계산을 단일 소스로 공유**한다. 필드 형태는 CMA `collectSources`(`sourceType`/`name`/`amount`)와 정렬. **정확한 소스 분류·끝전 계산 통일은 F-E**(`ASSET_DEVELOPMENT.md` §6, Phase 1 직전 확정)에서 확정 — 위 `sourceType`(ACCOUNT 끝전 / CARD 라운드업 잔돈 / FX 환전 잔돈)은 와이어프레임 기준 잠정안.
 
 ---
 
@@ -547,30 +526,31 @@ SOL트래블 외화잔액 연동
   "message": "휴면계좌 조회 성공",
   "data": [
   {
+  "accountId": 12,
   "accountNo": "110-***-111222",
   "bankName": "신한은행",
-  "balance": 50000,
-  "dormantSince": "2023-01-01"
+  "balance": 50000
   }
  ]
  }
 ```
 
+> `dormantSince`(휴면 시작일) 제거 — 와이어프레임에 시작일 표기 없음 → `linked_bank_accounts`에 휴면시작일 컬럼 추가 불필요. 해지 요청용 식별자로 `accountId` 노출(`accountNo`는 마스킹 표시용).
+
 ---
 
 ### POST `/api/assets/dormant/close`
 
-휴면계좌 해지·잔액 이체
+휴면계좌 일괄 해지 → CMA 이체 (다중 선택)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 휴면계좌 **다중 체크 선택**(`accountIds`). 목적지는 사용자 CMA로 **고정**(요청에 `targetAccount` 없음).
 
 ```json
 {
-  "accountNo": "110-***-111222",
-  "targetAccount": "110-456-789012"
+  "accountIds": [12, 15]
  }
 ```
 
@@ -580,12 +560,15 @@ SOL트래블 외화잔액 연동
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "휴면계좌 해지 및 이체 성공",
+  "message": "휴면계좌 해지 및 CMA 이체 성공",
   "data": {
-  "transferredAmount": 50000
+  "closedCount": 2,
+  "transferredAmount": 130000
  }
  }
 ```
+
+> 화면(와이어프레임 14·17번 "휴면계좌 정리하고 남은 돈 옮겨드릴게요 — 포켓스톡 CMA로 모을 수 있어요") = 다중 체크 → 일괄 해지 + CMA 이체. 해지 잔액은 CMA에 `txType=DORMANT` 입금(core→ledger Feign, 멱등키 `DORMANT:{accountId}`) — **F-D**(`DECISIONS.md` F-D / `ASSET_DEVELOPMENT.md` §6) 참조. 부분 성공 가능성(일부 계좌 실패) 대비 멱등 처리.
 
 ---
 
