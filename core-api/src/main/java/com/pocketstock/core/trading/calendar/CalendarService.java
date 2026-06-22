@@ -42,12 +42,13 @@ public class CalendarService {
         return new TradingCalendarResponse(year, month, days);
     }
 
-    public CalendarEventsResponse getUpcomingEvents(Long userId) {
-        LocalDate today = LocalDate.now();
-        LocalDate threeMonthsLater = today.plusMonths(3);
+    public CalendarEventsResponse getMonthlyEvents(Long userId, int year, int month) {
+        YearMonth ym = YearMonth.of(year, month);
+        LocalDate from = ym.atDay(1);
+        LocalDate to   = ym.atEndOfMonth();
 
         List<EventItem> events = calendarMapper
-                .findEventsByDateRange(userId, today, threeMonthsLater).stream()
+                .findEventsByDateRange(userId, from, to).stream()
                 .map(r -> new EventItem(r.getStockCode(), r.getEventType(), r.getEventDate(), r.getTitle(), r.getDetail()))
                 .toList();
 
