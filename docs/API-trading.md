@@ -744,6 +744,38 @@
 
 ---
 
+### POST `/api/trading/whole-shares`
+
+온주 전환 실행(소수→온주) — **사용자가 전환 버튼을 누르면** 그 종목의 소수점(신탁) 보유 **정수부를 온주(직접소유)로 굳힌다**(FRAC-010 #157). 전환분은 이후 **정수 매도만**, 남은 소수만 소수 매도 가능(온주→소수 역전환 불가). `holdings.quantity`는 불변(온주=quantity−fractional_qty가 +전환수량). **소수 보유가 1주 미만이면 거부.** 미체결 매도분(held)은 전환 대상에서 제외.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+**Request Body**
+
+```json
+{ "stockCode": "005930" }
+```
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "온주 전환 성공",
+  "data": {
+    "stockCode": "005930",
+    "convertedWholeQty": 1,
+    "remainingFractional": 0.2,
+    "wholeQty": 1.0,
+    "totalQuantity": 1.2
+  }
+ }
+```
+
+---
+
 ### GET `/api/trading/whole-shares`
 
 온주 전환내역 조회
@@ -759,13 +791,13 @@
   "code": "SUCCESS",
   "message": "온주 전환내역 조회 성공",
   "data": [
-  {
-  "stockCode": "005930",
-  "stockName": "삼성전자",
-  "fractionalQuantity": 1.0,
-  "convertedAt": "2025-06-10T00:00:00"
-  }
- ]
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "wholeQty": 1,
+      "convertedAt": "2026-06-23T10:00:00"
+    }
+  ]
  }
 ```
 

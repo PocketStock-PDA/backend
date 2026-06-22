@@ -110,7 +110,8 @@
 | 소수점투자 | 거래내역 조회(매수·매도·달성) | GET | `/api/trading/orders` |  | B·김준형 | ✅ |
 | 소수점투자 | 미체결 주문 조회 | GET | `/api/trading/orders/pending` |  | B·김준형 |  |
 | 소수점투자 | 보유종목·잔고(평가·수익률) 조회 | GET | `/api/trading/holdings` |  | B·김준형 | ✅ |
-| 소수점투자 | 온주 전환내역 조회 | GET | `/api/trading/whole-shares` |  | B·김준형 |  |
+| 소수점투자 | 온주 전환 실행(소수→온주, 사용자 버튼) | POST | `/api/trading/whole-shares` |  | B·김준형 | 소수 정수부를 온주(직접소유)로 굳힘 #157 |
+| 소수점투자 | 온주 전환내역 조회 | GET | `/api/trading/whole-shares` |  | B·김준형 | #157 |
 | 정기적립식 | 자동모으기 설정 등록(주기/조건) | POST | `/api/trading/auto-invest` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 설정 수정 | PUT | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 일시중지/재개/해제 | PATCH | `/api/trading/auto-invest/{id}/status` |  | B·김준형 |  |
