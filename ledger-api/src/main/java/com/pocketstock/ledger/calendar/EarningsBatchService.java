@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * OpenDART 잠정실적 공시 기반 실적발표 일정 배치.
- * 매주 월요일 새벽 3시, 전체 보유 종목의 최근 1년 잠정실적 공시를 수집해
+ * 매주 월요일 새벽 3시, 전체 보유 종목의 최근 3개월 잠정실적 공시를 수집해
  * core-api stock_events(EARNINGS)에 upsert한다.
  */
 @Slf4j
