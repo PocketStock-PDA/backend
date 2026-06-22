@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.pocketstock.ledger.trading.mapper.OperatingCashMapper">
+<mapper namespace="com.pocketstock.ledger.firm.mapper.OperatingCashMapper">
 
     <!-- 회사 현금 잔액 원자 upsert: balance += delta. 통화행 없으면 INSERT(첫 거래 self-seeding).
          ON DUPLICATE KEY UPDATE의 원자 증감이 lost update를 막음(C1과 동형).
@@ -18,7 +18,7 @@
         WHERE currency = #{currency}
     </select>
 
-    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.OperatingCashTransaction"
+    <insert id="insert" parameterType="com.pocketstock.ledger.firm.domain.OperatingCashTransaction"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO operating_cash_transactions
             (currency, tx_type, amount, balance_after, ref_type, ref_id, idempotency_key)

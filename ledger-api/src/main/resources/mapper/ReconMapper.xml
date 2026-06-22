@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.recon.ReconMapper">
+
+    <!-- 모든 쿼리: reconKey(통화/종목) + reconVal(합/잔액)로 정규화. 읽기 전용 집계. -->
+
+    <select id="sumCmaByRefType" resultType="map">
+        SELECT currency AS reconKey, SUM(amount) AS reconVal
+        FROM cma_transactions
+        WHERE ref_type = #{refType}
+        GROUP BY currency
+    </select>
+
+    <select id="sumOperatingCashByRefType" resultType="map">
+        SELECT currency AS reconKey, SUM(amount) AS reconVal
+        FROM operating_cash_transactions
+        <if test="refType != null">WHERE ref_type = #{refType}</if>
+        GROUP BY currency
+    </select>
+
+    <select id="operatingCashBalances" resultType="map">
+        SELECT currency AS reconKey, balance AS reconVal
+        FROM operating_cash_balances
+    </select>
+
+    <select id="sumDepositByRefType" resultType="map">
+        SELECT currency AS reconKey, SUM(amount) AS reconVal
+        FROM deposit_transactions
+        WHERE ref_type = #{refType}
+        GROUP BY currency
+    </select>
+
+    <select id="sumHoldingsByStock" resultType="map">
+        SELECT stock_code AS reconKey, SUM(quantity) AS reconVal
+        FROM holdings
+        GROUP BY stock_code
+    </select>
+
+    <select id="operatingAccountInventory" resultType="map">
+        SELECT stock_code AS reconKey, (whole_qty + fractional_remainder) AS reconVal
+        FROM operating_account
+    </select>
+
+    <select id="sumDepositByAccount" resultType="map">
+        SELECT CAST(account_id AS CHAR) AS reconKey, SUM(amount) AS reconVal
+        FROM deposit_transactions
+        GROUP BY account_id
+    </select>
+
+    <select id="accountBalances" resultType="map">
+        SELECT CAST(account_id AS CHAR) AS reconKey, balance AS reconVal
+        FROM account_balances
+    </select>
+
+    <select id="sumCmaAll" resultType="map">
+        SELECT CONCAT(cma_account_id, ':', currency) AS reconKey, SUM(amount) AS reconVal
+        FROM cma_transactions
+        GROUP BY cma_account_id, currency
+    </select>
+
+    <select id="cmaBalances" resultType="map">
+        SELECT CONCAT(cma_account_id, ':', currency) AS reconKey, balance AS reconVal
+        FROM cma_balances
+    </select>
+
+</mapper>

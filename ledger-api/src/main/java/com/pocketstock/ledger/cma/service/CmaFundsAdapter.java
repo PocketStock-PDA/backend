@@ -3,7 +3,9 @@ package com.pocketstock.ledger.cma.service;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
+import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
+import com.pocketstock.ledger.cma.mapper.CmaBalanceMapper;
 import com.pocketstock.ledger.exchange.port.CmaFundsPort;
 import com.pocketstock.ledger.exchange.port.FxLegResult;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ public class CmaFundsAdapter implements CmaFundsPort {
     private static final String REF_TYPE_FX = "FX_TX";
 
     private final CmaAccountMapper accountMapper;
+    private final CmaBalanceMapper balanceMapper;
     private final CmaLedgerWriter ledgerWriter;
 
     @Override
@@ -70,5 +73,15 @@ public class CmaFundsAdapter implements CmaFundsPort {
                 REF_TYPE_FX, fxTransactionId, "FX:" + fxTransactionId + ":IN");
 
         return new FxLegResult(remainFrom, remainTo);
+    }
+
+    @Override
+    public BigDecimal poolBalance(Long userId, String currency) {
+        CmaAccount account = accountMapper.findByUserId(userId);
+        if (account == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌가 없어 잔액을 조회할 수 없습니다.");
+        }
+        CmaBalance balance = balanceMapper.findByAccountIdAndCurrency(account.getId(), currency);
+        return balance == null ? BigDecimal.ZERO : balance.getBalance();
     }
 }

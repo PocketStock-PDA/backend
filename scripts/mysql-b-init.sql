@@ -272,10 +272,10 @@ CREATE TABLE IF NOT EXISTS operating_account (
 CREATE TABLE IF NOT EXISTS operating_cash_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   currency VARCHAR(3) NOT NULL,
-  tx_type VARCHAR(20) NOT NULL,            -- 트리거 주문 side: BUY(회사 현금 수취,+) / SELL(회사 현금 지급,-)
+  tx_type VARCHAR(20) NOT NULL,            -- BUY(회사 현금 수취,+) / SELL(지급,-) / FX(환전 통화풀 leg, 부호로 방향)
   amount DECIMAL(18,4) NOT NULL,           -- +수취 / −지급 (유저 예수금 leg의 반대 부호)
   balance_after DECIMAL(18,4),
-  ref_type VARCHAR(20) NULL,               -- order(온주) | allocation | batch(2차 소수점)
+  ref_type VARCHAR(20) NULL,               -- order(온주) | allocation | batch(2차 소수점) | fx(환전 회사 통화풀 leg, H5)
   ref_id BIGINT NULL,
   idempotency_key VARCHAR(80) UNIQUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -290,6 +290,24 @@ CREATE TABLE IF NOT EXISTS operating_cash_balances (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ocb_ccy (currency)         -- (currency) = 회사현금 그레인
+);
+
+-- 회사 환차익 원장(복식부기 P&L, H5 #96). 환전 스프레드(매매기준율 vs 고객 적용환율 차)의 실현 손익.
+-- 회사 통화풀(operating_cash_*)은 from풀 +/to풀 − 2-leg으로 통화별 보존(Σ=0)을 만들고,
+-- 그 2-leg이 mid 기준으로 비대칭인 만큼(=회사가 가져가는 스프레드)을 base_currency(KRW)로 여기 1줄 박제.
+-- append-only journal(별도 projection 없음 — 누적은 SUM으로 충분, 회사 P&L은 단방향 누적).
+CREATE TABLE IF NOT EXISTS operating_fx_pnl (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  fx_transaction_id BIGINT NOT NULL,                 -- 짝지은 환전 거래(fx_transactions.id)
+  from_currency VARCHAR(3) NOT NULL,
+  to_currency VARCHAR(3) NOT NULL,
+  base_currency VARCHAR(3) NOT NULL DEFAULT 'KRW',   -- 손익 측정 통화(기준통화)
+  realized_pnl DECIMAL(18,4) NOT NULL,               -- 실현 환차익(base_currency 기준, + = 회사 이익)
+  mid_rate DECIMAL(18,6) NOT NULL,                   -- 매매기준율 스냅샷(손익 측정 기준)
+  applied_rate DECIMAL(18,6) NOT NULL,               -- 고객 적용환율(buyRate/sellRate)
+  idempotency_key VARCHAR(80) UNIQUE,                -- fx:{id}:pnl (재적재 중복 차단)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ofp_fx (fx_transaction_id)
 );
 
 CREATE TABLE IF NOT EXISTS auto_invest_settings (
@@ -416,6 +434,7 @@ ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_acc   FOREIGN KEY (accoun
 ALTER TABLE whole_share_events   ADD CONSTRAINT fk_wse_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
 -- cross-domain (exchange → trading, 같은 DB B)
 ALTER TABLE fx_transactions      ADD CONSTRAINT fk_fx_order  FOREIGN KEY (ref_order_id) REFERENCES orders(id);
+ALTER TABLE operating_fx_pnl     ADD CONSTRAINT fk_ofp_fx    FOREIGN KEY (fx_transaction_id) REFERENCES fx_transactions(id);
 -- stock_code → tradable_stocks (trading 내부 종목 마스터, 같은 DB B, 2026-06-15)
 -- FK child 컬럼 leading 인덱스 명시 (InnoDB 자동생성 대신 이름·의도 고정)
 ALTER TABLE holdings             ADD INDEX idx_hold_stock (stock_code);
