@@ -91,25 +91,43 @@ public class SecuritiesAccountService {
         return result;
     }
 
-    /** 예수금/출금가능/주문가능 조회 (KRW = 국내 위탁계좌) */
+    /** 예수금/출금가능/주문가능 조회 — 국내(KRW)+해외(USD) 시장별(#137). 최상위 3필드는 국내 KRW(하위호환). */
     @Transactional(readOnly = true)
     public DepositResponse getDeposit(Long userId) {
         requireAuth(userId);
-        SecuritiesAccount domestic = accountMapper.findByUserIdAndMarket(userId, "DOMESTIC");
-        if (domestic == null) {
-            return new DepositResponse(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        DepositResponse.Balance domestic = marketBalance(userId, "DOMESTIC", "KRW");
+        DepositResponse.Balance overseas = marketBalance(userId, "OVERSEAS", "USD");
+        // 계좌가 있는 시장만 분해 목록에 포함(없으면 생략).
+        List<DepositResponse.Balance> balances = new ArrayList<>();
+        if (domestic != null) {
+            balances.add(domestic);
         }
-        BigDecimal balance = depositMapper.findBalanceByAccount(domestic.getId());
-        BigDecimal held = depositMapper.findHeldByAccount(domestic.getId());
+        if (overseas != null) {
+            balances.add(overseas);
+        }
+        // 최상위는 국내 KRW(없으면 0) — 기존 단일 KRW 화면 하위호환.
+        DepositResponse.Balance krw = domestic != null
+                ? domestic
+                : new DepositResponse.Balance("DOMESTIC", "KRW", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        return new DepositResponse(krw.deposit(), krw.withdrawable(), krw.orderable(), balances);
+    }
+
+    /** 한 위탁계좌의 예수금 분해 — 계좌 없으면 null. 출금가능·주문가능 = balance − held(M2). */
+    private DepositResponse.Balance marketBalance(Long userId, String market, String currency) {
+        SecuritiesAccount account = accountMapper.findByUserIdAndMarket(userId, market);
+        if (account == null) {
+            return null;
+        }
+        BigDecimal balance = depositMapper.findBalanceByAccount(account.getId());
+        BigDecimal held = depositMapper.findHeldByAccount(account.getId());
         if (balance == null) {
             balance = BigDecimal.ZERO;
         }
         if (held == null) {
             held = BigDecimal.ZERO;
         }
-        // 예수금=balance, 출금가능·주문가능 = balance − held(미체결 매수 hold 제외, M2).
         BigDecimal available = balance.subtract(held);
-        return new DepositResponse(balance, available, available);
+        return new DepositResponse.Balance(market, currency, balance, available, available);
     }
 
     // ---- helpers ----
