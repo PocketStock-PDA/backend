@@ -38,6 +38,9 @@ public class AssetCloseService {
     private static final String STATUS_ALREADY_CLOSED = "ALREADY_CLOSED";
     private static final String STATUS_FAILED = "FAILED";
 
+    /** 한 번에 해지 가능한 계좌 수 상한 — 계좌마다 순차 원장 Feign이 일어나므로 과도한 연쇄 호출(타임아웃)을 막는다. */
+    private static final int MAX_CLOSE_BATCH = 50;
+
     private final LinkedAssetMapper linkedAssetMapper;
     private final LedgerFeignClient ledgerFeignClient;
 
@@ -48,6 +51,10 @@ public class AssetCloseService {
         }
         if (requested.stream().anyMatch(id -> id == null)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "유효하지 않은 계좌가 포함되어 있습니다.");
+        }
+        if (requested.size() > MAX_CLOSE_BATCH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "한 번에 해지할 수 있는 계좌는 최대 " + MAX_CLOSE_BATCH + "개입니다.");
         }
         // 요청 순서 보존 + 중복 거부(같은 계좌 두 번 체크 = 잘못된 요청)
         Set<Long> ids = new LinkedHashSet<>(requested);
@@ -69,6 +76,10 @@ public class AssetCloseService {
             boolean dormant = Boolean.TRUE.equals(row.isDormant());
             if (!alreadyClosed && !dormant) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT, "휴면계좌가 아닌 계좌가 포함되어 있습니다.");
+            }
+            // 음수 잔액은 정상 데이터가 아님 — 원장 입금 없이 닫혀 집계·해지 금액이 왜곡되므로 사전 차단(전부-아니면-거부)
+            if (!alreadyClosed && row.balance() != null && row.balance().signum() < 0) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "잔액이 올바르지 않은 계좌가 포함되어 있습니다.");
             }
         }
 

@@ -36,6 +36,9 @@ public class CmaDormantCreditService {
     /** @return 입금 반영 후 CMA 통화풀 잔액(balance_after). */
     @Transactional
     public BigDecimal credit(InternalCmaCreditRequest req) {
+        if (req == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "요청 본문이 필요합니다.");
+        }
         if (req.userId() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "userId가 필요합니다.");
         }
