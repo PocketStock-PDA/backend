@@ -85,9 +85,9 @@ public class EarningsBatchService {
         for (OpenDartDisclosureResponse.Item item : items) {
             try {
                 LocalDate eventDate = LocalDate.parse(item.rceptDt(), FMT);
-                String title  = item.corpName() + " " + normalizeReportName(item.reportNm());
-                    String rNm = item.reportNm() == null ? "" : item.reportNm().trim();
-                    events.add(new StockEventUpsertRequest(stockCode, EVENT_TYPE, eventDate, title, rNm));
+                String rNm   = item.reportNm() == null ? "" : item.reportNm().trim();
+                String title = item.corpName() + " " + normalizeReportName(rNm);
+                events.add(new StockEventUpsertRequest(stockCode, EVENT_TYPE, eventDate, title, rNm));
             } catch (DateTimeParseException e) {
                 log.warn("[실적배치] 날짜 파싱 실패 — skip stockCode={} rceptDt={}",
                         stockCode, item.rceptDt());
