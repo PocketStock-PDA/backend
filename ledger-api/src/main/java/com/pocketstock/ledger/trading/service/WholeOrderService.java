@@ -4,6 +4,7 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateCache;
 import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.kis.KisAskingPriceResponse;
 import com.pocketstock.ledger.kis.KisMarketClient;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
@@ -62,6 +63,7 @@ public class WholeOrderService {
     private final HoldingMapper holdingMapper;
     private final DepositService depositService;
     private final OperatingCashService operatingCashService;
+    private final OperatingInventoryService operatingInventoryService;
     private final OrderRejectionService rejectionService;
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
@@ -178,12 +180,16 @@ public class WholeOrderService {
                 // 원화 취득원가 = 국내는 체결금액 그대로, 해외는 체결 시점 실시간 환율로 환산.
                 BigDecimal krwAmount = overseas ? totalAmount.multiply(fxRateForKrwBasis()) : totalAmount;
                 applyBuy(userId, account.getId(), req.stockCode(), quantity, fillPrice, krwAmount, currency);
+                // 복식부기 주식 leg: 유저 holdings 증가의 짝으로 회사 옴니버스 재고 −qty. 같은 로컬 트랜잭션.
+                operatingInventoryService.record(req.stockCode(), -quantity.intValueExact());
             } else {
                 applySell(account.getId(), req.stockCode(), quantity);
                 balanceAfter = depositService.record(userId, account.getId(), "SELL",
                         totalAmount, currency, "order", order.getId(), idemKey);
                 // 복식부기 상대 leg(H1): 유저 입금의 짝으로 회사 현금 지급(−). 같은 로컬 트랜잭션.
                 operatingCashService.record("SELL", totalAmount.negate(), currency, "order", order.getId(), idemKey);
+                // 복식부기 주식 leg: 유저 holdings 감소의 짝으로 회사 옴니버스 재고 +qty.
+                operatingInventoryService.record(req.stockCode(), quantity.intValueExact());
             }
 
             // 전이 가드 ②: RECEIVED → FILLED 조건부 전이(같은 tx라 항상 1행, 0이면 정합성 오류).

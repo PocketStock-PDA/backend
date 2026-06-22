@@ -1,6 +1,6 @@
-package com.pocketstock.ledger.trading.mapper;
+package com.pocketstock.ledger.firm.mapper;
 
-import com.pocketstock.ledger.trading.domain.OperatingCashTransaction;
+import com.pocketstock.ledger.firm.domain.OperatingCashTransaction;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

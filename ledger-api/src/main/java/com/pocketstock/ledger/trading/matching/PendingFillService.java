@@ -7,8 +7,9 @@ import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
+import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.service.DepositService;
-import com.pocketstock.ledger.trading.service.OperatingCashService;
+import com.pocketstock.ledger.trading.service.OperatingInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class PendingFillService {
     private final OrderMapper orderMapper;
     private final DepositService depositService;
     private final OperatingCashService operatingCashService;
+    private final OperatingInventoryService operatingInventoryService;
     private final HoldingMapper holdingMapper;
     private final CurrencyRateCache currencyRateCache;
 
@@ -59,6 +61,8 @@ public class PendingFillService {
             BigDecimal krwAmount = CURRENCY_USD.equals(cmd.currency()) ? total.multiply(fxRateForKrwBasis()) : total;
             holdingMapper.upsertBuy(cmd.userId(), cmd.accountId(), cmd.stockCode(),
                     cmd.quantity(), cmd.fillPrice(), krwAmount, cmd.currency());
+            // 복식부기 주식 leg: 유저 holdings 증가의 짝으로 회사 옴니버스 재고 −qty.
+            operatingInventoryService.record(cmd.stockCode(), -cmd.quantity().intValueExact());
         } else {
             // 묶은 수량 해제 → 보유 수량 실차감(release 후 매도가능이 복원돼 reduceForSell 가드 통과).
             holdingMapper.releaseSellReserve(cmd.accountId(), cmd.stockCode(), cmd.quantity());
@@ -69,6 +73,8 @@ public class PendingFillService {
                     total, cmd.currency(), "order", cmd.orderId(), idemKey);
             // 복식부기 상대 leg(H1): 회사 현금 지급(−).
             operatingCashService.record("SELL", total.negate(), cmd.currency(), "order", cmd.orderId(), idemKey);
+            // 복식부기 주식 leg: 유저 holdings 감소의 짝으로 회사 옴니버스 재고 +qty.
+            operatingInventoryService.record(cmd.stockCode(), cmd.quantity().intValueExact());
         }
         return true;
     }
