@@ -3,6 +3,7 @@ package com.pocketstock.core.internal.asset;
 import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
 import com.pocketstock.core.internal.asset.dto.PointSummary;
+import com.pocketstock.core.internal.asset.dto.SourceDeduction;
 import com.pocketstock.core.internal.asset.mapper.InternalAssetMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -60,5 +61,26 @@ public class InternalAssetService {
     public PointSummary getAvailablePoints(Long userId, Long linkedAccountId) {
         BigDecimal balance = mapper.findPointBalance(userId, linkedAccountId);
         return new PointSummary(linkedAccountId, balance != null ? balance : BigDecimal.ZERO);
+    }
+
+    /**
+     * 끝전 수집 확정 — 수집된 연동 계좌 잔액을 차감해 원천을 닫는다(재수집/무한복사 방지).
+     * ledger-api가 원장 입금을 기록한 뒤 호출한다.
+     */
+    @Transactional
+    public void deductAccountBalances(Long userId, List<SourceDeduction> deductions) {
+        if (deductions == null) return;
+        for (SourceDeduction d : deductions) {
+            mapper.deductAccountBalance(userId, d.id(), d.amount());
+        }
+    }
+
+    /** 포인트 수집 확정 — 수집된 연동 포인트 잔액을 차감해 원천을 닫는다. */
+    @Transactional
+    public void deductPointBalances(Long userId, List<SourceDeduction> deductions) {
+        if (deductions == null) return;
+        for (SourceDeduction d : deductions) {
+            mapper.deductPointBalance(userId, d.id(), d.amount());
+        }
     }
 }

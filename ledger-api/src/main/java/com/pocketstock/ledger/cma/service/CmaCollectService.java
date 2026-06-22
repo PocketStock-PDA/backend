@@ -6,6 +6,7 @@ import com.pocketstock.ledger.client.AssetFeignClient;
 import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
 import com.pocketstock.ledger.client.dto.PointSummary;
+import com.pocketstock.ledger.client.dto.SourceDeduction;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.request.CollectionSettingRequest;
@@ -86,15 +87,28 @@ public class CmaCollectService {
                 s -> s.getThreshold() != null ? s.getThreshold() : DEFAULT_THRESHOLD));
 
         List<LinkedAccountSummary> accounts = assetFeignClient.getLinkedAccounts(userId, enabledIds);
-        BigDecimal amount = accounts.stream()
-                .map(a -> a.balance().remainder(thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD)))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 계좌별 끝전(잔액 % threshold)을 계산해 합산하고, 차감 대상(끝전>0)을 함께 모은다.
+        BigDecimal amount = BigDecimal.ZERO;
+        List<SourceDeduction> deductions = new ArrayList<>();
+        for (LinkedAccountSummary a : accounts) {
+            BigDecimal threshold = thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD);
+            BigDecimal remainder = a.balance().remainder(threshold);
+            amount = amount.add(remainder);
+            if (remainder.signum() > 0) {
+                deductions.add(new SourceDeduction(a.id(), remainder));
+            }
+        }
         requireCollectible(amount);
 
         // E-1: 합산 1줄. ref_id는 계좌 1개면 해당 id, 여러 개면 null(다출처)
         Long refId = enabledIds.size() == 1 ? enabledIds.get(0) : null;
         BigDecimal balanceAfter = ledgerWriter.applyEntry(userId, account.getId(), KRW,
                 TX_COLLECT, SRC_ACCOUNT, amount, REF_BANK_ACCOUNT, refId, idempotencyKey);
+
+        // 수집된 끝전만큼 연동 계좌 잔액 차감(core-api, DB A) — 같은 끝전이 다시 수집돼 금액이 복사되지 않게 한다.
+        // 교차 DB라 한 트랜잭션에 못 묶음 → 원장 기록 후 호출(실패 시 본 트랜잭션 롤백되어 재시도 가능).
+        assetFeignClient.deductAccountBalances(userId, deductions);
         return CollectResult.success(SRC_ACCOUNT, amount, balanceAfter);
     }
 
@@ -147,16 +161,25 @@ public class CmaCollectService {
 
         BigDecimal amount = BigDecimal.ZERO;
         List<Long> refIds = new ArrayList<>();
+        List<SourceDeduction> deductions = new ArrayList<>();
         for (CollectionSetting setting : enabled) {
             PointSummary point = assetFeignClient.getAvailablePoints(userId, setting.getSourceRefId());
-            amount = amount.add(point.availablePoints());
+            BigDecimal points = point.availablePoints();
+            amount = amount.add(points);
             refIds.add(setting.getSourceRefId());
+            if (points.signum() > 0) {
+                deductions.add(new SourceDeduction(setting.getSourceRefId(), points));
+            }
         }
         requireCollectible(amount);
 
         Long refId = refIds.size() == 1 ? refIds.get(0) : null;
         BigDecimal balanceAfter = ledgerWriter.applyEntry(userId, account.getId(), KRW,
                 TX_COLLECT, SRC_POINT, amount, REF_POINT, refId, idempotencyKey);
+
+        // 수집된 포인트만큼 연동 포인트 잔액 차감(core-api, DB A) — 재수집/금액 복사 방지.
+        // 원장 기록 후 호출(실패 시 본 트랜잭션 롤백되어 재시도 가능).
+        assetFeignClient.deductPointBalances(userId, deductions);
         return CollectResult.success(SRC_POINT, amount, balanceAfter);
     }
 

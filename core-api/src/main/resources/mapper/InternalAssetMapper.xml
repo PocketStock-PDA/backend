@@ -47,4 +47,21 @@
           AND id = #{linkedAccountId}
     </select>
 
+    <!-- 끝전 수집 확정: 연동 계좌 잔액에서 수집액 차감 → 잔액이 threshold 배수가 되어 다음 끝전=0 -->
+    <update id="deductAccountBalance">
+        UPDATE linked_bank_accounts
+        SET balance = balance - #{amount}
+        WHERE user_id = #{userId}
+          AND id = #{id}
+          AND closed_at IS NULL
+    </update>
+
+    <!-- 포인트 수집 확정: 연동 포인트 잔액에서 수집액 차감(전환분만큼) -->
+    <update id="deductPointBalance">
+        UPDATE linked_points
+        SET balance = balance - #{amount}
+        WHERE user_id = #{userId}
+          AND id = #{id}
+    </update>
+
 </mapper>

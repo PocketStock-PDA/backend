@@ -6,6 +6,7 @@ import com.pocketstock.ledger.client.AssetFeignClient;
 import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
 import com.pocketstock.ledger.client.dto.PointSummary;
+import com.pocketstock.ledger.client.dto.SourceDeduction;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.response.CollectResult;
@@ -85,6 +86,28 @@ class CmaCollectServiceTest {
         assertThat(result.status()).isEqualTo("SUCCESS");
         assertThat(result.amount()).isEqualByComparingTo("7500");   // 37500 % 10000
         assertThat(result.balanceAfter()).isEqualByComparingTo("412990");
+        // 수집한 끝전만큼 연동 계좌 잔액을 차감해 원천을 닫아야 한다(재수집/금액 복사 방지)
+        verify(feign).deductAccountBalances(USER_ID, List.of(new SourceDeduction(11L, new BigDecimal("7500"))));
+    }
+
+    @Test
+    @DisplayName("계좌 끝전: 여러 계좌면 계좌별 끝전을 각각 차감 대상으로 모아 원천을 닫는다")
+    void collectFromAccount_deductsPerAccount() {
+        when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
+        when(settingMapper.findByUserId(USER_ID)).thenReturn(List.of(
+                setting("ACCOUNT", 11L, true, "10000"),
+                setting("ACCOUNT", 12L, true, "10000")));
+        when(feign.getLinkedAccounts(eq(USER_ID), eq(List.of(11L, 12L)))).thenReturn(List.of(
+                new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("37500"), "KRW"),
+                new LinkedAccountSummary(12L, "CHECKING", new BigDecimal("12300"), "KRW")));
+        when(ledgerWriter.applyEntry(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new BigDecimal("415290"));
+
+        service(null).collectFromAccount(USER_ID, "key-1");
+
+        verify(feign).deductAccountBalances(USER_ID, List.of(
+                new SourceDeduction(11L, new BigDecimal("7500")),    // 37500 % 10000
+                new SourceDeduction(12L, new BigDecimal("2300"))));  // 12300 % 10000
     }
 
     @Test
@@ -177,6 +200,8 @@ class CmaCollectServiceTest {
         CollectResult result = service(null).collectFromPoint(USER_ID, "key-p");
 
         assertThat(result.amount()).isEqualByComparingTo("5000");
+        // 수집한 포인트만큼 연동 포인트 잔액을 차감해 원천을 닫아야 한다
+        verify(feign).deductPointBalances(USER_ID, List.of(new SourceDeduction(33L, new BigDecimal("5000"))));
     }
 
     @Test

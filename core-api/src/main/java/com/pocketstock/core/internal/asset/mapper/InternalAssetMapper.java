@@ -28,4 +28,18 @@ public interface InternalAssetMapper {
             @Param("userId") Long userId,
             @Param("linkedAccountId") Long linkedAccountId
     );
+
+    // 끝전 수집 확정 — 연동 계좌 잔액에서 수집액만큼 차감(원천을 닫아 재수집 방지)
+    int deductAccountBalance(
+            @Param("userId") Long userId,
+            @Param("id") Long id,
+            @Param("amount") BigDecimal amount
+    );
+
+    // 포인트 수집 확정 — 연동 포인트 잔액에서 수집액만큼 차감
+    int deductPointBalance(
+            @Param("userId") Long userId,
+            @Param("id") Long id,
+            @Param("amount") BigDecimal amount
+    );
 }

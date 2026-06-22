@@ -3,6 +3,7 @@ package com.pocketstock.core.internal.asset;
 import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
 import com.pocketstock.core.internal.asset.dto.PointSummary;
+import com.pocketstock.core.internal.asset.dto.SourceDeduction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -46,5 +47,19 @@ public class InternalAssetController {
             @RequestParam Long userId,
             @RequestParam Long linkedAccountId) {
         return service.getAvailablePoints(userId, linkedAccountId);
+    }
+
+    @PatchMapping("/accounts/deduct")
+    public void deductAccountBalances(
+            @RequestParam Long userId,
+            @RequestBody List<SourceDeduction> deductions) {
+        service.deductAccountBalances(userId, deductions);
+    }
+
+    @PatchMapping("/points/deduct")
+    public void deductPointBalances(
+            @RequestParam Long userId,
+            @RequestBody List<SourceDeduction> deductions) {
+        service.deductPointBalances(userId, deductions);
     }
 }
