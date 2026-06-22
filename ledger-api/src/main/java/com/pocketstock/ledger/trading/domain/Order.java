@@ -29,10 +29,15 @@ public class Order {
     private String exchange;          // 거래소: KOSPI | KOSDAQ | NASDAQ | NYSE | AMEX (composite FK)
     private String side;              // BUY | SELL
     private String orderType;         // 온주: LIMIT | MARKET (소수점: AMOUNT | QUANTITY | ALL)
-    private BigDecimal orderQuantity; // 주문 수량(온주=정수)
+    private BigDecimal orderAmount;   // 소수점 금액주문 주문금액(매수 AMOUNT·매도 AMOUNT). 온주는 NULL
+    private BigDecimal orderQuantity; // 주문 수량(온주=정수 / 소수점 수량매수·전량매도=소수)
+    private BigDecimal estQuantity;   // 소수점 접수 시점 예상 체결수량(참고치). 확정수량은 allocations
+    private BigDecimal heldAmount;    // 소수점 접수 시 실제 잠근 금액(D1). 환원·감사 기준. 온주는 NULL
     private BigDecimal price;         // 온주 체결단가(지정가=요청가 / 시장가=최우선호가)
     private OrderStatus status;       // 상태머신(§08/§08b). DB VARCHAR(이름)↔enum 자동 매핑
     private String source;            // MANUAL | AUTO
+    private Long roundId;             // 소수점 차수(trading_rounds.id). 온주는 NULL
+    private Long batchId;             // 소수점 블록주문(batch_orders.id). 집행 전·온주는 NULL
     private String currency;          // KRW | USD
     private String failReason;        // REJECTED 사유(감사용). 정상 주문은 NULL
     private LocalDateTime requestedAt;

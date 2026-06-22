@@ -227,9 +227,9 @@ public class WholeOrderService {
         if (orderMapper.cancelIfCancellable(orderId, userId) == 0) {
             throw new BusinessException(ErrorCode.ORDER_NOT_CANCELLABLE);
         }
-        // 온주 PENDING(M2 hold) 자금/수량 환원 — 매수=예수금 hold 해제, 매도=수량 hold 해제(같은 tx).
-        // 소수점 QUEUED(선차감)의 명시 환원은 별개 경로(FRAC-014) — 여기선 온주 PENDING만 처리.
+        // hold 환원(같은 tx) — 경로별 분기. 온주 PENDING / 소수점 QUEUED(전송 전 취소, FRAC-008) 모두 처리.
         if (prev == OrderStatus.PENDING) {
+            // 온주 PENDING(M2 hold) — 매수=예수금 hold(지정가×수량) 해제, 매도=수량 hold 해제.
             if ("BUY".equals(o.getSide())) {
                 depositService.releaseHold(o.getAccountId(), o.getPrice().multiply(o.getOrderQuantity()));
             } else {
@@ -237,6 +237,16 @@ public class WholeOrderService {
             }
             // 커밋 후 매칭 엔진이 인덱스 제거·그 종목 PENDING 0건이면 호가 구독 OFF.
             eventPublisher.publishEvent(new PendingOrderClosedEvent(orderId, o.getStockCode(), o.getExchange()));
+        } else if (prev == OrderStatus.QUEUED) {
+            // 소수점 QUEUED — 접수 hold 환원. 매수=잠근 KRW(held_amount), 매도=잠근 수량(order_quantity).
+            // (소수점은 차수·배치 데몬 대상이라 PendingOrderClosedEvent 발행 안 함 — 온주 매칭 인덱스와 무관.)
+            if ("BUY".equals(o.getSide())) {
+                if (o.getHeldAmount() != null) {
+                    depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
+                }
+            } else {
+                holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
+            }
         }
         return new OrderCancelResponse(orderId, OrderStatus.CANCELLED.name());
     }

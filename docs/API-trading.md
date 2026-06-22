@@ -64,9 +64,9 @@
 
 ### GET `/api/trading/deposit` ✅ 구현완료
 
-예수금/출금가능금액 조회
+예수금/출금가능금액 조회 — **국내(KRW)+해외(USD) 시장별(#137)**.
 
-> **구현 메모**: KRW 예수금 최신 잔액 기준. 자금 유입·미체결 증거금 흐름 구현 전까지 `withdrawable`·`orderable` = `deposit`(동일값). 거래 없으면 0. 미인증 401.
+> **구현 메모**: 최상위 3필드(`deposit`/`withdrawable`/`orderable`)는 **국내 KRW**(기존 단일 화면 하위호환). `balances`는 위탁계좌 시장별 분해 — 계좌가 있는 시장만 포함(국내 KRW·해외 USD). 출금가능·주문가능 = `balance − held`(미체결 매수 hold 제외, M2). 미결제 출금보류는 후속이라 현재 `withdrawable`=`orderable`. 거래 없으면 0. 미인증 401.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
@@ -79,10 +79,14 @@
   "code": "SUCCESS",
   "message": "예수금 조회 성공",
   "data": {
-  "deposit": 500000,
-  "withdrawable": 480000,
-  "orderable": 500000
- }
+    "deposit": 500000,
+    "withdrawable": 480000,
+    "orderable": 500000,
+    "balances": [
+      { "market": "DOMESTIC", "currency": "KRW", "deposit": 500000, "withdrawable": 480000, "orderable": 480000 },
+      { "market": "OVERSEAS", "currency": "USD", "deposit": 120.50, "withdrawable": 120.50, "orderable": 120.50 }
+    ]
+  }
  }
 ```
 
@@ -469,19 +473,31 @@
 
 ### POST `/api/trading/orders/fractional/buy`
 
-소수점 매수 (금액/수량)<br> LS TR: CSPAT00601 (국내) · COSAT00301 (해외)
+소수점 매수 — **접수 즉시 1분 차수에 `QUEUED` 편입(비동기)**. 체결은 차수 집행기가 수행(상계·회사 선부담 ceil·시뮬·비례배분). 응답의 `estQuantity`는 접수 시점 예상수량(참고치) — 확정 수량·체결가는 거래내역/배분에서 확인.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **D4(국내 먼저)**: 현재 국내(KRW)만 접수. 해외는 후속(#155 해외 확장).
+- **자금 hold(D1)**: `AMOUNT`=주문금액 그대로(버퍼X) / `QUANTITY`=예상금액×(1+버퍼 1%) 잠금(체결 후 미사용분 환원). 실제 잠근 금액은 `heldAmount`.
+- **market은 받지 않음** — `stockCode`→exchange에서 파생(온주와 동일). `clientOrderId`(멱등키) 필수.
 
-**Request Body**
+**Request Body** (`orderType`: AMOUNT 금액 / QUANTITY 수량)
 
 ```json
 {
+  "clientOrderId": "frac-buy-20260623-001",
   "stockCode": "005930",
-  "market": "DOMESTIC",
   "orderType": "AMOUNT",
   "amount": 10000
+ }
+```
+
+```json
+{
+  "clientOrderId": "frac-buy-20260623-002",
+  "stockCode": "005930",
+  "orderType": "QUANTITY",
+  "quantity": 0.5
  }
 ```
 
@@ -491,14 +507,18 @@
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "소수점 매수 주문 성공",
+  "message": "소수점 매수 접수 성공",
   "data": {
-  "orderId": "ORD-20250615-001",
-  "stockCode": "005930",
-  "orderType": "BUY",
-  "requestedAmount": 10000,
-  "status": "RECEIVED"
- }
+    "orderId": 1024,
+    "roundId": 88,
+    "stockCode": "005930",
+    "side": "BUY",
+    "orderType": "AMOUNT",
+    "estQuantity": 0.140845,
+    "heldAmount": 10000,
+    "status": "QUEUED",
+    "orderable": 90000
+  }
  }
 ```
 
@@ -506,17 +526,18 @@
 
 ### POST `/api/trading/orders/fractional/sell`
 
-소수점 매도 (금액/전량)<br> LS TR: CSPAT00601 (국내) · COSMT00300 (해외)
+소수점 매도 — **접수 즉시 `QUEUED` 편입(비동기)**. 접수 시 매도가능 보유수량을 hold(`holdings.held_quantity`). `ALL`=매도가능 전량, `AMOUNT`=예상가로 환산한 주수(상한=매도가능 전량).
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수.
 
-**Request Body**
+**Request Body** (`orderType`: AMOUNT 금액 / ALL 전량)
 
 ```json
 {
+  "clientOrderId": "frac-sell-20260623-001",
   "stockCode": "005930",
-  "market": "DOMESTIC",
   "orderType": "ALL"
  }
 ```
@@ -527,14 +548,18 @@
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "소수점 매도 주문 성공",
+  "message": "소수점 매도 접수 성공",
   "data": {
-  "orderId": "ORD-20250615-002",
-  "stockCode": "005930",
-  "orderType": "SELL",
-  "quantity": 0.5,
-  "status": "RECEIVED"
- }
+    "orderId": 1025,
+    "roundId": 88,
+    "stockCode": "005930",
+    "side": "SELL",
+    "orderType": "ALL",
+    "estQuantity": 0.5,
+    "heldAmount": null,
+    "status": "QUEUED",
+    "orderable": null
+  }
  }
 ```
 

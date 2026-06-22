@@ -55,6 +55,13 @@
           AND held_quantity &gt;= #{qty}
     </update>
 
+    <!-- 매도가능 = quantity − held_quantity (PENDING/QUEUED에 묶인 수량 제외). 보유행 없으면 NULL. -->
+    <select id="findAvailableQuantity" resultType="java.math.BigDecimal">
+        SELECT quantity - held_quantity
+        FROM holdings
+        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+    </select>
+
     <select id="findByUserId" resultMap="holding">
         SELECT id, user_id, account_id, stock_code, quantity, avg_buy_price, currency, created_at, updated_at
         FROM holdings

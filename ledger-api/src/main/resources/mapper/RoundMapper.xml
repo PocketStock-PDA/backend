@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.RoundMapper">
+
+    <resultMap id="round" type="com.pocketstock.ledger.trading.domain.TradingRound">
+        <id     property="id"             column="id"/>
+        <result property="market"         column="market"/>
+        <result property="roundNo"        column="round_no"/>
+        <result property="tradeDate"      column="trade_date"/>
+        <result property="submitOpen"     column="submit_open"/>
+        <result property="submitClose"    column="submit_close"/>
+        <result property="executeAt"      column="execute_at"/>
+        <result property="settleAt"       column="settle_at"/>
+        <result property="cancelDeadline" column="cancel_deadline"/>
+        <result property="pricingMethod"  column="pricing_method"/>
+        <result property="status"         column="status"/>
+        <result property="createdAt"      column="created_at"/>
+    </resultMap>
+
+    <sql id="cols">
+        id, market, round_no, trade_date, submit_open, submit_close, execute_at, settle_at,
+        cancel_deadline, pricing_method, status, created_at
+    </sql>
+
+    <!-- 현재 분 차수 find-or-create. 신규면 INSERT, 동시 접수가 만든 기존 행이면 ON DUPLICATE로
+         id=LAST_INSERT_ID(id) → useGeneratedKeys가 그 id를 읽어 채운다(재select 없이 동시성 안전). -->
+    <insert id="upsertCurrent" parameterType="com.pocketstock.ledger.trading.domain.TradingRound"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO trading_rounds
+            (market, round_no, trade_date, submit_open, submit_close, execute_at, settle_at,
+             cancel_deadline, pricing_method, status)
+        VALUES
+            (#{market}, #{roundNo}, #{tradeDate}, #{submitOpen}, #{submitClose}, #{executeAt}, #{settleAt},
+             #{cancelDeadline}, #{pricingMethod}, #{status})
+        ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+    </insert>
+
+    <select id="findByKey" resultMap="round">
+        SELECT <include refid="cols"/>
+        FROM trading_rounds
+        WHERE market = #{market} AND round_no = #{roundNo} AND trade_date = #{tradeDate}
+    </select>
+
+    <!-- 집행 대상 — 실행시각 도달 + 아직 OPEN(미집행). 선점은 claimForExecution이 원자로 수행. -->
+    <select id="findDueOpenRounds" resultMap="round">
+        SELECT <include refid="cols"/>
+        FROM trading_rounds
+        WHERE status = 'OPEN' AND execute_at &lt;= #{now}
+        ORDER BY execute_at
+    </select>
+
+    <!-- 단일 실행 선점(D3): OPEN일 때만 EXECUTING. affected=1인 인스턴스만 집행. -->
+    <update id="claimForExecution">
+        UPDATE trading_rounds
+        SET status = 'EXECUTING'
+        WHERE id = #{id} AND status = 'OPEN'
+    </update>
+
+    <update id="markSettled">
+        UPDATE trading_rounds
+        SET status = 'SETTLED'
+        WHERE id = #{id} AND status = 'EXECUTING'
+    </update>
+
+    <update id="markFailed">
+        UPDATE trading_rounds
+        SET status = 'FAILED'
+        WHERE id = #{id} AND status = 'EXECUTING'
+    </update>
+
+</mapper>
