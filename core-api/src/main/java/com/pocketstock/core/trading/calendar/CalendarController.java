@@ -32,7 +32,7 @@ public class CalendarController {
         LocalDate today = LocalDate.now();
         int y = year  != null ? year  : today.getYear();
         int m = month != null ? month : today.getMonthValue();
-        if (m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
+        if (y < 2000 || y > 2100 || m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
 
         return ResponseEntity.ok(ApiResponse.ok("증권 캘린더 조회 성공",
                 calendarService.getMonthlyCalendar(userId, y, m)));
@@ -48,7 +48,7 @@ public class CalendarController {
         LocalDate today = LocalDate.now();
         int y = year  != null ? year  : today.getYear();
         int m = month != null ? month : today.getMonthValue();
-        if (m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
+        if (y < 2000 || y > 2100 || m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
 
         return ResponseEntity.ok(ApiResponse.ok("보유 종목 주요일정 조회 성공",
                 calendarService.getMonthlyEvents(userId, y, m)));
