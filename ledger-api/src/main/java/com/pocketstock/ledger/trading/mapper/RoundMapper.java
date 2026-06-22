@@ -38,4 +38,11 @@ public interface RoundMapper {
 
     /** 집행 실패 — EXECUTING→FAILED(복구스윕/모니터링 대상). */
     int markFailed(@Param("id") Long id);
+
+    /**
+     * 복구스윕 — 인스턴스 사망 등으로 정체된 EXECUTING 차수를 OPEN으로 되돌린다(재집행 유도).
+     * execute_at이 cutoff 이전인 EXECUTING만 대상(정상 집행은 수초 내 완료라 절대 안 걸림).
+     * 재집행은 QUEUED 주문만 처리(이미 FILLED는 제외)라 멱등. @return 회수된 차수 수.
+     */
+    int reopenStalled(@Param("cutoff") java.time.LocalDateTime cutoff);
 }

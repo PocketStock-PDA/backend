@@ -27,12 +27,21 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FractionalRoundScheduler {
 
+    /** EXECUTING이 이 분(分) 이상 정체면 사망 인스턴스로 보고 회수(정상 집행은 수초). */
+    private static final long STALE_MINUTES = 5;
+
     private final RoundMapper roundMapper;
     private final FractionalBatchService batchService;
 
     @Scheduled(cron = "5 * * * * *")
     public void runDueRounds() {
-        List<TradingRound> due = roundMapper.findDueOpenRounds(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        // 복구스윕 — 인스턴스 사망 등으로 정체된 EXECUTING 차수를 OPEN으로 회수(재집행은 QUEUED만 처리 → 멱등).
+        int reopened = roundMapper.reopenStalled(now.minusMinutes(STALE_MINUTES));
+        if (reopened > 0) {
+            log.warn("[소수점배치] 정체 EXECUTING 차수 {}건 회수(OPEN 복귀) — 재집행 예정", reopened);
+        }
+        List<TradingRound> due = roundMapper.findDueOpenRounds(now);
         for (TradingRound round : due) {
             // 차수 선점 — affected=0이면 다른 인스턴스가 이미 가져감(이중집행 차단).
             if (roundMapper.claimForExecution(round.getId()) == 0) {
