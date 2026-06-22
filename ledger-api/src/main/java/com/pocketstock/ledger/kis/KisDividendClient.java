@@ -52,11 +52,11 @@ public class KisDividendClient {
             try {
                 tokenProvider.refresh();
                 return fetchOnce(stockCode, from, to);
-            } catch (RestClientException retryEx) {
+            } catch (Exception retryEx) {
                 log.error("KIS 배당일정 재시도 실패: {}", retryEx.getMessage());
                 return List.of();
             }
-        } catch (RestClientException e) {
+        } catch (Exception e) {
             log.error("KIS 배당일정 조회 실패: {}", e.getMessage());
             return List.of();
         }
