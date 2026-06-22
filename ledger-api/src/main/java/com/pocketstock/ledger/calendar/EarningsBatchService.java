@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -43,8 +44,9 @@ public class EarningsBatchService {
 
         log.info("[실적배치] 보유 종목 {}개 처리 시작", stockCodes.size());
 
-        LocalDate from = LocalDate.now().minusMonths(3);
-        LocalDate to   = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDate from  = today.minusMonths(3);
+        LocalDate to    = today;
 
         List<StockEventUpsertRequest> events = new ArrayList<>();
         for (String stockCode : stockCodes) {
@@ -79,8 +81,9 @@ public class EarningsBatchService {
 
     /** 매수 체결 시 해당 종목만 즉시 수집 (Kafka 연동 예정). */
     public void syncByStockCode(String stockCode) {
-        LocalDate from = LocalDate.now().minusMonths(3);
-        LocalDate to   = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDate from  = today.minusMonths(3);
+        LocalDate to    = today;
 
         List<OpenDartDisclosureResponse.Item> items =
                 openDartClient.fetchEarningsDisclosures(stockCode, from, to);
