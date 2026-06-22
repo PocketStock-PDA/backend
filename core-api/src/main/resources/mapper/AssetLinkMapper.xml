@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.asset.mapper.AssetLinkMapper">
+
+    <select id="findMasterByCode" resultType="com.pocketstock.core.asset.dto.MasterRef">
+        SELECT id, category
+        FROM institution_master
+        WHERE company_code = #{companyCode}
+          AND is_active = TRUE
+    </select>
+
+    <select id="findLinkedInstitution" resultType="com.pocketstock.core.asset.dto.LinkedRef">
+        SELECT id, link_status AS linkStatus
+        FROM linked_institutions
+        WHERE user_id = #{userId}
+          AND institution_master_id = #{masterId}
+    </select>
+
+    <insert id="insertLinkedInstitution" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO linked_institutions (user_id, institution_master_id, link_status, linked_at, last_synced_at)
+        VALUES (#{userId}, #{institutionMasterId}, #{linkStatus}, NOW(), NOW())
+    </insert>
+
+    <update id="markLinked">
+        UPDATE linked_institutions
+        SET link_status = 'LINKED', linked_at = NOW(), last_synced_at = NOW()
+        WHERE id = #{id}
+          AND link_status &lt;&gt; 'LINKED'
+    </update>
+
+    <insert id="insertBankAccount" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO linked_bank_accounts
+            (user_id, institution_id, account_type, account_name, balance, currency, is_dormant, is_verified, last_synced_at)
+        VALUES
+            (#{userId}, #{institutionId}, #{accountType}, #{accountName}, #{balance}, #{currency}, FALSE, FALSE, NOW())
+    </insert>
+
+    <insert id="insertCard">
+        INSERT INTO linked_cards (user_id, institution_id, card_name, card_type, masked_no, last_synced_at)
+        VALUES (#{userId}, #{institutionId}, #{cardName}, #{cardType}, #{maskedNo}, NOW())
+    </insert>
+
+    <insert id="insertPoint">
+        INSERT INTO linked_points (user_id, institution_id, point_name, balance, last_synced_at)
+        VALUES (#{userId}, #{institutionId}, #{pointName}, #{balance}, NOW())
+    </insert>
+
+    <insert id="insertSecurities">
+        INSERT INTO linked_securities (user_id, institution_id, deposit_cash, currency, last_synced_at)
+        VALUES (#{userId}, #{institutionId}, #{depositCash}, #{currency}, NOW())
+    </insert>
+
+    <insert id="insertHolding">
+        INSERT INTO external_holdings (user_id, institution_id, stock_code, stock_name, quantity, eval_amount, synced_at)
+        VALUES (#{userId}, #{institutionId}, #{stockCode}, #{stockName}, #{quantity}, #{evalAmount}, NOW())
+    </insert>
+
+    <!-- 대표 계좌 = 원화 우선, 잔액 큰 순(외화지갑은 후순위). 해지 계좌 제외. -->
+    <select id="findRepresentativeAccount" resultType="com.pocketstock.core.asset.dto.BankLinkResponse">
+        SELECT id AS accountId, balance
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND institution_id = #{institutionId}
+          AND closed_at IS NULL
+        ORDER BY (currency = 'KRW') DESC, balance DESC, id ASC
+        LIMIT 1
+    </select>
+
+    <select id="countCards" resultType="int">
+        SELECT COUNT(*) FROM linked_cards
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </select>
+
+    <select id="findPointBalance" resultType="java.lang.Long">
+        SELECT balance FROM linked_points
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+        ORDER BY id ASC LIMIT 1
+    </select>
+
+    <select id="countHoldings" resultType="int">
+        SELECT COUNT(*) FROM external_holdings
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </select>
+
+    <select id="findUsdWalletBalance" resultType="java.math.BigDecimal">
+        SELECT balance FROM linked_bank_accounts
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+          AND currency = 'USD' AND closed_at IS NULL
+        ORDER BY id ASC LIMIT 1
+    </select>
+
+    <update id="touchLastSynced">
+        UPDATE linked_institutions
+        SET last_synced_at = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+    <select id="findMaxLastSyncedAt" resultType="java.time.LocalDateTime">
+        SELECT MAX(last_synced_at) FROM linked_institutions WHERE user_id = #{userId}
+    </select>
+
+</mapper>

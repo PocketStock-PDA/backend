@@ -37,7 +37,20 @@
  }
 ```
 
-> 외부 식별자 = `companyCode`(F-B, 숫자 아님). `linkStatus`: 해당 유저가 이미 연동했으면 `LINKED`, 선택 가능하면 `AVAILABLE`. 활성 카탈로그(`is_active=true`)를 `sort_order` 순으로 반환.
+> 외부 식별자 = `companyCode`(숫자 아님). `linkStatus`: 해당 유저가 이미 연동했으면 `LINKED`, 선택 가능하면 `AVAILABLE`. 활성 카탈로그(`is_active=true`)를 `sort_order` 순으로 반환.
+
+---
+
+## 연동 실행(links) 공통 규칙
+
+> 아래 `links/auth` · `links` · `links/{bank|card|point|fx|securities}` · `refresh`에 공통 적용된다(2026-06-22 확정).
+>
+> - **데이터 출처 = 전부 목데이터.** 마이데이터/은행/카드 외부 API를 실제로 호출하지 않는다. 연동 시 생성되는 자산(잔액·거래·포인트·외화)은 **고정 시나리오 시드/템플릿을 해당 사용자로 복제 적재**한다(임의 값 생성 아님).
+> - **기관 식별자 = `companyCode`**(`GET /institutions` 응답과 동일, 예: `SHINHAN_BANK`·`SHINHAN_CARD`). 아래 예시에 남아 있는 `"001"/"088"`·기관 한글명은 플레이스홀더이며, **실제 요청 본문은 `companyCode`를 쓴다.**
+> - **통합인증 토큰(`authToken`)은 무상태(stateless) mock**: `/links/auth`는 토큰 문자열만 발급하고 **어디에도 저장하지 않으며**, `POST /links`는 이 토큰을 **검증하지 않는다**(Redis 미사용). "인증 → 연동" 순서는 화면 흐름으로만 유지한다.
+> - **멱등**: 이미 연동된(`LINKED`) 기관을 다시 연동하면 중복 생성 없이 skip하고 기존 상태를 반환한다.
+> - **계좌번호 비요구·비노출**: 마이데이터 흐름상 사용자가 계좌번호를 입력하지 않는다(인증 후 템플릿 적재). 응답에도 `account_no_enc`(암호화 컬럼)를 노출하지 않는다.
+> - **일괄 vs 개별**: `POST /links`는 온보딩 때 선택 기관을 한 번에 연동하고, `POST /links/{type}`는 연동 후 계좌·카드 등을 한 건씩 추가한다.
 
 ---
 
@@ -48,11 +61,11 @@
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 인증할 기관(`companyCode` 목록).
 
 ```json
 {
-  "institutions": ["001", "002", "003"]
+  "institutions": ["SHINHAN_BANK", "SHINHAN_CARD", "SHINHAN_POINT"]
  }
 ```
 
@@ -69,6 +82,8 @@
  }
 ```
 
+> `authToken`은 무상태 mock(공통 규칙 참조) — 형식만 갖춘 토큰을 발급하며 검증·저장하지 않는다.
+
 ---
 
 ### POST `/api/assets/links`
@@ -78,12 +93,12 @@
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 통합인증 토큰 + 연동할 기관(`companyCode` 목록).
 
 ```json
 {
   "authToken": "MYD-AUTH-TOKEN",
-  "institutions": ["001", "002"]
+  "institutions": ["SHINHAN_BANK", "SHINHAN_CARD"]
  }
 ```
 
@@ -100,21 +115,22 @@
  }
 ```
 
+> 선택 기관을 한 번에 연동(온보딩). 이미 연동된 기관은 멱등 skip하며 `linkedCount`는 **이번에 새로 연동된 수**만 센다. 각 기관의 자산은 고정 시나리오 템플릿으로 적재(공통 규칙 참조).
+
 ---
 
 ### POST `/api/assets/links/bank`
 
-은행 계좌 연동
+은행 계좌 연동 (개별 — 연동 후 한 건씩 추가)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 은행(`companyCode`). 계좌번호는 입력하지 않는다(마이데이터 흐름, 템플릿 적재 — 공통 규칙 참조).
 
 ```json
 {
-  "bankCode": "088",
-  "accountNumber": "110-123-456789"
+  "companyCode": "KB_BANK"
  }
 ```
 
@@ -340,16 +356,16 @@
 
 ### POST `/api/assets/links/card`
 
-카드 연동
+카드 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 카드사(`companyCode`).
 
 ```json
 {
-  "cardCompany": "신한카드"
+  "companyCode": "SHINHAN_CARD"
  }
 ```
 
@@ -371,16 +387,16 @@
 
 ### POST `/api/assets/links/point`
 
-포인트 연동
+포인트 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 포인트사(`companyCode`).
 
 ```json
 {
-  "provider": "OK캐쉬백"
+  "companyCode": "OKCASHBAG_POINT"
  }
 ```
 
@@ -392,7 +408,7 @@
   "code": "SUCCESS",
   "message": "포인트 연동 성공",
   "data": {
-  "provider": "OK캐쉬백",
+  "companyCode": "OKCASHBAG_POINT",
   "balance": 25000
  }
  }
@@ -402,12 +418,12 @@
 
 ### POST `/api/assets/links/fx`
 
-SOL트래블 외화잔액 연동
+SOL트래블 외화잔액 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — SOL트래블 외화지갑 고정이라 본문 없음(빈 객체).
 
 ```json
 {}
@@ -431,17 +447,16 @@ SOL트래블 외화잔액 연동
 
 ### POST `/api/assets/links/securities`
 
-타 증권사 연동
+타 증권사 연동 (개별)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
-**Request Body**
+**Request Body** — 연동할 증권사(`companyCode`). 계좌번호는 입력하지 않는다(템플릿 적재 — 공통 규칙 참조).
 
 ```json
 {
-  "company": "키움증권",
-  "accountNo": "123-456789"
+  "companyCode": "KIWOOM_SEC"
  }
 ```
 
@@ -487,7 +502,7 @@ SOL트래블 외화잔액 연동
  }
 ```
 
-> 시드가 고정이라 잔액 재계산 변화는 없음 → 동작은 **no-op + `linked_institutions.last_synced_at` 갱신**(F-G). 연동 자산 화면에서 "새로고침" 버튼이 붙을 여지를 위해 명세 유지(de-scope 대상이던 GET /assets와 달리 보존).
+> 시드가 고정이라 **잔액 재계산 없는 no-op** — 유저의 연동 기관(`linked_institutions`) `last_synced_at`만 현재 시각으로 갱신하고, 그 값(DB가 찍은 시각)을 그대로 `syncedAt`으로 반환한다. 연동된 기관이 없으면 갱신 대상이 없다. 연동 자산 화면의 "새로고침" 버튼을 위해 명세를 유지한다.
 
 ---
 
