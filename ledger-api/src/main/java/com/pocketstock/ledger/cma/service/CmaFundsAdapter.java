@@ -15,8 +15,7 @@ import java.math.BigDecimal;
 
 /**
  * {@link CmaFundsPort} 실 어댑터 (CMA 도메인, D4) — 환전 체결의 CMA 풀 반영을 실제 원장으로 처리한다.
- * 이 빈이 등록되면 {@code CmaFundsStubConfig}의 {@code @ConditionalOnMissingBean}이 스텁
- * ({@code DevCmaFundsAdapter})을 자동 비활성화한다.
+ * 이 빈이 환전 CMA 레그의 유일한 구현이다(#56 완료, 임시 스텁 DevCmaFundsAdapter는 #57로 제거).
  *
  * <p>환전 양다리를 {@link CmaLedgerWriter}로 두 줄 기록한다 — from풀 차감(FX_OUT, 음수) +
  * to풀 입금(FX_IN, 양수). 둘 다 {@code ref_type='FX_TX'}, {@code ref_id=fx_transactions.id}.

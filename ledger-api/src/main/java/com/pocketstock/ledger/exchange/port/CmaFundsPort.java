@@ -11,8 +11,8 @@ import java.math.BigDecimal;
  *
  * <p>실제 구현(어댑터)은 <b>CMA 도메인(담당: 강문군)</b>이 제공한다 —
  * {@code cma_transactions}(FX_OUT/FX_IN, ref_type='FX_TX', ref_id=fxTransactionId) 적재 +
- * {@code cma_balances} 갱신 + append-only/멱등 등 원장 규칙은 CMA가 소유한다.
- * 실 어댑터가 빈으로 등록되기 전까진 {@link DevCmaFundsAdapter}(로컬 테스트용 스텁)가 대신한다.
+ * {@code cma_balances} 갱신 + append-only/멱등 등 원장 규칙은 CMA가 소유한다
+ * (구현체 {@code cma.service.CmaFundsAdapter}, #56 완료 — 임시 스텁은 #57로 제거됨).
  *
  * <p>계좌 비밀번호(거래 인증)는 이 포트의 책임이 아니다 — 호출자(체결 서비스)가 거래 전
  * 공용 거래 인증 가드({@code TxnAuthGuard}, 30분 txn-auth 세션)로 처리한다.
