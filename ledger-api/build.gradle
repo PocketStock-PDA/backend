@@ -17,5 +17,8 @@ dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
 
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    // Feign 기본 HTTP 클라이언트(java.net.HttpURLConnection)는 PATCH 미지원 → OkHttp로 교체해
+    // PATCH(자산 원천 차감/수집완료 표시 등)를 정상 호출한다. spring.cloud.openfeign.okhttp.enabled=true 로 활성화.
+    implementation 'io.github.openfeign:feign-okhttp'
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
 }
