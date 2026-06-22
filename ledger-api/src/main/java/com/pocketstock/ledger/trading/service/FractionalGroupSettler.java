@@ -67,12 +67,12 @@ public class FractionalGroupSettler {
         for (Order o : orders) {
             BigDecimal qty = desiredQty(o, buy, fillPrice);
             if (qty.signum() <= 0) {
-                rejectOne(o, buy, "체결 수량 0");
+                rejectOne(o, "체결 수량 0");
                 continue;
             }
             BigDecimal cost = qty.multiply(fillPrice);
             if (buy && o.getHeldAmount() != null && cost.compareTo(o.getHeldAmount()) > 0) {
-                rejectOne(o, true, "예수금 부족(버퍼 초과 급등) — 합산 제외(FRAC-015)");
+                rejectOne(o, "예수금 부족(버퍼 초과 급등) — 합산 제외(FRAC-015)");
                 continue;
             }
             funded.add(new Funded(o, qty, cost));
@@ -173,14 +173,11 @@ public class FractionalGroupSettler {
     public void rejectGroup(List<Order> orders, String reason) {
         for (Order o : orders) {
             try {
-                if ("BUY".equals(o.getSide())) {
-                    if (o.getHeldAmount() != null) {
-                        depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
-                    }
-                } else {
-                    holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
+                // 멱등 가드: 활성(QUEUED/SENT)→REJECTED 전이에 성공한 호출만 환원. 0이면 이미 종결 → 중복 환원 차단.
+                if (orderMapper.rejectActive(o.getId(), trim(reason)) == 0) {
+                    continue;
                 }
-                orderMapper.rejectActive(o.getId(), trim(reason));
+                refundHold(o);
             } catch (Exception e) {
                 log.error("[소수점배치] 거부 환원 실패 orderId={} — 개별 스킵", o.getId(), e);
             }
@@ -199,16 +196,23 @@ public class FractionalGroupSettler {
                 : o.getOrderQuantity().setScale(QTY_SCALE, RoundingMode.DOWN);
     }
 
-    /** 한 주문 거부+환원(같은 tx) — 자금부족 제외·수량 0 등. */
-    private void rejectOne(Order o, boolean buy, String reason) {
-        if (buy) {
+    /** 한 주문 거부+환원(같은 tx) — 자금부족 제외·수량 0 등. 전이 성공한 경우만 환원(멱등). */
+    private void rejectOne(Order o, String reason) {
+        if (orderMapper.rejectActive(o.getId(), trim(reason)) == 0) {
+            return;
+        }
+        refundHold(o);
+    }
+
+    /** 접수 hold 환원 — 매수=예수금 held_amount, 매도=잠근 수량(order_quantity). 거부·실패 보상 공용(FRAC-014). */
+    private void refundHold(Order o) {
+        if ("BUY".equals(o.getSide())) {
             if (o.getHeldAmount() != null) {
                 depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
             }
         } else {
             holdingMapper.releaseSellReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
         }
-        orderMapper.rejectActive(o.getId(), trim(reason));
     }
 
     /**
