@@ -553,7 +553,7 @@ SOL트래블 외화잔액 연동
  }
 ```
 
-> `dormantSince`(휴면 시작일) 제거 — 와이어프레임에 시작일 표기 없음 → `linked_bank_accounts`에 휴면시작일 컬럼 추가 불필요. 해지 요청용 식별자로 `accountId` 노출. **계좌번호(`account_no_enc`)는 AES 암호화 컬럼(시드 NULL)이라 노출하지 않고**, 기존 `bank-accounts` 조회 관례대로 은행명 + 상품명(`accountName`)으로 표시. 정렬: 잔액 큰 순.
+> `dormantSince`(휴면 시작일) 제거 — 와이어프레임에 시작일 표기 없음 → `linked_bank_accounts`에 휴면시작일 컬럼 추가 불필요. 해지 요청용 식별자로 `accountId` 노출. **계좌번호(`account_no_enc`)는 AES 암호화 컬럼(시드 NULL)이라 노출하지 않고**, 기존 `bank-accounts` 조회 관례대로 은행명 + 상품명(`accountName`)으로 표시. 정렬: 잔액 큰 순. 소프트 해지된 계좌(`closed_at IS NOT NULL`)는 휴면 목록에서 제외한다.
 
 ---
 
@@ -580,13 +580,32 @@ SOL트래블 외화잔액 연동
   "code": "SUCCESS",
   "message": "휴면계좌 해지 및 CMA 이체 성공",
   "data": {
-  "closedCount": 2,
-  "transferredAmount": 130000
- }
+    "closedCount": 2,
+    "transferredAmount": 130000,
+    "allCompleted": true,
+    "results": [
+      {
+        "accountId": 12,
+        "amount": 30000,
+        "currency": "KRW",
+        "status": "COMPLETED"
+      },
+      {
+        "accountId": 15,
+        "amount": 100000,
+        "currency": "KRW",
+        "status": "COMPLETED"
+      }
+    ]
+  }
  }
 ```
 
-> 화면(와이어프레임 14·17번 "휴면계좌 정리하고 남은 돈 옮겨드릴게요 — 포켓스톡 CMA로 모을 수 있어요") = 다중 체크 → 일괄 해지 + CMA 이체. 해지 잔액은 CMA에 `txType=DORMANT` 입금(core→ledger Feign, 멱등키 `DORMANT:{accountId}`) — **F-D**(`DECISIONS.md` F-D / `ASSET_DEVELOPMENT.md` §6) 참조. 부분 성공 가능성(일부 계좌 실패) 대비 멱등 처리.
+> 화면(와이어프레임 14·17·20번) = 다중 체크 → 일괄 소프트 해지 + CMA 이체. 해지 잔액은 CMA에 `txType=DORMANT` 입금(core→ledger Feign, ledger가 멱등키 `DORMANT:{accountId}` 파생) — **F-D**(`DECISIONS.md` F-D / `ASSET_DEVELOPMENT.md` §6) 참조.
+>
+> `accountIds`는 비어 있거나 중복될 수 없고, 각 ID는 요청 사용자 소유의 미해지 휴면계좌 또는 과거 이 요청으로 이미 소프트 해지된 계좌여야 한다. 타인·미존재·비휴면 계좌는 원장 호출 전 400으로 거절한다. 원장 입금 뒤 DB A 계좌는 `balance=0`, `closed_at`, `closed_amount`로 소프트 해지하고, 현재 계좌/휴면 조회에서는 제외한다.
+>
+> `results[].status`는 `COMPLETED`(이번 호출 완료), `ALREADY_CLOSED`(과거 호출로 이미 완료되어 원장 재기록 없음), `FAILED`(정상 검증 후 실행 중 실패) 중 하나다. `closedCount`·`transferredAmount`는 이번 호출에서 새로 완료된 건만 합산한다. `allCompleted=false`인 경우에도 각 계좌 상태를 사용해 UI가 결과를 표시한다.
 
 ---
 
