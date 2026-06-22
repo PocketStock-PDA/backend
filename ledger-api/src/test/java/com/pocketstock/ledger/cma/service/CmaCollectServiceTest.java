@@ -141,6 +141,28 @@ class CmaCollectServiceTest {
     }
 
     @Test
+    @DisplayName("카드 라운드업(다중 카드): 활성 카드 전부 합산하고 거래도 전부 mark, ref_id는 null(다출처)")
+    void collectFromCard_multipleCards() {
+        when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
+        when(settingMapper.findByUserId(USER_ID)).thenReturn(List.of(
+                setting("CARD", 22L, true, null),
+                setting("CARD", 23L, true, null)));
+        when(feign.getCardRoundup(USER_ID, 22L))
+                .thenReturn(new CardRoundupSummary(new BigDecimal("280"), List.of(1L, 2L)));
+        when(feign.getCardRoundup(USER_ID, 23L))
+                .thenReturn(new CardRoundupSummary(new BigDecimal("520"), List.of(3L)));
+        // 합산 800, ref_id=null(여러 장)
+        when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("KRW"), eq("COLLECT"), eq("CARD"),
+                eq(new BigDecimal("800")), eq("LINKED_CARD"), eq((Long) null), eq("key-cc")))
+                .thenReturn(new BigDecimal("100800"));
+
+        CollectResult result = service(null).collectFromCard(USER_ID, "key-cc");
+
+        assertThat(result.amount()).isEqualByComparingTo("800");
+        verify(feign).markRoundupCollected(USER_ID, List.of(1L, 2L, 3L)); // 두 카드 거래 전부
+    }
+
+    @Test
     @DisplayName("포인트: 전환 가능 포인트를 적립한다")
     void collectFromPoint() {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
