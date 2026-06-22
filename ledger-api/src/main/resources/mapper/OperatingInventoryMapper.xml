@@ -18,4 +18,24 @@
         WHERE stock_code = #{stockCode}
     </select>
 
+    <!-- 종목행 self-seeding(첫 소수점 정산 전 보장). 있으면 무시. -->
+    <insert id="seedRow">
+        INSERT IGNORE INTO operating_account (stock_code) VALUES (#{stockCode})
+    </insert>
+
+    <!-- 소수점 끝수재고 원자 갱신 + 음수가드(잔여+delta≥0). 선공급(delta<0)이 보유 초과면 0행(버그 신호).
+         seedRow로 행 존재가 보장된 뒤 호출(자체 INSERT 없음 — 가드를 WHERE에 둬야 해서). -->
+    <update id="applyFractionalDelta">
+        UPDATE operating_account
+        SET fractional_remainder = fractional_remainder + #{delta}
+        WHERE stock_code = #{stockCode}
+          AND fractional_remainder + #{delta} &gt;= 0
+    </update>
+
+    <select id="findFractionalRemainder" resultType="java.math.BigDecimal">
+        SELECT fractional_remainder
+        FROM operating_account
+        WHERE stock_code = #{stockCode}
+    </select>
+
 </mapper>
