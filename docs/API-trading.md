@@ -1057,10 +1057,10 @@
 
 ### GET `/api/trading/calendar/events` ✅ 구현완료
 
-보유 종목 주요 일정 목록 조회 (오늘 ~ 3개월 이내)
+보유 종목 주요 일정 목록 조회 (지정 월 전체)<br> Query: `year` (number, 선택), `month` (number, 선택) — 미지정 시 현재 월 / year 범위: 2000~2100
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 
 **Response Body**
 
