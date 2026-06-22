@@ -18,7 +18,8 @@ import java.util.TimeZone;
         "com.pocketstock.common",
         "com.pocketstock.user.security"
 })
-@MapperScan("com.pocketstock.ledger.**.mapper")
+// recon은 단일 횡단 매퍼라 .mapper 하위가 아닌 recon 패키지 직속 → 글롭에 추가로 포함(#96 클린기동 누락 수정)
+@MapperScan({"com.pocketstock.ledger.**.mapper", "com.pocketstock.ledger.recon"})
 public class LedgerApiApplication {
     public static void main(String[] args) {
         // 서버 타임존을 UTC로 고정 — 로컬(KST)·EC2(UTC) 환경차로 시간이 흔들리는 것 방지.
