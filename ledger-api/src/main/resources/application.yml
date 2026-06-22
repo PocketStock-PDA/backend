@@ -53,6 +53,11 @@ feign:
   core-api:
     url: ${CORE_API_URL:http://localhost:8081}
 
+dart:
+  api:
+    key: ${DART_API_KEY:}
+    base-url: https://opendart.fss.or.kr
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:

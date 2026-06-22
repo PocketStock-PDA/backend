@@ -44,4 +44,7 @@ public interface HoldingMapper {
 
     /** 유저 보유종목 전체(수량>0) */
     List<Holding> findByUserId(@Param("userId") Long userId);
+
+    /** 전체 유저 보유 종목 distinct stockCode (배치용) */
+    List<String> findAllDistinctStockCodes();
 }
