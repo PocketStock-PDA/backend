@@ -502,9 +502,7 @@ SOL트래블 외화잔액 연동 (개별)
  }
 ```
 
-> 시드가 고정이라 **잔액 재계산 없는 no-op** — 유저의 연동 기관(`linked_institutions`) `last_synced_at`만 현재 시각으로 갱신하고 그 값을 `syncedAt`으로 반환한다. (연동된 기관이 없으면 갱신 대상 없음.)
-
-> 시드가 고정이라 잔액 재계산 변화는 없음 → 동작은 **no-op + `linked_institutions.last_synced_at` 갱신**(F-G). 연동 자산 화면에서 "새로고침" 버튼이 붙을 여지를 위해 명세 유지(de-scope 대상이던 GET /assets와 달리 보존).
+> 시드가 고정이라 **잔액 재계산 없는 no-op** — 유저의 연동 기관(`linked_institutions`) `last_synced_at`만 현재 시각으로 갱신하고, 그 값(DB가 찍은 시각)을 그대로 `syncedAt`으로 반환한다. 연동된 기관이 없으면 갱신 대상이 없다. 연동 자산 화면의 "새로고침" 버튼을 위해 명세를 유지한다.
 
 ---
 
