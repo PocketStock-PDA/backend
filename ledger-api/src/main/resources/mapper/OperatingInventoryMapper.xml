@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.OperatingInventoryMapper">
+
+    <!-- 회사 옴니버스 재고 원자 upsert: whole_qty += delta. 종목행 없으면 INSERT(첫 거래 self-seeding).
+         ON DUPLICATE KEY UPDATE의 원자 증감이 lost update를 막음(C1~C3 동형).
+         유저 holdings와 달리 음수 가드 없음 — 회사 순재고는 음수 가능(무한유동성 선공급). -->
+    <update id="applyWholeDelta">
+        INSERT INTO operating_account (stock_code, whole_qty)
+        VALUES (#{stockCode}, #{delta})
+        ON DUPLICATE KEY UPDATE whole_qty = whole_qty + #{delta}
+    </update>
+
+    <select id="findWholeQtyByStock" resultType="java.lang.Integer">
+        SELECT whole_qty
+        FROM operating_account
+        WHERE stock_code = #{stockCode}
+    </select>
+
+</mapper>

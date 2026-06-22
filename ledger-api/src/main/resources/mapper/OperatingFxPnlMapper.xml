@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.exchange.mapper.OperatingFxPnlMapper">
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.exchange.domain.OperatingFxPnl"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO operating_fx_pnl
+            (fx_transaction_id, from_currency, to_currency, base_currency,
+             realized_pnl, mid_rate, applied_rate, idempotency_key)
+        VALUES
+            (#{fxTransactionId}, #{fromCurrency}, #{toCurrency}, #{baseCurrency},
+             #{realizedPnl}, #{midRate}, #{appliedRate}, #{idempotencyKey})
+    </insert>
+
+</mapper>

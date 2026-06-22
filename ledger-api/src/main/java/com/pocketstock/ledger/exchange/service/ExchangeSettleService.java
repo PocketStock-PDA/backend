@@ -50,6 +50,7 @@ public class ExchangeSettleService {
     private final ExchangeRatePolicy ratePolicy;
     private final FxTransactionMapper fxMapper;
     private final CmaFundsPort cmaFunds;
+    private final FxFirmLegService firmLeg;
     private final TxnAuthGuard txnAuthGuard;
 
     /** 원화 → 달러: KRW 풀 차감 → USD = krw ÷ 매수환율. */
@@ -59,11 +60,14 @@ public class ExchangeSettleService {
         BigDecimal krw = requirePositive(req.krwAmount());
         txnAuthGuard.requireTxnAuth(userId);
 
-        BigDecimal buyRate = ratePolicy.buyRate(USD, baseRate());
+        BigDecimal mid = baseRate();
+        BigDecimal buyRate = ratePolicy.buyRate(USD, mid);
         BigDecimal usd = krw.divide(buyRate, USD_SCALE, RoundingMode.DOWN);
 
         FxTransaction tx = record(userId, KRW, krw, USD, usd, buyRate);
         FxLegResult legs = cmaFunds.applyFxLegs(userId, KRW, krw, USD, usd, tx.getId());
+        // 회사쪽 복식부기 leg(H5): 회사 통화풀 2-leg(KRW 수취·USD 지급) + 실현 환차익. 같은 로컬 트랜잭션.
+        firmLeg.record(tx.getId(), KRW, krw, USD, usd, mid, buyRate);
 
         return new KrwToUsdResponse(usd, buyRate, FEE, TRIGGER_MANUAL, legs.remainFrom());
     }
@@ -75,11 +79,14 @@ public class ExchangeSettleService {
         BigDecimal usd = requirePositive(req.usdAmount());
         txnAuthGuard.requireTxnAuth(userId);
 
-        BigDecimal sellRate = ratePolicy.sellRate(USD, baseRate());
+        BigDecimal mid = baseRate();
+        BigDecimal sellRate = ratePolicy.sellRate(USD, mid);
         BigDecimal krw = usd.multiply(sellRate).setScale(KRW_SCALE, RoundingMode.DOWN);
 
         FxTransaction tx = record(userId, USD, usd, KRW, krw, sellRate);
         FxLegResult legs = cmaFunds.applyFxLegs(userId, USD, usd, KRW, krw, tx.getId());
+        // 회사쪽 복식부기 leg(H5): 회사 통화풀 2-leg(USD 수취·KRW 지급) + 실현 환차익. 같은 로컬 트랜잭션.
+        firmLeg.record(tx.getId(), USD, usd, KRW, krw, mid, sellRate);
 
         return new UsdToKrwResponse(krw, sellRate, FEE, TRIGGER_MANUAL, legs.remainFrom());
     }
