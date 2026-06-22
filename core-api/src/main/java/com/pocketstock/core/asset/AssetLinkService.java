@@ -151,8 +151,10 @@ public class AssetLinkService {
     // ── 새로고침(no-op) ──────────────────────────────────────────────────
     @Transactional
     public RefreshResponse refresh(Long userId) {
-        mapper.touchLastSynced(userId);   // 연동 기관 없으면 0건 — 그래도 현재 시각 반환
-        return new RefreshResponse(LocalDateTime.now());
+        mapper.touchLastSynced(userId);
+        // 응답·저장값 불일치(DB NOW() vs 앱 시각·타임존) 방지 — DB가 찍은 값을 그대로 읽어 반환.
+        LocalDateTime syncedAt = mapper.findMaxLastSyncedAt(userId);
+        return new RefreshResponse(syncedAt != null ? syncedAt : LocalDateTime.now());  // 연동 기관 없으면 폴백
     }
 
     // ── 내부 ────────────────────────────────────────────────────────────

@@ -65,4 +65,7 @@ public interface AssetLinkMapper {
 
     /** refresh — 유저의 모든 연동 기관 last_synced_at을 NOW()로 갱신. @return 갱신 행 수. */
     int touchLastSynced(@Param("userId") Long userId);
+
+    /** 갱신 후 동기화 시각(연동 기관들의 MAX last_synced_at). 연동 기관 없으면 null. */
+    java.time.LocalDateTime findMaxLastSyncedAt(@Param("userId") Long userId);
 }

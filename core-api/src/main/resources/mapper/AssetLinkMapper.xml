@@ -96,4 +96,8 @@
         WHERE user_id = #{userId}
     </update>
 
+    <select id="findMaxLastSyncedAt" resultType="java.time.LocalDateTime">
+        SELECT MAX(last_synced_at) FROM linked_institutions WHERE user_id = #{userId}
+    </select>
+
 </mapper>
