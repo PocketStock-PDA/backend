@@ -467,7 +467,7 @@
 
 ## 소수점투자
 
-### POST `/api/trading/orders/buy`
+### POST `/api/trading/orders/fractional/buy`
 
 소수점 매수 (금액/수량)<br> LS TR: CSPAT00601 (국내) · COSAT00301 (해외)
 
@@ -504,7 +504,7 @@
 
 ---
 
-### POST `/api/trading/orders/sell`
+### POST `/api/trading/orders/fractional/sell`
 
 소수점 매도 (금액/전량)<br> LS TR: CSPAT00601 (국내) · COSMT00300 (해외)
 
