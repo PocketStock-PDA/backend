@@ -29,7 +29,7 @@ import static com.pocketstock.ledger.trading.support.MarketFields.dec;
  *
  * <p>vendor-first + 캐시 폴백(#128): 벤더 REST가 정상 호가를 주면 그대로 반환하며 마지막 스냅샷으로
  * 캐시에 갱신하고, 장 마감/공백으로 호가창이 비었거나 호출이 실패하면 마지막 캐시 스냅샷을 반환한다
- * (응답 {@code asOf}가 과거값이면 프론트가 "장마감 기준" 등으로 표시). 캐시는 보여주기 전용.
+ * (응답 {@code asOf}가 과거값이면 프론트가 "장마감 기준" 등으로 표시). 캐시는 조회·체결 공용(#145 통합 체결 정책).
  */
 @Service
 @RequiredArgsConstructor
@@ -49,6 +49,11 @@ public class OrderbookService {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
+        return domesticSnapshot(stockCode);
+    }
+
+    /** 체결용(인증 없이) — 스냅샷 백업 국내 호가창. 빈 호가창·실패 시 마지막 스냅샷(동결가). #145 */
+    OrderbookResponse domesticSnapshot(String stockCode) {
         return snapshotCache.readThrough(TYPE_DOMESTIC, stockCode,
                 () -> buildDomestic(stockCode), OrderbookService::hasBook,
                 OrderbookResponse.class, "국내 호가");
@@ -80,8 +85,13 @@ public class OrderbookService {
         if (stock == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
         }
+        return overseasSnapshot(stock);
+    }
+
+    /** 체결용(인증 없이) — 스냅샷 백업 해외 호가창. 빈 호가창·실패 시 마지막 스냅샷(동결가). #145 */
+    ForeignQuoteResponse overseasSnapshot(TradableStock stock) {
         String excd = OverseasExchangeCode.of(stock);
-        return snapshotCache.readThrough(TYPE_FOREIGN, stockCode,
+        return snapshotCache.readThrough(TYPE_FOREIGN, stock.getStockCode(),
                 () -> buildOverseas(stock, excd), OrderbookService::hasForeignBook,
                 ForeignQuoteResponse.class, "해외 호가");
     }

@@ -5,16 +5,14 @@ import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateCache;
 import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
-import com.pocketstock.ledger.kis.KisAskingPriceResponse;
-import com.pocketstock.ledger.kis.KisMarketClient;
-import com.pocketstock.ledger.trading.client.LsMarketClient;
-import com.pocketstock.ledger.trading.client.LsT8450Response;
 import com.pocketstock.ledger.trading.domain.Order;
 import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
+import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.OrderCancelResponse;
 import com.pocketstock.ledger.trading.dto.OrderHistoryResponse;
+import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.dto.WholeOrderRequest;
 import com.pocketstock.ledger.trading.dto.WholeOrderResponse;
 import com.pocketstock.ledger.trading.matching.PendingOrderClosedEvent;
@@ -24,7 +22,6 @@ import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
 import com.pocketstock.ledger.trading.support.BookWalker;
-import com.pocketstock.ledger.trading.support.OverseasExchangeCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
@@ -35,8 +32,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
-
-import static com.pocketstock.ledger.trading.support.MarketFields.dec;
 
 /**
  * 온주(정수 주식) 매수/매도. 호가 기반 지정가/시장가를 자체 시뮬로 즉시 전량 체결한다.
@@ -65,8 +60,7 @@ public class WholeOrderService {
     private final OperatingCashService operatingCashService;
     private final OperatingInventoryService operatingInventoryService;
     private final OrderRejectionService rejectionService;
-    private final LsMarketClient lsMarketClient;
-    private final KisMarketClient kisMarketClient;
+    private final OrderbookService orderbookService;
     private final CurrencyRateCache currencyRateCache;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -304,21 +298,28 @@ public class WholeOrderService {
         return new Execution(false, null);              // 미체결 → PENDING(매칭 데몬 H4 #92가 체결)
     }
 
-    /** 거래소별 호가창 스냅샷(한 방향) — 매수=매도호가/매도=매수호가 사다리 + (국내) 현재가·상하한가. */
+    /**
+     * 거래소별 호가창(한 방향) — 스냅샷 백업(#145): 장중엔 실시간, 장외·빈호가창엔 마지막 캡처된
+     * 호가창을 동결가로 반환한다(REST→WS로 받던 마지막 시장 상태 동결). 매수=매도호가/매도=매수호가
+     * + (국내) 현재가·상하한가. 동결 호가창을 그대로 사다리 훑기 → 장중/장외 분기 없음.
+     */
     private Book fetchBook(TradableStock stock, boolean overseas, boolean buy) {
         if (overseas) {
-            String excd = OverseasExchangeCode.of(stock);
-            KisAskingPriceResponse.Output2 o2 =
-                    kisMarketClient.getOverseasOrderbook(excd, stock.getStockCode()).output2();
-            String[] prices = buy ? o2.askPrices() : o2.bidPrices();
-            String[] volumes = buy ? o2.askVolumes() : o2.bidVolumes();
-            return new Book(toDec(prices), toDec(volumes), BigDecimal.ZERO, 0L, 0L);
+            ForeignQuoteResponse q = orderbookService.overseasSnapshot(stock);
+            List<ForeignQuoteResponse.Level> levels = buy ? q.asks() : q.bids();
+            return new Book(
+                    levels.stream().map(ForeignQuoteResponse.Level::price).toArray(BigDecimal[]::new),
+                    levels.stream().map(ForeignQuoteResponse.Level::volume).toArray(BigDecimal[]::new),
+                    BigDecimal.ZERO, 0L, 0L);
         }
-        LsT8450Response.OutBlock ob = lsMarketClient.getDomesticOrderbook(stock.getStockCode());
-        long[] prices = buy ? ob.askPrices() : ob.bidPrices();
-        long[] volumes = buy ? ob.askVolumes() : ob.bidVolumes();
-        return new Book(toDec(prices), toDec(volumes), BigDecimal.valueOf(ob.price()),
-                ob.upperLimit(), ob.lowerLimit());
+        OrderbookResponse ob = orderbookService.domesticSnapshot(stock.getStockCode());
+        List<OrderbookResponse.Level> levels = buy ? ob.asks() : ob.bids();
+        return new Book(
+                levels.stream().map(OrderbookResponse.Level::price).toArray(BigDecimal[]::new),
+                levels.stream().map(OrderbookResponse.Level::volume).toArray(BigDecimal[]::new),
+                ob.currentPrice(),
+                ob.upperLimit() == null ? 0L : ob.upperLimit().longValue(),
+                ob.lowerLimit() == null ? 0L : ob.lowerLimit().longValue());
     }
 
     /**
@@ -353,24 +354,6 @@ public class WholeOrderService {
         if (lowerLimit > 0 && price.compareTo(BigDecimal.valueOf(lowerLimit)) < 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "체결가가 하한가 미만입니다.");
         }
-    }
-
-    /** long[] 호가/잔량 → BigDecimal[]. */
-    private BigDecimal[] toDec(long[] arr) {
-        BigDecimal[] out = new BigDecimal[arr.length];
-        for (int i = 0; i < arr.length; i++) {
-            out[i] = BigDecimal.valueOf(arr[i]);
-        }
-        return out;
-    }
-
-    /** String[] 호가/잔량 → BigDecimal[](빈 값 0). */
-    private BigDecimal[] toDec(String[] arr) {
-        BigDecimal[] out = new BigDecimal[arr.length];
-        for (int i = 0; i < arr.length; i++) {
-            out[i] = dec(arr[i]);
-        }
-        return out;
     }
 
     /** 매수 — 보유 원자 upsert(수량 누적 + 평단 가중평균 + 원화원가 누적). 동시 매수 lost update 차단. */
