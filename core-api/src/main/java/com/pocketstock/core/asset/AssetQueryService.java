@@ -109,22 +109,20 @@ public class AssetQueryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** 활성 CARD 설정의 라운드업 잔돈 합계. getCardRoundup 재사용(끝전 계산 단일 소스). */
+    /** 활성 CARD 설정들의 라운드업 잔돈 합계(다중 카드 합산). getCardRoundup 재사용(끝전 계산 단일 소스). */
     private BigDecimal calcCardAmount(Long userId, List<CollectionSettingView> settings) {
         return settings.stream()
                 .filter(s -> "CARD".equals(s.sourceType()) && s.enabled())
-                .findFirst()
                 .map(s -> internalAssetService.getCardRoundup(userId, s.sourceRefId()).totalRoundupAmount())
-                .orElse(BigDecimal.ZERO);
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** 활성 POINT 설정의 포인트 잔액. */
+    /** 활성 POINT 설정들의 포인트 잔액 합계(다중 포인트 합산). */
     private BigDecimal calcPointAmount(Long userId, List<CollectionSettingView> settings) {
         return settings.stream()
                 .filter(s -> "POINT".equals(s.sourceType()) && s.enabled())
-                .findFirst()
                 .map(s -> internalAssetService.getAvailablePoints(userId, s.sourceRefId()).availablePoints())
-                .orElse(BigDecimal.ZERO);
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**

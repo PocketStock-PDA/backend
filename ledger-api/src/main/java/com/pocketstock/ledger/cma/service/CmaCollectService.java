@@ -98,38 +98,66 @@ public class CmaCollectService {
         return CollectResult.success(SRC_ACCOUNT, amount, balanceAfter);
     }
 
-    /** 카드 라운드업 적립 — 미수집 카드 거래의 천원 올림 차액 합산. 수집 후 core-api에 완료 표시. */
+    /**
+     * 카드 라운드업 적립 — 활성 CARD 카드들의 천원 올림 차액 합산(다중 카드). 수집 후 core-api에 완료 표시.
+     * E-1: 합산 1줄, ref_id는 카드 1장이면 해당 id·여러 장이면 null. 수집된 카드 거래는 모두 mark.
+     */
     @Transactional
     public CollectResult collectFromCard(Long userId, String idempotencyKey) {
         CmaAccount account = getAccountOrThrow(userId);
-        CollectionSetting setting = enabledSettings(userId, SRC_CARD).stream().findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 카드 적립 소스가 없습니다."));
+        List<CollectionSetting> enabled = enabledSettings(userId, SRC_CARD);
+        if (enabled.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 카드 적립 소스가 없습니다.");
+        }
 
-        CardRoundupSummary roundup = assetFeignClient.getCardRoundup(userId, setting.getSourceRefId());
-        requireCollectible(roundup.totalRoundupAmount());
+        BigDecimal amount = BigDecimal.ZERO;
+        List<Long> collectedTxIds = new ArrayList<>();
+        List<Long> refIds = new ArrayList<>();
+        for (CollectionSetting setting : enabled) {
+            CardRoundupSummary roundup = assetFeignClient.getCardRoundup(userId, setting.getSourceRefId());
+            amount = amount.add(roundup.totalRoundupAmount());
+            collectedTxIds.addAll(roundup.cardTransactionIds());
+            refIds.add(setting.getSourceRefId());
+        }
+        requireCollectible(amount);
 
+        Long refId = refIds.size() == 1 ? refIds.get(0) : null;
         BigDecimal balanceAfter = ledgerWriter.applyEntry(userId, account.getId(), KRW,
-                TX_COLLECT, SRC_CARD, roundup.totalRoundupAmount(), REF_CARD, setting.getSourceRefId(), idempotencyKey);
+                TX_COLLECT, SRC_CARD, amount, REF_CARD, refId, idempotencyKey);
 
         // 수집 완료 표시(core-api, DB A) — 같은 카드 거래가 다시 수집되지 않게 한다(E-3: roundup_amount도 함께 기록).
         // 교차 DB라 한 트랜잭션에 못 묶음 → 원장 기록 후 마지막에 호출(실패 시 본 트랜잭션 롤백되어 재시도 가능).
-        assetFeignClient.markRoundupCollected(userId, roundup.cardTransactionIds());
-        return CollectResult.success(SRC_CARD, roundup.totalRoundupAmount(), balanceAfter);
+        if (!collectedTxIds.isEmpty()) {
+            assetFeignClient.markRoundupCollected(userId, collectedTxIds);
+        }
+        return CollectResult.success(SRC_CARD, amount, balanceAfter);
     }
 
-    /** 포인트 전환 적립 — 전환 가능 포인트를 CMA 원화 풀로 입금. */
+    /**
+     * 포인트 전환 적립 — 활성 POINT 포인트들의 전환 가능 잔액 합산(다중 포인트)을 CMA 원화 풀로 입금.
+     * E-1: 합산 1줄, ref_id는 포인트 1개면 해당 id·여러 개면 null.
+     */
     @Transactional
     public CollectResult collectFromPoint(Long userId, String idempotencyKey) {
         CmaAccount account = getAccountOrThrow(userId);
-        CollectionSetting setting = enabledSettings(userId, SRC_POINT).stream().findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 포인트 적립 소스가 없습니다."));
+        List<CollectionSetting> enabled = enabledSettings(userId, SRC_POINT);
+        if (enabled.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 포인트 적립 소스가 없습니다.");
+        }
 
-        PointSummary point = assetFeignClient.getAvailablePoints(userId, setting.getSourceRefId());
-        requireCollectible(point.availablePoints());
+        BigDecimal amount = BigDecimal.ZERO;
+        List<Long> refIds = new ArrayList<>();
+        for (CollectionSetting setting : enabled) {
+            PointSummary point = assetFeignClient.getAvailablePoints(userId, setting.getSourceRefId());
+            amount = amount.add(point.availablePoints());
+            refIds.add(setting.getSourceRefId());
+        }
+        requireCollectible(amount);
 
+        Long refId = refIds.size() == 1 ? refIds.get(0) : null;
         BigDecimal balanceAfter = ledgerWriter.applyEntry(userId, account.getId(), KRW,
-                TX_COLLECT, SRC_POINT, point.availablePoints(), REF_POINT, setting.getSourceRefId(), idempotencyKey);
-        return CollectResult.success(SRC_POINT, point.availablePoints(), balanceAfter);
+                TX_COLLECT, SRC_POINT, amount, REF_POINT, refId, idempotencyKey);
+        return CollectResult.success(SRC_POINT, amount, balanceAfter);
     }
 
     /**

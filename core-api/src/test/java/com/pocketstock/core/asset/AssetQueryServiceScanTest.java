@@ -94,6 +94,31 @@ class AssetQueryServiceScanTest {
     }
 
     @Test
+    @DisplayName("다중 카드/포인트 설정은 findFirst가 아니라 전부 합산한다")
+    void getScan_sumsMultipleCardAndPoint() {
+        when(ledgerFeignClient.getCollectionSettings(USER_ID)).thenReturn(List.of(
+                new CollectionSettingView("CARD", 10L, true, null),
+                new CollectionSettingView("CARD", 11L, true, null),
+                new CollectionSettingView("POINT", 20L, true, null),
+                new CollectionSettingView("POINT", 21L, true, null)
+        ));
+        when(internalAssetService.getCardRoundup(USER_ID, 10L))
+                .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(280), List.of(1L)));
+        when(internalAssetService.getCardRoundup(USER_ID, 11L))
+                .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(520), List.of(2L)));
+        when(internalAssetService.getAvailablePoints(USER_ID, 20L))
+                .thenReturn(new PointSummary(20L, BigDecimal.valueOf(28000)));
+        when(internalAssetService.getAvailablePoints(USER_ID, 21L))
+                .thenReturn(new PointSummary(21L, BigDecimal.valueOf(5000)));
+        when(linkedAssetMapper.sumUsdWalletBalance(USER_ID)).thenReturn(BigDecimal.ZERO);
+
+        ScanResponse res = service.getScan(USER_ID);
+
+        assertThat(source(res, "CARD").amount()).isEqualByComparingTo("800");   // 280 + 520
+        assertThat(source(res, "POINT").amount()).isEqualByComparingTo("33000"); // 28000 + 5000
+    }
+
+    @Test
     @DisplayName("비활성 소스는 0으로 집계되고 Feign 계산 호출도 하지 않는다")
     void getScan_disabledSourcesSkipped() {
         when(ledgerFeignClient.getCollectionSettings(USER_ID)).thenReturn(List.of(

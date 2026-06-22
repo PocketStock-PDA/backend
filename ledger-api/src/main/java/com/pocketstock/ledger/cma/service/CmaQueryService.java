@@ -3,9 +3,7 @@ package com.pocketstock.ledger.cma.service;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.client.AssetFeignClient;
-import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
-import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
@@ -196,24 +194,18 @@ public class CmaQueryService {
     }
 
     private BigDecimal calcCardAmount(Long userId, List<CollectionSetting> settings) {
+        // 다중 카드 합산 — 수집 실행(CmaCollectService.collectFromCard)과 동일하게 활성 CARD 전부 더한다.
         return settings.stream()
                 .filter(s -> "CARD".equals(s.getSourceType()) && Boolean.TRUE.equals(s.getIsEnabled()))
-                .findFirst()
-                .map(s -> {
-                    CardRoundupSummary roundup = assetFeignClient.getCardRoundup(userId, s.getSourceRefId());
-                    return roundup.totalRoundupAmount();
-                })
-                .orElse(BigDecimal.ZERO);
+                .map(s -> assetFeignClient.getCardRoundup(userId, s.getSourceRefId()).totalRoundupAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private BigDecimal calcPointAmount(Long userId, List<CollectionSetting> settings) {
+        // 다중 포인트 합산 — 수집 실행(CmaCollectService.collectFromPoint)과 동일하게 활성 POINT 전부 더한다.
         return settings.stream()
                 .filter(s -> "POINT".equals(s.getSourceType()) && Boolean.TRUE.equals(s.getIsEnabled()))
-                .findFirst()
-                .map(s -> {
-                    PointSummary point = assetFeignClient.getAvailablePoints(userId, s.getSourceRefId());
-                    return point.availablePoints();
-                })
-                .orElse(BigDecimal.ZERO);
+                .map(s -> assetFeignClient.getAvailablePoints(userId, s.getSourceRefId()).availablePoints())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
