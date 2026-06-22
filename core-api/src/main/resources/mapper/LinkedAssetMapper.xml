@@ -6,7 +6,7 @@
     <!-- 휴면 은행 계좌 목록.
          lba.institution_id → linked_institutions.id → institution_master 체인으로 은행명 해석.
          계좌번호(account_no_enc)는 노출하지 않고 상품명(account_name)으로 표시.
-         해지 식별자로 accountId 노출. 정렬: 잔액 큰 순 → id. -->
+         해지 식별자로 accountId 노출. 소프트 해지된 계좌(closed_at IS NOT NULL)는 제외. 정렬: 잔액 큰 순 → id. -->
     <select id="findDormantAccounts" resultType="com.pocketstock.core.asset.dto.DormantAccountResponse">
         SELECT lba.id            AS accountId,
                im.company_name   AS bankName,
@@ -18,8 +18,38 @@
         JOIN institution_master im ON im.id = li.institution_master_id
         WHERE lba.user_id = #{userId}
           AND lba.is_dormant = TRUE
+          AND lba.closed_at IS NULL
         ORDER BY lba.balance DESC, lba.id ASC
     </select>
+
+    <!-- 휴면계좌 해지 검증·분류용 본인 소유 계좌 조회(요청 id IN).
+         미해지 휴면계좌 + 멱등 재요청 대비 이미 해지된 계좌까지 함께 반환(서비스가 closed_at으로 분류). -->
+    <select id="findForClose" resultType="com.pocketstock.core.asset.dto.DormantCloseRow">
+        SELECT id            AS accountId,
+               balance       AS balance,
+               currency      AS currency,
+               is_dormant    AS isDormant,
+               closed_at     AS closedAt,
+               closed_amount AS closedAmount
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND id IN
+          <foreach item="id" collection="ids" open="(" separator="," close=")">
+              #{id}
+          </foreach>
+    </select>
+
+    <!-- 휴면계좌 소프트 해지. 가드(is_dormant=TRUE AND closed_at IS NULL)로 멱등 — 이미 해지된 행은 영향 0. -->
+    <update id="softClose">
+        UPDATE linked_bank_accounts
+        SET balance = 0,
+            closed_at = NOW(),
+            closed_amount = #{closedAmount}
+        WHERE user_id = #{userId}
+          AND id = #{accountId}
+          AND is_dormant = TRUE
+          AND closed_at IS NULL
+    </update>
 
     <!-- 외화(USD) 지갑 잔액 합계 — 잔돈 스캔 FX 소스(SOL트래블 등 currency='USD' 지갑).
          휴면 계좌 제외(휴면은 별도 해지 흐름). COALESCE로 행 없을 때 0 반환. -->
