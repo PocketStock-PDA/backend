@@ -9,6 +9,7 @@ import com.pocketstock.ledger.trading.client.LsT1102Response;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.dto.StockPriceResponse;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.support.MarketSessionResolver;
 import com.pocketstock.ledger.trading.support.MarketSnapshotCache;
 import com.pocketstock.ledger.trading.support.OverseasExchangeCode;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class StockPriceService {
     private final KisMarketClient kisMarketClient;
     private final StockMapper stockMapper;
     private final MarketSnapshotCache snapshotCache;
+    private final MarketSessionResolver marketSessionResolver;
 
     /** 국내 현재가 조회(t1102). sign으로 전일대비/등락율 부호를 적용한다. 실패 시 마지막 캐시. */
     public StockPriceResponse getDomesticPrice(Long userId, String stockCode) {
@@ -81,7 +83,8 @@ public class StockPriceService {
         if (stock == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
         }
-        String excd = OverseasExchangeCode.of(stock);
+        // 세션-aware EXCD: 주간거래엔 BAQ(라이브), 정규/마감엔 NAS. 호가(OrderbookService)·WS(KisTrKey)와 정합.
+        String excd = OverseasExchangeCode.of(marketSessionResolver.current(), stock);
         return snapshotCache.readThrough(TYPE_PRICE_FOREIGN, stockCode,
                 () -> buildOverseasPrice(stock, excd), StockPriceService::hasPrice,
                 StockPriceResponse.class, "해외 현재가");

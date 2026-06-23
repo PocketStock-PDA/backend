@@ -1,5 +1,7 @@
 package com.pocketstock.ledger.trading.matching;
 
+import com.pocketstock.ledger.exchange.CurrencyRateCache;
+import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.trading.domain.TradingRound;
 import com.pocketstock.ledger.trading.mapper.RoundMapper;
 import lombok.RequiredArgsConstructor;
@@ -29,9 +31,11 @@ public class FractionalRoundScheduler {
 
     /** EXECUTING이 이 분(分) 이상 정체면 사망 인스턴스로 보고 회수(정상 집행은 수초). */
     private static final long STALE_MINUTES = 5;
+    private static final String MARKET_OVERSEAS = "OVERSEAS";
 
     private final RoundMapper roundMapper;
     private final FractionalBatchService batchService;
+    private final CurrencyRateCache currencyRateCache;
 
     @Scheduled(cron = "5 * * * * *")
     public void runDueRounds() {
@@ -43,6 +47,13 @@ public class FractionalRoundScheduler {
         }
         List<TradingRound> due = roundMapper.findDueOpenRounds(now);
         for (TradingRound round : due) {
+            // 환율 콜드스타트 보류(#155): 해외 차수는 매매기준율(USD/KRW) 미수신이면 집행을 미룬다.
+            // claim 자체를 건너뛰어 OPEN으로 남기면 다음 분 tick이 재시도(REJECT 아님, H4 PENDING 정산과 동형).
+            // 국내 차수는 영향 없음 — 시장별 차수라 해외 보류가 국내 집행을 막지 않는다.
+            if (MARKET_OVERSEAS.equals(round.getMarket()) && rateColdStart()) {
+                log.warn("[소수점배치] 환율 콜드스타트 — 해외 차수 보류(다음 분 재시도) roundId={}", round.getId());
+                continue;
+            }
             // 차수 선점 — affected=0이면 다른 인스턴스가 이미 가져감(이중집행 차단).
             if (roundMapper.claimForExecution(round.getId()) == 0) {
                 continue;
@@ -56,5 +67,11 @@ public class FractionalRoundScheduler {
                 roundMapper.markFailed(round.getId());
             }
         }
+    }
+
+    /** 매매기준율(USD/KRW) 미수신 여부 — 해외 차수 집행 전 콜드스타트 가드(true면 보류). */
+    private boolean rateColdStart() {
+        CurrencyRateResponse rate = currencyRateCache.get();
+        return rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0;
     }
 }

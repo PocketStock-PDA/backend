@@ -7,6 +7,7 @@ import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.domain.TradingRound;
+import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.dto.SplitOrderResponse;
@@ -39,22 +40,34 @@ import java.util.Set;
  * <p>체결(상계·회사 선부담 ceil·시뮬·비례배분·정산)은 스케줄러(#152)+배치 집행기(#153)가 수행한다.
  * 여긴 입구만 — 응답은 즉시 QUEUED, 예상수량은 참고치(확정은 allocations).
  *
- * <p>D4: <b>국내 먼저</b>. 해외(USD 충전경로·자동환전·환율 콜드스타트)는 후속(#155 해외 확장)으로 게이트한다.
+ * <p>국내(KRW·LS 호가)·해외(USD·KIS 호가)를 거래소로 분기({@link MarketSpec}). 해외는 OVERSEAS 위탁계좌의
+ * USD 예수금 충전 전제(자동환전 제외, #155). 환율 콜드스타트 가드는 배치 집행(스케줄러)에서 처리한다.
  */
 @Service
 @RequiredArgsConstructor
 public class FractionalOrderService {
 
     private static final String ACCOUNT_DOMESTIC = "DOMESTIC";
+    private static final String ACCOUNT_OVERSEAS = "OVERSEAS";
     private static final String CURRENCY_KRW = "KRW";
+    private static final String CURRENCY_USD = "USD";
     private static final Set<String> DOMESTIC_EXCHANGES = Set.of("KOSPI", "KOSDAQ");
     private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
 
-    /** 국내 최소 주문금액·금액단위(천원). 수량매수 버퍼 1%(해외 2%, 해외는 후속). */
+    /** 국내 최소 주문금액·금액단위(천원), 수량매수 버퍼 1%. 해외는 최소 $0.01·단위 없음·버퍼 2%. */
     private static final BigDecimal MIN_ORDER_KRW = BigDecimal.valueOf(1_000);
     private static final BigDecimal KRW_UNIT = BigDecimal.valueOf(1_000);
     private static final BigDecimal BUFFER_DOMESTIC = new BigDecimal("0.01");
+    private static final BigDecimal MIN_ORDER_USD = new BigDecimal("0.01");
+    private static final BigDecimal BUFFER_OVERSEAS = new BigDecimal("0.02");
     private static final int QTY_SCALE = 6;   // 내부원장 주수 6자리(DECIMAL(18,6))
+
+    /** 국내 위탁계좌(KRW·천원단위·버퍼 1%). */
+    private static final MarketSpec SPEC_DOMESTIC =
+            new MarketSpec(false, ACCOUNT_DOMESTIC, CURRENCY_KRW, MIN_ORDER_KRW, KRW_UNIT, BUFFER_DOMESTIC);
+    /** 해외 위탁계좌(USD·단위 없음·버퍼 2%). 자동환전 제외 — USD 예수금 충전 전제(#155). */
+    private static final MarketSpec SPEC_OVERSEAS =
+            new MarketSpec(true, ACCOUNT_OVERSEAS, CURRENCY_USD, MIN_ORDER_USD, null, BUFFER_OVERSEAS);
 
     private static final DateTimeFormatter ROUND_NO = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
 
@@ -83,7 +96,7 @@ public class FractionalOrderService {
             return replay;
         }
         try {
-            BigDecimal estPrice = domesticEstPrice(ctx.stock().getStockCode(), true);
+            BigDecimal estPrice = estPrice(ctx, true);
             return "QUANTITY".equals(method)
                     ? splitBuyByQuantity(userId, ctx, req, estPrice)
                     : splitBuyByAmount(userId, ctx, req, estPrice);
@@ -91,7 +104,7 @@ public class FractionalOrderService {
             if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT) {
                 try {
                     rejectionService.recordRejection(userId, ctx.account().getId(), ctx.stock().getStockCode(),
-                            ctx.stock().getExchange(), "BUY", method, null, null, CURRENCY_KRW, e.getMessage());
+                            ctx.stock().getExchange(), "BUY", method, null, null, ctx.spec().currency(), e.getMessage());
                 } catch (Exception ignore) {
                     // 감사 기록 실패가 원 예외를 가리지 않게 무시.
                 }
@@ -109,8 +122,9 @@ public class FractionalOrderService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "주문수량(quantity)을 입력해주세요.");
         }
         qty = qty.setScale(QTY_SCALE, RoundingMode.DOWN);
-        if (estPrice.multiply(qty).compareTo(MIN_ORDER_KRW) < 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "예상 주문금액이 최소 1,000원 이상이어야 합니다.");
+        MarketSpec spec = ctx.spec();
+        if (estPrice.multiply(qty).compareTo(spec.minOrder()) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "예상 주문금액이 최소 " + minOrderText(spec) + " 이상이어야 합니다.");
         }
         int whole = qty.setScale(0, RoundingMode.FLOOR).intValueExact();
         BigDecimal frac = qty.subtract(BigDecimal.valueOf(whole));
@@ -119,7 +133,7 @@ public class FractionalOrderService {
         FracEnq f = null;
         if (frac.signum() > 0) {
             // 소수분 hold = 예상금액×(1+버퍼). split 잔여라 표준 최소주문 검증은 생략(총주문에서 이미 검증).
-            BigDecimal hold = estPrice.multiply(frac).multiply(BigDecimal.ONE.add(BUFFER_DOMESTIC))
+            BigDecimal hold = estPrice.multiply(frac).multiply(BigDecimal.ONE.add(spec.buffer()))
                     .setScale(4, RoundingMode.UP);
             f = enqueueFracBuy(userId, ctx, "QUANTITY", null, frac, frac, hold);
         }
@@ -132,10 +146,12 @@ public class FractionalOrderService {
         if (amount == null || amount.signum() <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "주문금액(amount)을 입력해주세요.");
         }
-        if (amount.compareTo(MIN_ORDER_KRW) < 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "최소 주문금액은 1,000원입니다.");
+        MarketSpec spec = ctx.spec();
+        if (amount.compareTo(spec.minOrder()) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "최소 주문금액은 " + minOrderText(spec) + "입니다.");
         }
-        if (amount.remainder(KRW_UNIT).signum() != 0) {
+        // 금액단위 제약은 국내(천원단위)만 — 해외는 단위 없음(spec.unit == null).
+        if (spec.unit() != null && amount.remainder(spec.unit()).signum() != 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "주문금액은 1,000원 단위입니다.");
         }
         int whole = amount.divide(estPrice, 0, RoundingMode.DOWN).intValueExact();
@@ -166,7 +182,7 @@ public class FractionalOrderService {
     private FracEnq enqueueFracBuy(Long userId, Ctx ctx, String method, BigDecimal orderAmount,
                                    BigDecimal orderQuantity, BigDecimal estQty, BigDecimal hold) {
         depositService.hold(ctx.account().getId(), hold);
-        TradingRound round = currentRound(ACCOUNT_DOMESTIC);
+        TradingRound round = currentRound(ctx.spec().accountMarket());
         Order order = Order.builder()
                 .clientOrderId(ctx.clientOrderId() + ":F")
                 .userId(userId)
@@ -182,7 +198,7 @@ public class FractionalOrderService {
                 .status(OrderStatus.QUEUED)
                 .source("MANUAL")
                 .roundId(round.getId())
-                .currency(CURRENCY_KRW)
+                .currency(ctx.spec().currency())
                 .requestedAt(LocalDateTime.now())
                 .build();
         try {
@@ -255,7 +271,7 @@ public class FractionalOrderService {
             if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT) {
                 try {
                     rejectionService.recordRejection(userId, ctx.account().getId(), ctx.stock().getStockCode(),
-                            ctx.stock().getExchange(), "SELL", method, null, null, CURRENCY_KRW, e.getMessage());
+                            ctx.stock().getExchange(), "SELL", method, null, null, ctx.spec().currency(), e.getMessage());
                 } catch (Exception ignore) {
                     // 감사 기록 실패가 원 예외를 가리지 않게 무시.
                 }
@@ -271,7 +287,7 @@ public class FractionalOrderService {
     private SplitOrderResponse splitSell(Long userId, Ctx ctx, FractionalOrderRequest req, String method) {
         Long accountId = ctx.account().getId();
         String stockCode = ctx.stock().getStockCode();
-        BigDecimal estPrice = domesticEstPrice(stockCode, false);   // 매도=최우선 매수호가
+        BigDecimal estPrice = estPrice(ctx, false);   // 매도=최우선 매수호가
         BigDecimal wholeAvail = orZero(holdingMapper.findAvailableWhole(accountId, stockCode));
         BigDecimal fracAvail = orZero(holdingMapper.findAvailableFractional(accountId, stockCode));
 
@@ -323,7 +339,7 @@ public class FractionalOrderService {
         if (holdingMapper.reserveFractionalForSell(ctx.account().getId(), ctx.stock().getStockCode(), fracQty) == 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "소수 매도가능 수량이 변경되었습니다. 다시 시도해주세요.");
         }
-        TradingRound round = currentRound(ACCOUNT_DOMESTIC);
+        TradingRound round = currentRound(ctx.spec().accountMarket());
         Order order = Order.builder()
                 .clientOrderId(ctx.clientOrderId() + ":F")
                 .userId(userId)
@@ -339,7 +355,7 @@ public class FractionalOrderService {
                 .status(OrderStatus.QUEUED)
                 .source("MANUAL")
                 .roundId(round.getId())
-                .currency(CURRENCY_KRW)
+                .currency(ctx.spec().currency())
                 .requestedAt(LocalDateTime.now())
                 .build();
         try {
@@ -368,29 +384,42 @@ public class FractionalOrderService {
         if (stock == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + req.stockCode());
         }
-        if (OVERSEAS_EXCHANGES.contains(stock.getExchange())) {
-            // D4: 국내 먼저 — 해외는 USD 충전경로·자동환전·환율 콜드스타트 가드 선결(#155 해외 확장).
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "해외 소수점 주문은 후속 지원입니다(국내 먼저).");
-        }
-        if (!DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
+        // 거래소로 시장(국내/해외) 판별 → 통화·계좌·최소주문·버퍼 규격을 결정. 해외는 USD·OVERSEAS 계좌(#155).
+        MarketSpec spec;
+        if (DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
+            spec = SPEC_DOMESTIC;
+        } else if (OVERSEAS_EXCHANGES.contains(stock.getExchange())) {
+            spec = SPEC_OVERSEAS;
+        } else {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 거래소: " + stock.getExchange());
         }
         if (Boolean.FALSE.equals(stock.getIsActive())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "거래 정지 종목입니다: " + stock.getStockCode());
         }
-        if (!CURRENCY_KRW.equals(stock.getCurrency())) {
+        // 불변식: 거래소에서 파생한 통화 == 종목마스터 통화. 어긋나면 마스터 데이터 불일치(서버 오류).
+        if (!spec.currency().equals(stock.getCurrency())) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR,
-                    "종목 통화 불일치: " + stock.getStockCode() + " 마스터=" + stock.getCurrency());
+                    "종목 통화 불일치: " + stock.getStockCode() + " 거래소=" + stock.getExchange()
+                            + "(→" + spec.currency() + ") vs 마스터=" + stock.getCurrency());
         }
-        SecuritiesAccount account = accountMapper.findByUserIdAndMarket(userId, ACCOUNT_DOMESTIC);
+        SecuritiesAccount account = accountMapper.findByUserIdAndMarket(userId, spec.accountMarket());
         if (account == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "국내 위탁계좌가 없습니다. 먼저 계좌를 개설하세요.");
+            throw new BusinessException(ErrorCode.NOT_FOUND,
+                    (spec.overseas() ? "해외" : "국내") + " 위탁계좌가 없습니다. 먼저 계좌를 개설하세요.");
         }
-        return new Ctx(clientOrderId, stock, account);
+        return new Ctx(clientOrderId, stock, account, spec);
     }
 
     /** 검증 통과 컨텍스트. */
-    private record Ctx(String clientOrderId, TradableStock stock, SecuritiesAccount account) {
+    private record Ctx(String clientOrderId, TradableStock stock, SecuritiesAccount account, MarketSpec spec) {
+    }
+
+    /**
+     * 시장 규격 — 국내/해외 접수 분기값을 한 곳에 모은다.
+     * @param unit 금액단위(국내 천원=1,000), 해외는 단위 없음(null).
+     */
+    private record MarketSpec(boolean overseas, String accountMarket, String currency,
+                             BigDecimal minOrder, BigDecimal unit, BigDecimal buffer) {
     }
 
     // ---- 차수 ----
@@ -418,9 +447,20 @@ public class FractionalOrderService {
 
     // ---- 보조 ----
 
-    /** 국내 예상가 — 매수=최우선 매도호가, 매도=최우선 매수호가, 폴백 현재가. 셋 다 없으면 시세 미수신(502). */
-    private BigDecimal domesticEstPrice(String stockCode, boolean buy) {
-        OrderbookResponse ob = orderbookService.domesticSnapshot(stockCode);
+    /**
+     * 예상가(접수용 hold 산정) — 매수=최우선 매도호가, 매도=최우선 매수호가, 폴백 현재가. 시장으로 호가소스 분기.
+     * 국내=LS 스냅샷, 해외=KIS 스냅샷(동결 폴백 포함, #145). 호가·현재가 모두 없으면 시세 미수신(502).
+     */
+    private BigDecimal estPrice(Ctx ctx, boolean buy) {
+        if (ctx.spec().overseas()) {
+            ForeignQuoteResponse q = orderbookService.overseasSnapshot(ctx.stock());
+            BigDecimal best = firstForeignPrice(buy ? q.asks() : q.bids());
+            if (best != null && best.signum() > 0) {
+                return best;
+            }
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "시세 정보를 아직 받지 못했습니다.");
+        }
+        OrderbookResponse ob = orderbookService.domesticSnapshot(ctx.stock().getStockCode());
         BigDecimal best = firstPrice(buy ? ob.asks() : ob.bids());
         if (best != null && best.signum() > 0) {
             return best;
@@ -431,7 +471,16 @@ public class FractionalOrderService {
         throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "시세 정보를 아직 받지 못했습니다.");
     }
 
+    /** 최소주문 안내 문구 — 국내 "1,000원" / 해외 "$0.01". */
+    private static String minOrderText(MarketSpec spec) {
+        return spec.overseas() ? "$" + spec.minOrder().toPlainString() : "1,000원";
+    }
+
     private static BigDecimal firstPrice(List<OrderbookResponse.Level> levels) {
+        return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
+    }
+
+    private static BigDecimal firstForeignPrice(List<ForeignQuoteResponse.Level> levels) {
         return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
     }
 
