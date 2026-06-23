@@ -5,6 +5,12 @@ spring:
   application:
     name: core-api
 
+  # Feign HTTP 클라이언트를 OkHttp로 교체 — 기본 HttpURLConnection은 PATCH를 지원하지 않음.
+  cloud:
+    openfeign:
+      okhttp:
+        enabled: true
+
   # DB A (pocketstock_main @ mysql-a:3306) - user/asset/budget/portfolio/notification
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/pocketstock_main?serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false}
