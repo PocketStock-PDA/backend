@@ -5,6 +5,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -48,18 +49,37 @@ public class LsTokenClient {
         params.put("scope", "oob");
         byte[] body = encodeForm(params).getBytes(StandardCharsets.UTF_8);
 
-        LsTokenResponse res = restClient.post()
-                .uri("/oauth2/token")
-                .header(HttpHeaders.CONTENT_TYPE, FORM_CONTENT_TYPE)  // charset 미부착(중요)
-                .body(body)
-                .retrieve()
-                .body(LsTokenResponse.class);
+        // 어느 키/도메인으로 발급하는지 노출(머신 간 비교용) — 실전/모의 불일치(10001) 진단.
+        // appkey는 앞4·뒤4만(시크릿 미노출). env var LS_APP_KEY가 application-local.yml을 덮을 수 있음.
+        log.info("LS 토큰 발급 시도 — baseUrl={} appkey={}", props.getBaseUrl(), mask(props.getAppKey()));
+
+        LsTokenResponse res;
+        try {
+            res = restClient.post()
+                    .uri("/oauth2/token")
+                    .header(HttpHeaders.CONTENT_TYPE, FORM_CONTENT_TYPE)  // charset 미부착(중요)
+                    .body(body)
+                    .retrieve()
+                    .body(LsTokenResponse.class);
+        } catch (RestClientResponseException e) {
+            // LS 원본 에러 응답(상태코드·바디) 노출 — "실전/모의" 등 진짜 사유 확인.
+            log.error("LS 토큰 발급 거부 — status={} body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw e;
+        }
 
         if (res == null || !StringUtils.hasText(res.accessToken())) {
             throw new IllegalStateException("LS 접근토큰 발급 응답이 비어있음");
         }
         log.info("LS 접근토큰 발급 성공 (expires_in={}s)", res.expiresIn());
         return res;
+    }
+
+    /** appkey 마스킹 — 앞4·뒤4만(머신 간 키 비교용, 시크릿 미노출). */
+    private static String mask(String key) {
+        if (key == null || key.length() <= 8) {
+            return "****";
+        }
+        return key.substring(0, 4) + "…" + key.substring(key.length() - 4) + "(len=" + key.length() + ")";
     }
 
     private static String encodeForm(Map<String, String> params) {
