@@ -3,6 +3,7 @@ package com.pocketstock.ledger.client;
 import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
 import com.pocketstock.ledger.client.dto.PointSummary;
+import com.pocketstock.ledger.client.dto.SourceDeduction;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -29,4 +30,12 @@ public interface AssetFeignClient {
     @GetMapping("/internal/assets/points")
     PointSummary getAvailablePoints(@RequestParam("userId") Long userId,
                                      @RequestParam("linkedAccountId") Long linkedAccountId);
+
+    @PatchMapping("/internal/assets/accounts/deduct")
+    void deductAccountBalances(@RequestParam("userId") Long userId,
+                               @RequestBody List<SourceDeduction> deductions);
+
+    @PatchMapping("/internal/assets/points/deduct")
+    void deductPointBalances(@RequestParam("userId") Long userId,
+                             @RequestBody List<SourceDeduction> deductions);
 }
