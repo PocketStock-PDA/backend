@@ -701,11 +701,11 @@ SOL트래블 외화잔액 연동 (개별)
     "peerAgeGroup": "40대",
     "peerRankPercent": 38,
     "portfolio": [
-      { "category": "예금·적금", "amount": 62000000, "ratio": 43.5 },
-      { "category": "연금",      "amount": 18000000, "ratio": 12.6 },
-      { "category": "증권",      "amount":  2295520, "ratio":  1.6 },
-      { "category": "CMA",       "amount":    84480, "ratio":  0.1 },
-      { "category": "기타",      "amount": 60000000, "ratio": 42.2 }
+      { "category": "예금", "amount": 50000000, "ratio": 35.1 },
+      { "category": "적금", "amount": 12000000, "ratio":  8.4 },
+      { "category": "연금", "amount": 18000000, "ratio": 12.6 },
+      { "category": "증권", "amount":  2295520, "ratio":  1.6 },
+      { "category": "기타", "amount": 60000000, "ratio": 42.2 }
     ],
     "fixedExpenses": 524000,
     "variableExpenses": 323200
@@ -734,7 +734,8 @@ SOL트래블 외화잔액 연동 (개별)
 
 | account_type 값 | 표시 카테고리 |
 |---|---|
-| `SAVINGS`, `DEPOSIT` | `예금·적금` |
+| `SAVINGS` | `적금` |
+| `DEPOSIT` | `예금` |
 | `PENSION` | `연금` |
 | `REAL_ESTATE` | `부동산` |
 | `DEMAND`, 그 외 | `기타` |
