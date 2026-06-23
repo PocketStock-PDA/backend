@@ -60,12 +60,16 @@
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
-    <select id="sumCollectedToday" resultType="java.math.BigDecimal">
+    <!-- 이번 달(1일 00:00 ~ 다음 달 1일 00:00, 반열린구간) 카드 라운드업 누적 수집액.
+         홈 "수집한 잔돈"은 카드만 노출. 수집 0건이면 COALESCE로 0 반환(null 금지). -->
+    <select id="sumCardCollectedThisMonth" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(amount), 0)
         FROM cma_transactions
         WHERE user_id = #{userId}
           AND tx_type = 'COLLECT'
-          AND DATE(created_at) = CURDATE()
+          AND source_type = 'CARD'
+          AND created_at &gt;= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+          AND created_at &lt;  DATE_FORMAT(CURDATE(), '%Y-%m-01') + INTERVAL 1 MONTH
     </select>
 
     <select id="findTransfers" resultMap="cmaTransaction">

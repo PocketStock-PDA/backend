@@ -38,5 +38,6 @@ public interface CmaTransactionMapper {
             @Param("limit") int limit
     );
 
-    BigDecimal sumCollectedToday(@Param("userId") Long userId);
+    // 이번 달 카드 라운드업 누적 수집액 — 홈 "수집한 잔돈"은 카드만 노출. 수집 0건이면 0.
+    BigDecimal sumCardCollectedThisMonth(@Param("userId") Long userId);
 }

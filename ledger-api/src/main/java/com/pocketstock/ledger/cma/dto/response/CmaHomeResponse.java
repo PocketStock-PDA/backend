@@ -8,7 +8,7 @@ public record CmaHomeResponse(
         Map<String, BigDecimal> cmaBalance,
         BigDecimal interestRate,
         BigDecimal todayInterest,
-        BigDecimal collectedToday,
+        List<CollectSource> collectedSources,
         List<CollectSource> collectSources,
         BigDecimal totalCollectable
 ) {
