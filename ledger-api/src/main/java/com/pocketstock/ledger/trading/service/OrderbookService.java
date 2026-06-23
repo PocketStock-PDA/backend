@@ -11,6 +11,7 @@ import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse.Level;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.support.MarketSessionResolver;
 import com.pocketstock.ledger.trading.support.MarketSnapshotCache;
 import com.pocketstock.ledger.trading.support.OverseasExchangeCode;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class OrderbookService {
     private final KisMarketClient kisMarketClient;
     private final StockMapper stockMapper;
     private final MarketSnapshotCache snapshotCache;
+    private final MarketSessionResolver marketSessionResolver;
 
     /** 국내 호가창 조회 — 매도·매수 10단계 + 현재가/상하한가/잔량합. 빈 호가창·실패 시 마지막 캐시. */
     public OrderbookResponse getDomesticOrderbook(Long userId, String stockCode) {
@@ -90,7 +92,8 @@ public class OrderbookService {
 
     /** 체결용(인증 없이) — 스냅샷 백업 해외 호가창. 빈 호가창·실패 시 마지막 스냅샷(동결가). #145 */
     ForeignQuoteResponse overseasSnapshot(TradableStock stock) {
-        String excd = OverseasExchangeCode.of(stock);
+        // 세션-aware EXCD: 주간거래엔 BAQ(라이브), 정규/마감엔 NAS(라이브 or 동결 폴백). WS(KisTrKey)와 정합.
+        String excd = OverseasExchangeCode.of(marketSessionResolver.current(), stock);
         return snapshotCache.readThrough(TYPE_FOREIGN, stock.getStockCode(),
                 () -> buildOverseas(stock, excd), OrderbookService::hasForeignBook,
                 ForeignQuoteResponse.class, "해외 호가");
