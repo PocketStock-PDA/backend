@@ -2,15 +2,20 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
+import com.pocketstock.ledger.exchange.CurrencyRateCache;
+import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.domain.Allocation;
 import com.pocketstock.ledger.trading.domain.BatchOrder;
 import com.pocketstock.ledger.trading.domain.Order;
+import com.pocketstock.ledger.trading.domain.TradableStock;
+import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.mapper.AllocationMapper;
 import com.pocketstock.ledger.trading.mapper.BatchOrderMapper;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
+import com.pocketstock.ledger.trading.mapper.StockMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +26,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 소수점 배치 — <b>한 그룹(종목·side·가격모델) 1건의 정산(#153, 엔진 본체)을 한 트랜잭션으로</b> 처리한다.
@@ -31,7 +37,7 @@ import java.util.List;
  * 매수=ceil(순주−firm가용)·매도=floor(firm재고+순주). 총재고 항상 ≥0(음수가드).
  * <b>현금 2-leg</b>: 고객분(ref=allocation) + 시장분(ref=batch). Δcash = Σnet − whole×fill(매수) / whole×fill − Σnet(매도).
  *
- * <p>v1(국내 먼저, D4): KRW 한정. 매수-매도 상계 없음(그룹별 독립). fee/tax=0(D6). 수량매수 자금부족분만 거부·제외(FRAC-015).
+ * <p>국내(KRW·LS)·해외(USD·KIS) 거래소 분기. 해외 취득원가는 체결 시점 환율로 KRW 환산(#155). 매수-매도 상계 없음(그룹별 독립). fee/tax=0(D6). 수량매수 자금부족분만 거부·제외(FRAC-015).
  */
 @Slf4j
 @Service
@@ -39,6 +45,8 @@ import java.util.List;
 public class FractionalGroupSettler {
 
     private static final String CURRENCY_KRW = "KRW";
+    private static final String CURRENCY_USD = "USD";
+    private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
     private static final int QTY_SCALE = 6;
     private static final int TICK_STEPS = 5;   // 국내 금액매수 = 현재가 + 5틱(#101)
 
@@ -46,10 +54,12 @@ public class FractionalGroupSettler {
     private final BatchOrderMapper batchOrderMapper;
     private final AllocationMapper allocationMapper;
     private final HoldingMapper holdingMapper;
+    private final StockMapper stockMapper;
     private final DepositService depositService;
     private final OperatingCashService operatingCashService;
     private final OperatingInventoryService operatingInventoryService;
     private final OrderbookService orderbookService;
+    private final CurrencyRateCache currencyRateCache;
 
     /**
      * 한 그룹 정산(한 tx) — 같은 종목·side·가격모델의 QUEUED 주문을 합산·체결·배분·정산.
@@ -59,7 +69,11 @@ public class FractionalGroupSettler {
     public void settleGroup(List<Order> orders, String stockCode, String exchange,
                             String side, String pricingMethod, Long roundId) {
         boolean buy = "BUY".equals(side);
-        BigDecimal fillPrice = resolveFillPrice(stockCode, buy, pricingMethod);
+        boolean overseas = OVERSEAS_EXCHANGES.contains(exchange);
+        String currency = overseas ? CURRENCY_USD : CURRENCY_KRW;
+        BigDecimal fillPrice = resolveFillPrice(stockCode, overseas, buy, pricingMethod);
+        // 해외 매수만 취득원가(KRW) 환산용 환율 1회 확보 — 콜드스타트면 502(스케줄러가 선제 보류하나 2차 가드).
+        BigDecimal fxRate = (buy && overseas) ? fxRateForKrwBasis() : null;
 
         // 1) 자금 가능분 선별 — 수량매수만 버퍼 초과 급등 시 부족 가능(FRAC-015). 금액매수·매도는 항상 가능.
         List<Funded> funded = new ArrayList<>();
@@ -102,7 +116,7 @@ public class FractionalGroupSettler {
         if (wholeQty > 0) {
             BigDecimal market = fillPrice.multiply(BigDecimal.valueOf(wholeQty));
             operatingCashService.record(buy ? "SELL" : "BUY", buy ? market.negate() : market,
-                    CURRENCY_KRW, "batch", batchId, "frac-batch:" + batchId);
+                    currency, "batch", batchId, "frac-batch:" + batchId);
         }
 
         // 5) 배분 + 고객 정산. 집행 중 취소된 주문(sendForBatch=0)은 건너뛰고 firm이 흡수(0-sum 유지).
@@ -124,11 +138,13 @@ public class FractionalGroupSettler {
                 // 접수 hold(held_amount) 해제 → 실대금만 차감(미사용 버퍼는 주문가능으로 환원).
                 depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
                 depositService.record(o.getUserId(), o.getAccountId(), "BUY", gross.negate(),
-                        CURRENCY_KRW, "allocation", alloc.getId(), idem);
-                operatingCashService.record("BUY", gross, CURRENCY_KRW, "allocation", alloc.getId(), idem);
-                // 국내 취득원가 = 체결대금 그대로(KRW). 소수점 매수 → fractionalDelta=qty(즉시 floor 전환).
+                        currency, "allocation", alloc.getId(), idem);
+                operatingCashService.record("BUY", gross, currency, "allocation", alloc.getId(), idem);
+                // 취득원가(KRW) = 국내는 체결대금 그대로, 해외는 체결 시점 환율로 환산(온주와 동일 소스).
+                BigDecimal krwAmount = overseas ? gross.multiply(fxRate) : gross;
+                // 소수점 매수 → fractionalDelta=qty(즉시 floor 전환).
                 holdingMapper.upsertBuy(o.getUserId(), o.getAccountId(), stockCode,
-                        f.qty(), fillPrice, gross, CURRENCY_KRW, f.qty());
+                        f.qty(), fillPrice, krwAmount, currency, f.qty());
             } else {
                 // 접수 소수 수량 hold 해제 → 소수 보유 실인도(quantity·fractional_qty 동시 차감).
                 holdingMapper.releaseFractionalReserve(o.getAccountId(), stockCode, f.qty());
@@ -136,8 +152,8 @@ public class FractionalGroupSettler {
                     throw new BusinessException(ErrorCode.INTERNAL_ERROR, "소수 매도 체결 수량 차감 실패(소수 잔고 부족)");
                 }
                 depositService.record(o.getUserId(), o.getAccountId(), "SELL", gross,
-                        CURRENCY_KRW, "allocation", alloc.getId(), idem);
-                operatingCashService.record("SELL", gross.negate(), CURRENCY_KRW, "allocation", alloc.getId(), idem);
+                        currency, "allocation", alloc.getId(), idem);
+                operatingCashService.record("SELL", gross.negate(), currency, "allocation", alloc.getId(), idem);
             }
             if (orderMapper.markFilledFractional(o.getId()) == 0) {
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 전이 실패(SENT→FILLED) orderId=" + o.getId());
@@ -216,10 +232,23 @@ public class FractionalGroupSettler {
     }
 
     /**
-     * 체결가 — 국내 금액매수=현재가+5틱(KRX 호가단위) / 그 외=실행시점 시장가(매수 best-ask·매도 best-bid).
-     * 셋 다 폴백 현재가, 없으면 시세 미수신(502) → 그룹 거부.
+     * 체결가 — 해외=KIS 스냅샷 시장가(매수 best-ask·매도 best-bid, 동결 폴백 #145) /
+     * 국내 금액매수=현재가+5틱(KRX 호가단위) / 국내 그 외=실행시점 시장가. 시세 없으면 502 → 그룹 거부.
+     * 해외엔 DOMESTIC_TICK이 들어오지 않는다(가격모델 게이트, FractionalBatchService).
      */
-    private BigDecimal resolveFillPrice(String stockCode, boolean buy, String pricingMethod) {
+    private BigDecimal resolveFillPrice(String stockCode, boolean overseas, boolean buy, String pricingMethod) {
+        if (overseas) {
+            TradableStock stock = stockMapper.findByCode(stockCode);
+            if (stock == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
+            }
+            ForeignQuoteResponse q = orderbookService.overseasSnapshot(stock);
+            BigDecimal best = positive(firstForeignPrice(buy ? q.asks() : q.bids()));
+            if (best == null) {
+                throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "체결가 산정 실패(시세 없음): " + stockCode);
+            }
+            return best;
+        }
         OrderbookResponse ob = orderbookService.domesticSnapshot(stockCode);
         if ("DOMESTIC_TICK".equals(pricingMethod)) {
             BigDecimal base = positive(ob.currentPrice());
@@ -253,7 +282,20 @@ public class FractionalGroupSettler {
         return BigDecimal.valueOf(1_000);
     }
 
+    /** 해외 매수 취득원가(KRW) 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 콜드스타트면 502(온주와 동일 가드). */
+    private BigDecimal fxRateForKrwBasis() {
+        CurrencyRateResponse rate = currencyRateCache.get();
+        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
+        }
+        return rate.exchangeRate();
+    }
+
     private static BigDecimal firstPrice(List<OrderbookResponse.Level> levels) {
+        return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
+    }
+
+    private static BigDecimal firstForeignPrice(List<ForeignQuoteResponse.Level> levels) {
         return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
     }
 

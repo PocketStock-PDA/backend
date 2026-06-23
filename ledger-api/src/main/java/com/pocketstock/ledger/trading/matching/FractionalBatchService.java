@@ -64,8 +64,15 @@ public class FractionalBatchService {
         return o.getStockCode() + "|" + o.getSide() + "|" + pricingMethod(o);
     }
 
-    /** 가격모델: 국내 금액매수만 DOMESTIC_TICK(현재가+5틱), 그 외(수량매수·매도)는 MARKET(실행시점 시장가). */
+    /** 국내 거래소(KRX) — DOMESTIC_TICK(현재가+5틱)은 KRX 호가단위 전용. 해외는 항상 MARKET. */
+    private static final java.util.Set<String> DOMESTIC_EXCHANGES = java.util.Set.of("KOSPI", "KOSDAQ");
+
+    /**
+     * 가격모델: <b>국내</b> 금액매수만 DOMESTIC_TICK(현재가+5틱), 그 외(수량매수·매도·<b>모든 해외</b>)는
+     * MARKET(실행시점 시장가). 해외 금액매수에 KRX +5틱을 오적용하지 않도록 거래소로 게이트(#155).
+     */
     private static String pricingMethod(Order o) {
-        return "BUY".equals(o.getSide()) && "AMOUNT".equals(o.getOrderType()) ? "DOMESTIC_TICK" : "MARKET";
+        boolean domestic = DOMESTIC_EXCHANGES.contains(o.getExchange());
+        return domestic && "BUY".equals(o.getSide()) && "AMOUNT".equals(o.getOrderType()) ? "DOMESTIC_TICK" : "MARKET";
     }
 }
