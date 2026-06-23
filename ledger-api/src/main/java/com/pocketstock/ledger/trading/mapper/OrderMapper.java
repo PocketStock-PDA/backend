@@ -37,6 +37,18 @@ public interface OrderMapper {
     /** 유저 거래내역(최신순) */
     List<Order> findByUserId(@Param("userId") Long userId);
 
+    /** 차수의 QUEUED 소수점 주문 전건 — 배치 집행 대상(#153). */
+    List<Order> findQueuedByRound(@Param("roundId") Long roundId);
+
+    /** 소수점 전이: QUEUED→SENT + batch_id 부착(전송, 취소 불가). 0행이면 경합(이미 취소/전이). */
+    int sendForBatch(@Param("id") Long id, @Param("batchId") Long batchId);
+
+    /** 소수점 전이: SENT→FILLED(배분 완료). 0행이면 정합성 오류(같은 tx라 항상 1). */
+    int markFilledFractional(@Param("id") Long id);
+
+    /** 소수점 전이: 활성(QUEUED/SENT)→REJECTED + 사유. 자금 원복과 함께 호출(FRAC-014). 0행이면 이미 종결. */
+    int rejectActive(@Param("id") Long id, @Param("reason") String reason);
+
     /**
      * 지정가 미체결(PENDING) 주문을 거래소 집합으로 조회 — 매칭 엔진 부팅 재적재용(국내 한정).
      * SSOT=DB에서 인덱스(종목→PENDING)를 재구성한다.

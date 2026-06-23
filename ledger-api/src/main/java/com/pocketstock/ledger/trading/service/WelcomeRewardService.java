@@ -217,7 +217,8 @@ public class WelcomeRewardService {
     /** 보상 적립 — 매수와 동일한 보유 원자 upsert(수량·평단·원화원가). 동시성 안전. */
     private void upsertHolding(Long userId, Long accountId, String stockCode, String currency,
                               BigDecimal quantity, BigDecimal grantPrice, BigDecimal krwAmount) {
-        holdingMapper.upsertBuy(userId, accountId, stockCode, quantity, grantPrice, krwAmount, currency);
+        // 웰컴 보상(소수 무상주, <1) → 소수점 보유로 적립. fractionalDelta=quantity(즉시 floor 전환).
+        holdingMapper.upsertBuy(userId, accountId, stockCode, quantity, grantPrice, krwAmount, currency, quantity);
     }
 
     private static BigDecimal parseAmount(String raw) {

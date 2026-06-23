@@ -69,4 +69,11 @@
         WHERE id = #{id} AND status = 'EXECUTING'
     </update>
 
+    <!-- 복구스윕: 정체 EXECUTING(execute_at ≤ cutoff)을 OPEN으로 되돌림 → 정상 선점·재집행. EXECUTING 조건이 멱등. -->
+    <update id="reopenStalled">
+        UPDATE trading_rounds
+        SET status = 'OPEN'
+        WHERE status = 'EXECUTING' AND execute_at &lt;= #{cutoff}
+    </update>
+
 </mapper>

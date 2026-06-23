@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.BatchOrderMapper">
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.BatchOrder"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO batch_orders
+            (stock_code, exchange, side, round_id, pricing_method, net_fractional_qty, whole_qty,
+             ls_order_id, ls_exec_id, status, fill_price, sent_at, filled_at)
+        VALUES
+            (#{stockCode}, #{exchange}, #{side}, #{roundId}, #{pricingMethod}, #{netFractionalQty}, #{wholeQty},
+             #{lsOrderId}, #{lsExecId}, #{status}, #{fillPrice}, #{sentAt}, #{filledAt})
+    </insert>
+
+    <update id="markFilled">
+        UPDATE batch_orders
+        SET status = 'FILLED', fill_price = #{fillPrice}, filled_at = #{filledAt}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

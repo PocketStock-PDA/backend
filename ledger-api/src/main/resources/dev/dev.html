@@ -105,24 +105,33 @@
 </fieldset>
 
 <fieldset>
-  <legend>4-2) 소수점 주문 (fractional · 접수=QUEUED 비동기)</legend>
+  <legend>4-2) 소수점 주문 (fractional · 백엔드 split: 정수부=온주 즉시 / 소수부=소수 차수)</legend>
   종목 <input id="fracCode" value="005930" size="8"/>
   <select id="fracSide" onchange="fracToggle()">
     <option value="BUY">매수</option><option value="SELL">매도</option>
   </select>
   방식 <select id="fracMethod" onchange="fracToggle()">
     <option value="AMOUNT">금액(AMOUNT)</option>
-    <option value="QUANTITY">수량(QUANTITY·매수)</option>
+    <option value="QUANTITY">수량(QUANTITY)</option>
     <option value="ALL">전량(ALL·매도)</option>
   </select>
   금액 <input id="fracAmount" value="10000" size="9"/>원
-  수량 <input id="fracQty" value="0.5" size="6" disabled/>주
+  수량 <input id="fracQty" value="0.5" size="8" disabled/>주
   <button onclick="placeFractional()">소수점 접수</button>
   <div id="fracView"></div>
   <pre id="fracRaw" class="muted">결과 raw JSON</pre>
-  <div class="muted">국내 먼저(D4). 매수=AMOUNT(금액·천원단위)/QUANTITY(수량) · 매도=AMOUNT(금액)/ALL(전량).
-    접수 즉시 현재 1분 차수에 QUEUED 편입 — 체결은 차수 집행기(스케줄러)가 수행(아직 미구현 #152·#153).
-    멱등키는 자동 생성. 거래내역·취소는 위 4)번 버튼 공용(QUEUED 취소 시 hold 환원).</div>
+  <div class="muted">국내 먼저(D4). 매수=AMOUNT·QUANTITY / 매도=AMOUNT·QUANTITY·ALL. 수량은 <b>0.1·1.3·13.14 제한 없음</b>.
+    <b>백엔드 split</b>: 13.14주 → 온주 13 <b>즉시 시장가 체결</b> + 소수 0.14 <b>차수 QUEUED</b>(매 분 5초 집행기 #152·#153 체결).
+    0.1→소수만 / 1.0→온주만. 매도도 동일(소수부는 소수 보유 한도 내). 멱등키 자동 생성.
+    거래내역·취소는 위 4)번 버튼 공용(QUEUED 취소 시 hold 환원). 결과는 보유표 온주/소수 칼럼에서 확인.</div>
+  <hr/>
+  <b>온주 전환</b> (소수→온주, 사용자 버튼)
+  종목 <input id="convCode" value="005930" size="8"/>
+  <button onclick="convertWholeShare()">온주 전환</button>
+  <button onclick="loadWholeShares()">전환내역</button>
+  <span id="convState" class="muted"></span>
+  <div id="convView"></div>
+  <div class="muted">소수 보유 1주↑일 때 정수부를 온주(직접소유)로 굳힘(단방향·불가역). 전환분은 정수매도만, 남은 소수만 소수매도. 1주 미만이면 거부.</div>
 </fieldset>
 </section>
 
@@ -349,9 +358,11 @@ async function credit() {
 async function placeOrder() {
   const h = await authHeaders();
   const type = document.getElementById('ordType').value;
+  const side = document.getElementById('ordSide').value;
   const body = {
+    clientOrderId: 'whole-' + side + '-' + Date.now(),   // 멱등키 자동 생성(요청 1건당 1개)
     stockCode: document.getElementById('ordCode').value.trim(),
-    side: document.getElementById('ordSide').value,
+    side: side,
     orderType: type,
     price: type === 'LIMIT' ? Number(document.getElementById('ordPrice').value) : null,
     quantity: Number(document.getElementById('ordQty').value)
@@ -372,9 +383,9 @@ async function loadHoldings() {
   const h = await authHeaders();
   const b = await (await fetch('/api/trading/holdings', { headers: h })).json();
   const rows = (b.data || []).map(x =>
-    `<tr><td>${x.stockCode}</td><td>${won(x.quantity)}</td><td>${won(x.avgBuyPrice)}</td><td>${x.currency}</td></tr>`).join('');
+    `<tr><td>${x.stockCode}</td><td>${Number(x.quantity)}</td><td>${Number(x.wholeQty)}</td><td>${Number(x.fractionalQty)}</td><td>${won(x.avgBuyPrice)}</td><td>${x.currency}</td></tr>`).join('');
   document.getElementById('portView').innerHTML =
-    `<table><tr><th>종목</th><th>수량</th><th>평단</th><th>통화</th></tr>${rows || '<tr><td colspan="4" class="muted">보유 없음</td></tr>'}</table>`;
+    `<table><tr><th>종목</th><th>총수량</th><th>온주</th><th>소수</th><th>평단</th><th>통화</th></tr>${rows || '<tr><td colspan="6" class="muted">보유 없음</td></tr>'}</table>`;
 }
 
 async function loadOrders() {
@@ -695,10 +706,10 @@ async function settleFx() {
   const h = await authHeaders();
   const dir = document.getElementById('fxDir').value;
   const amount = Number(document.getElementById('fxAmount').value);
-  const pw = document.getElementById('fxPw').value;
+  const idem = 'fx-' + dir + '-' + Date.now();   // 멱등키 자동 생성(요청 1건당 1개)
   const body = dir === 'krw-to-usd'
-    ? { krwAmount: amount, accountPassword: pw }
-    : { usdAmount: amount, accountPassword: pw };
+    ? { krwAmount: amount, idempotencyKey: idem }
+    : { usdAmount: amount, idempotencyKey: idem };
   const res = await fetch('/api/exchange/' + dir, {
     method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   });
@@ -786,12 +797,11 @@ function showTab(id) {
 }
 
 // ---- 4-2) 소수점 주문 (fractional) ----
-// 방식에 따라 입력칸 활성/비활성 토글 + side와 모순되는 방식 자동 보정(매수 ALL X / 매도 QUANTITY X).
+// 방식에 따라 입력칸 활성/비활성 토글. 매수엔 ALL(전량) 없음 → AMOUNT로 보정. 매도는 AMOUNT·QUANTITY·ALL 다 허용.
 function fracToggle() {
   const side = document.getElementById('fracSide').value;
   const m = document.getElementById('fracMethod');
   if (side === 'BUY' && m.value === 'ALL') m.value = 'AMOUNT';
-  if (side === 'SELL' && m.value === 'QUANTITY') m.value = 'AMOUNT';
   document.getElementById('fracAmount').disabled = m.value !== 'AMOUNT';
   document.getElementById('fracQty').disabled = m.value !== 'QUANTITY';
 }
@@ -816,10 +826,41 @@ async function placeFractional() {
   const v = document.getElementById('fracView');
   if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
   const d = b.data;
-  const held = d.heldAmount != null ? ` · hold ${won(d.heldAmount)}` : '';
-  v.innerHTML = `<p class="up">접수 #${d.orderId} (차수 ${d.roundId}): ${d.side} ${d.orderType} `
-    + `예상 ${Number(d.estQuantity)}주${held} → ${d.status}</p>`;
-  loadOrders();
+  // split 응답(매수·매도 공통): 온주 즉시체결 + 소수 차수배치
+  const parts = [];
+  if (d.wholeOrderId) parts.push(`온주 #${d.wholeOrderId} ${Number(d.wholeQty)}주 @ ${won(d.wholeFillPrice)} = ${won(d.wholeAmount)}원 FILLED`);
+  if (d.fractionalOrderId) {
+    const held = d.fractionalHeld != null ? ` · hold ${won(d.fractionalHeld)}` : '';
+    parts.push(`소수 #${d.fractionalOrderId}(차수 ${d.roundId}) ${Number(d.fractionalEstQty)}주${held} QUEUED`);
+  }
+  v.innerHTML = `<p class="up">[${side === 'BUY' ? '매수' : '매도'}] ${parts.join(' + ') || '처리됨'}</p>`;
+  loadHoldings(); loadOrders();
+}
+
+// ---- 온주 전환 (소수→온주) ----
+async function convertWholeShare() {
+  const h = await authHeaders();
+  const stockCode = document.getElementById('convCode').value.trim();
+  const res = await fetch('/api/trading/whole-shares', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify({ stockCode })
+  });
+  const b = await res.json();
+  const el = document.getElementById('convState');
+  if (!b.success) { el.textContent = '실패: ' + b.message; return; }
+  const d = b.data;
+  el.textContent = `${d.stockCode}: ${d.convertedWholeQty}주 전환 → 온주 ${Number(d.wholeQty)} / 소수 ${Number(d.remainingFractional)}`;
+  loadHoldings();
+}
+
+async function loadWholeShares() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/whole-shares', { headers: h })).json();
+  const v = document.getElementById('convView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.stockCode}</td><td>${x.stockName || ''}</td><td>${x.wholeQty}</td><td>${x.convertedAt || ''}</td></tr>`).join('');
+  v.innerHTML = `<table><tr><th>종목</th><th>종목명</th><th>전환주수</th><th>시각</th></tr>`
+    + `${rows || '<tr><td colspan="4" class="muted">내역 없음</td></tr>'}</table>`;
 }
 
 setTokenState();
