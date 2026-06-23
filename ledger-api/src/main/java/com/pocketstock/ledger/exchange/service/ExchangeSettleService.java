@@ -39,6 +39,7 @@ public class ExchangeSettleService {
     private static final String USD = "USD";
     private static final String KRW = "KRW";
     private static final String TRIGGER_MANUAL = "MANUAL";
+    private static final String TRIGGER_AUTO = "AUTO";
     private static final String STATUS_COMPLETED = "COMPLETED";
     private static final BigDecimal FEE = BigDecimal.ZERO;
 
@@ -74,7 +75,7 @@ public class ExchangeSettleService {
         BigDecimal usd = krw.divide(buyRate, USD_SCALE, RoundingMode.DOWN);
 
         try {
-            FxTransaction tx = record(userId, KRW, krw, USD, usd, buyRate, key);
+            FxTransaction tx = record(userId, KRW, krw, USD, usd, buyRate, TRIGGER_MANUAL, null, key);
             FxLegResult legs = cmaFunds.applyFxLegs(userId, KRW, krw, USD, usd, tx.getId());
             // 회사쪽 복식부기 leg(H5): 회사 통화풀 2-leg(KRW 수취·USD 지급) + 실현 환차익. 같은 로컬 트랜잭션.
             firmLeg.record(tx.getId(), KRW, krw, USD, usd, mid, buyRate);
@@ -106,7 +107,7 @@ public class ExchangeSettleService {
         BigDecimal krw = usd.multiply(sellRate).setScale(KRW_SCALE, RoundingMode.DOWN);
 
         try {
-            FxTransaction tx = record(userId, USD, usd, KRW, krw, sellRate, key);
+            FxTransaction tx = record(userId, USD, usd, KRW, krw, sellRate, TRIGGER_MANUAL, null, key);
             FxLegResult legs = cmaFunds.applyFxLegs(userId, USD, usd, KRW, krw, tx.getId());
             // 회사쪽 복식부기 leg(H5): 회사 통화풀 2-leg(USD 수취·KRW 지급) + 실현 환차익. 같은 로컬 트랜잭션.
             firmLeg.record(tx.getId(), USD, usd, KRW, krw, mid, sellRate);
@@ -114,6 +115,40 @@ public class ExchangeSettleService {
         } catch (DuplicateKeyException e) {
             // 거의 동시에 같은 키 2건이 위 단락을 통과한 경합 — 회사 leg UNIQUE가 두 번째를 막아 롤백. 재요청 권장.
             throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 처리 중인 환전입니다.");
+        }
+    }
+
+    /**
+     * 매수 자동환전(EXC-005, #172) — 주문 충당용 KRW→USD. 거래 인증은 매수 진입(컨트롤러)에서 1회 처리됐으므로
+     * 여기선 우회한다. {@code targetUsd}를 채우게 KRW를 올림 역산하고, 환전 결과(≥targetUsd)는 달러풀에 적재된다
+     * (초과분은 잔류). 멱등키는 주문 파생({@code order:{id}:autofx})이라 재시도/재충당에 이중 환전이 없다.
+     * 호출자(매수 충당)의 트랜잭션에 합류해 실패 시 매수 전체가 롤백된다.
+     *
+     * @param targetUsd   달러풀에 채워야 할 USD(매수 부족분)
+     * @param orderId     연계 매수주문(fx_transactions.ref_order_id)
+     * @param maxKrwLimit fx_auto_settings.max_amount_per_tx — 환산 KRW가 초과하면 거부(거액 자동환전 차단). null=무제한.
+     */
+    @Transactional
+    public void autoKrwToUsd(Long userId, BigDecimal targetUsd, Long orderId, BigDecimal maxKrwLimit) {
+        String key = "order:" + orderId + ":autofx";
+        if (fxMapper.findByIdempotencyKey(key) != null) {
+            return;   // 멱등 — 이미 이 주문 자동환전 완료(재시도 안전)
+        }
+        BigDecimal mid = baseRate();
+        BigDecimal buyRate = ratePolicy.buyRate(USD, mid);
+        // 목표 USD를 채우게 KRW 올림 역산 — 환전 usd = krw÷buyRate ≥ targetUsd(초과분은 달러풀 잔류).
+        BigDecimal krw = targetUsd.multiply(buyRate).setScale(KRW_SCALE, RoundingMode.UP);
+        if (maxKrwLimit != null && krw.compareTo(maxKrwLimit) > 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "1회 자동환전 한도(" + maxKrwLimit + "원)를 초과합니다. 직접 환전 후 다시 시도해주세요.");
+        }
+        BigDecimal usd = krw.divide(buyRate, USD_SCALE, RoundingMode.DOWN);
+        try {
+            FxTransaction tx = record(userId, KRW, krw, USD, usd, buyRate, TRIGGER_AUTO, orderId, key);
+            cmaFunds.applyFxLegs(userId, KRW, krw, USD, usd, tx.getId());
+            firmLeg.record(tx.getId(), KRW, krw, USD, usd, mid, buyRate);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 처리 중인 자동환전입니다.");
         }
     }
 
@@ -128,7 +163,8 @@ public class ExchangeSettleService {
 
     /** fx_transactions 적재(COMPLETED). insert 후 채워진 id를 CMA 원장 ref_id로 넘긴다. */
     private FxTransaction record(Long userId, String from, BigDecimal fromAmount,
-                                 String to, BigDecimal toAmount, BigDecimal rate, String idempotencyKey) {
+                                 String to, BigDecimal toAmount, BigDecimal rate,
+                                 String triggerType, Long refOrderId, String idempotencyKey) {
         FxTransaction tx = new FxTransaction();
         tx.setUserId(userId);
         tx.setFromCurrency(from);
@@ -137,7 +173,8 @@ public class ExchangeSettleService {
         tx.setToAmount(toAmount);
         tx.setExchangeRate(rate);
         tx.setFee(FEE);
-        tx.setTriggerType(TRIGGER_MANUAL);
+        tx.setTriggerType(triggerType);     // MANUAL(수동) / AUTO(매수 자동환전 #172)
+        tx.setRefOrderId(refOrderId);        // AUTO일 때 연계 매수주문, 수동은 null
         tx.setStatus(STATUS_COMPLETED);
         tx.setIdempotencyKey(idempotencyKey);   // 클라 발급 멱등키(#96 item3) — UNIQUE로 중복 환전 차단
         fxMapper.insert(tx);

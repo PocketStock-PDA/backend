@@ -60,6 +60,7 @@ public class FractionalGroupSettler {
     private final OperatingInventoryService operatingInventoryService;
     private final OrderbookService orderbookService;
     private final CurrencyRateCache currencyRateCache;
+    private final OrderFundingService fundingService;
 
     /**
      * 한 그룹 정산(한 tx) — 같은 종목·side·가격모델의 QUEUED 주문을 합산·체결·배분·정산.
@@ -145,6 +146,8 @@ public class FractionalGroupSettler {
                 // 소수점 매수 → fractionalDelta=qty(즉시 floor 전환).
                 holdingMapper.upsertBuy(o.getUserId(), o.getAccountId(), stockCode,
                         f.qty(), fillPrice, krwAmount, currency, f.qty());
+                // 충당 버퍼 반납(#174): 정산 후 예수금 주문가능(held−gross 버퍼)을 CMA로 sweep(REVERT). 같은 tx.
+                fundingService.revertUnusedFunding(o.getUserId(), o.getAccountId(), currency, o.getId(), "fracbuf");
             } else {
                 // 접수 소수 수량 hold 해제 → 소수 보유 실인도(quantity·fractional_qty 동시 차감).
                 holdingMapper.releaseFractionalReserve(o.getAccountId(), stockCode, f.qty());
@@ -154,6 +157,8 @@ public class FractionalGroupSettler {
                 depositService.record(o.getUserId(), o.getAccountId(), "SELL", gross,
                         currency, "allocation", alloc.getId(), idem);
                 operatingCashService.record("SELL", gross.negate(), currency, "allocation", alloc.getId(), idem);
+                // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금 잔류 0. 같은 tx.
+                fundingService.returnFromSell(o.getUserId(), o.getAccountId(), currency, gross, o.getId());
             }
             if (orderMapper.markFilledFractional(o.getId()) == 0) {
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 전이 실패(SENT→FILLED) orderId=" + o.getId());
@@ -225,6 +230,8 @@ public class FractionalGroupSettler {
         if ("BUY".equals(o.getSide())) {
             if (o.getHeldAmount() != null) {
                 depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
+                // 충당분 반납(#174): 거부로 풀린 예수금 주문가능(충당분)을 CMA로 sweep(REVERT). 같은 tx.
+                fundingService.revertUnusedFunding(o.getUserId(), o.getAccountId(), o.getCurrency(), o.getId(), "fracreject");
             }
         } else {
             holdingMapper.releaseFractionalReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());

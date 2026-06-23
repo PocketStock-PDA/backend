@@ -63,6 +63,7 @@ public class WholeOrderService {
     private final OrderbookService orderbookService;
     private final CurrencyRateCache currencyRateCache;
     private final ApplicationEventPublisher eventPublisher;
+    private final OrderFundingService fundingService;
 
     /** 온주 매수/매도 — 검증 → 주문기록 → 자체 시뮬 체결 → holdings·예수금 반영. */
     @Transactional
@@ -95,6 +96,8 @@ public class WholeOrderService {
             return toResponse(existing);
         }
 
+        // 거래 인증(비번)은 진입 컨트롤러(OrderController·FractionalOrderController)에서 1회 처리한다(#174).
+        // 소수점이 정수부로 이 메서드를 재사용하므로, 여기 두면 인증이 정수부 유무로 들쭉날쭉해진다 — 진입점 게이트로 통일.
         TradableStock stock = stockMapper.findByCode(req.stockCode());
         if (stock == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + req.stockCode());
@@ -153,6 +156,12 @@ public class WholeOrderService {
 
             // 지정가 미체결 → PENDING: 자금/수량 hold만(원장 이동 없음). 체결은 매칭 데몬(H4 #92)이 수행.
             if (!fillNow) {
+                if ("BUY".equals(side)) {
+                    // PENDING 매수 hold(예수금 잠금)도 예수금을 요구 → CMA풀에서 명목(지정가×수량)만큼 선충당(#174).
+                    // 취소·가격개선 시 안 쓴 충당분은 revertUnusedFunding으로 CMA에 반납된다.
+                    fundingService.transferForBuy(userId, account.getId(), currency,
+                            req.price().multiply(quantity), order.getId());
+                }
                 BigDecimal holdTotal = reserveForPending(side, account.getId(), req.stockCode(), quantity, req.price());
                 // 커밋 후 매칭 엔진이 인덱스 등록·호가 구독 ON(롤백되면 발행돼도 AFTER_COMMIT이 안 탐).
                 eventPublisher.publishEvent(new PendingOrderCreatedEvent(order.getId(), userId, account.getId(),
@@ -166,7 +175,10 @@ public class WholeOrderService {
             BigDecimal totalAmount = fillPrice.multiply(quantity);
             BigDecimal balanceAfter;
             if ("BUY".equals(side)) {
-                // 예수금 차감 먼저 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
+                // CMA풀 → 예수금 자동충당(#174): 주문가능 부족분만 BUY_TRANSFER로 끌어온다. 같은 트랜잭션이라
+                // 이후 체결이 실패하면 충당까지 통째 롤백(역이체 불필요). 풀도 부족하면 INSUFFICIENT_BALANCE.
+                fundingService.transferForBuy(userId, account.getId(), currency, totalAmount, order.getId());
+                // 예수금 차감 — 원자 갱신이 음수 가드로 잔액부족을 막는다(INSUFFICIENT_BALANCE).
                 balanceAfter = depositService.record(userId, account.getId(), "BUY",
                         totalAmount.negate(), currency, "order", order.getId(), idemKey);
                 // 복식부기 상대 leg(H1): 유저 출금의 짝으로 회사 현금 수취(+). 같은 로컬 트랜잭션.
@@ -178,12 +190,15 @@ public class WholeOrderService {
                 operatingInventoryService.record(req.stockCode(), -quantity.intValueExact());
             } else {
                 applySell(account.getId(), req.stockCode(), quantity);
-                balanceAfter = depositService.record(userId, account.getId(), "SELL",
+                depositService.record(userId, account.getId(), "SELL",
                         totalAmount, currency, "order", order.getId(), idemKey);
                 // 복식부기 상대 leg(H1): 유저 입금의 짝으로 회사 현금 지급(−). 같은 로컬 트랜잭션.
                 operatingCashService.record("SELL", totalAmount.negate(), currency, "order", order.getId(), idemKey);
                 // 복식부기 주식 leg: 유저 holdings 감소의 짝으로 회사 옴니버스 재고 +qty.
                 operatingInventoryService.record(req.stockCode(), quantity.intValueExact());
+                // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금에 매도대금 잔류 0. 같은 트랜잭션.
+                fundingService.returnFromSell(userId, account.getId(), currency, totalAmount, order.getId());
+                balanceAfter = depositService.getBalance(account.getId());   // 환류 후 예수금(매도대금 빠진 값)
             }
 
             // 전이 가드 ②: RECEIVED → FILLED 조건부 전이(같은 tx라 항상 1행, 0이면 정합성 오류).
@@ -232,6 +247,8 @@ public class WholeOrderService {
             // 온주 PENDING(M2 hold) — 매수=예수금 hold(지정가×수량) 해제, 매도=수량 hold 해제.
             if ("BUY".equals(o.getSide())) {
                 depositService.releaseHold(o.getAccountId(), o.getPrice().multiply(o.getOrderQuantity()));
+                // 충당분 반납(#174): hold 풀려 주문가능으로 돌아온 충당분을 CMA로 sweep(REVERT). 같은 트랜잭션.
+                fundingService.revertUnusedFunding(userId, o.getAccountId(), o.getCurrency(), o.getId(), "cancel");
             } else {
                 holdingMapper.releaseWholeReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
             }

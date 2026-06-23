@@ -10,6 +10,7 @@ import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.service.DepositService;
 import com.pocketstock.ledger.trading.service.OperatingInventoryService;
+import com.pocketstock.ledger.trading.service.OrderFundingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ public class PendingFillService {
     private final OperatingInventoryService operatingInventoryService;
     private final HoldingMapper holdingMapper;
     private final CurrencyRateCache currencyRateCache;
+    private final OrderFundingService fundingService;
 
     /**
      * @return true=이 호출이 체결을 확정, false=경합에서 짐(이미 취소·체결됨).
@@ -64,6 +66,8 @@ public class PendingFillService {
                     cmd.quantity(), cmd.fillPrice(), krwAmount, cmd.currency(), BigDecimal.ZERO);
             // 복식부기 주식 leg: 유저 holdings 증가의 짝으로 회사 옴니버스 재고 −qty.
             operatingInventoryService.record(cmd.stockCode(), -cmd.quantity().intValueExact());
+            // 가격개선분 반납(#174): 체결 후 예수금 주문가능(지정가−체결가 잔류분)을 CMA로 sweep(REVERT). 같은 트랜잭션.
+            fundingService.revertUnusedFunding(cmd.userId(), cmd.accountId(), cmd.currency(), cmd.orderId(), "improve");
         } else {
             // 묶은 온주 수량 해제 → 보유 수량 실차감(release 후 온주 매도가능 복원돼 가드 통과).
             holdingMapper.releaseWholeReserve(cmd.accountId(), cmd.stockCode(), cmd.quantity());
@@ -76,6 +80,8 @@ public class PendingFillService {
             operatingCashService.record("SELL", total.negate(), cmd.currency(), "order", cmd.orderId(), idemKey);
             // 복식부기 주식 leg: 유저 holdings 감소의 짝으로 회사 옴니버스 재고 +qty.
             operatingInventoryService.record(cmd.stockCode(), cmd.quantity().intValueExact());
+            // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금 잔류 0. 같은 트랜잭션.
+            fundingService.returnFromSell(cmd.userId(), cmd.accountId(), cmd.currency(), total, cmd.orderId());
         }
         return true;
     }
