@@ -2,8 +2,7 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.domain.Allocation;
 import com.pocketstock.ledger.trading.domain.BatchOrder;
@@ -59,7 +58,8 @@ public class FractionalGroupSettler {
     private final OperatingCashService operatingCashService;
     private final OperatingInventoryService operatingInventoryService;
     private final OrderbookService orderbookService;
-    private final CurrencyRateCache currencyRateCache;
+    private final CurrencyRateProvider currencyRateProvider;
+    private final OrderFundingService fundingService;
 
     /**
      * 한 그룹 정산(한 tx) — 같은 종목·side·가격모델의 QUEUED 주문을 합산·체결·배분·정산.
@@ -145,6 +145,8 @@ public class FractionalGroupSettler {
                 // 소수점 매수 → fractionalDelta=qty(즉시 floor 전환).
                 holdingMapper.upsertBuy(o.getUserId(), o.getAccountId(), stockCode,
                         f.qty(), fillPrice, krwAmount, currency, f.qty());
+                // 충당 버퍼 반납(#174): 정산 후 예수금 주문가능(held−gross 버퍼)을 CMA로 sweep(REVERT). 같은 tx.
+                fundingService.revertUnusedFunding(o.getUserId(), o.getAccountId(), currency, o.getId(), "fracbuf");
             } else {
                 // 접수 소수 수량 hold 해제 → 소수 보유 실인도(quantity·fractional_qty 동시 차감).
                 holdingMapper.releaseFractionalReserve(o.getAccountId(), stockCode, f.qty());
@@ -154,6 +156,8 @@ public class FractionalGroupSettler {
                 depositService.record(o.getUserId(), o.getAccountId(), "SELL", gross,
                         currency, "allocation", alloc.getId(), idem);
                 operatingCashService.record("SELL", gross.negate(), currency, "allocation", alloc.getId(), idem);
+                // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금 잔류 0. 같은 tx.
+                fundingService.returnFromSell(o.getUserId(), o.getAccountId(), currency, gross, o.getId());
             }
             if (orderMapper.markFilledFractional(o.getId()) == 0) {
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 전이 실패(SENT→FILLED) orderId=" + o.getId());
@@ -225,6 +229,8 @@ public class FractionalGroupSettler {
         if ("BUY".equals(o.getSide())) {
             if (o.getHeldAmount() != null) {
                 depositService.releaseHold(o.getAccountId(), o.getHeldAmount());
+                // 충당분 반납(#174): 거부로 풀린 예수금 주문가능(충당분)을 CMA로 sweep(REVERT). 같은 tx.
+                fundingService.revertUnusedFunding(o.getUserId(), o.getAccountId(), o.getCurrency(), o.getId(), "fracreject");
             }
         } else {
             holdingMapper.releaseFractionalReserve(o.getAccountId(), o.getStockCode(), o.getOrderQuantity());
@@ -282,13 +288,9 @@ public class FractionalGroupSettler {
         return BigDecimal.valueOf(1_000);
     }
 
-    /** 해외 매수 취득원가(KRW) 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 콜드스타트면 502(온주와 동일 가드). */
+    /** 해외 매수 취득원가(KRW) 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 캐시 미스면 야후 폴백, 둘 다 비면 502(온주와 동일 가드). */
     private BigDecimal fxRateForKrwBasis() {
-        CurrencyRateResponse rate = currencyRateCache.get();
-        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
-        }
-        return rate.exchangeRate();
+        return currencyRateProvider.current().exchangeRate();
     }
 
     private static BigDecimal firstPrice(List<OrderbookResponse.Level> levels) {

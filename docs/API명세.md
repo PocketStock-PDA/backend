@@ -77,11 +77,14 @@
 | 잔돈수집 | 계좌 끝전 적립 | POST | `/api/cma/collect/account` |  | C·강문군 |  |
 | 잔돈수집 | 카드 라운드업 적립 | POST | `/api/cma/collect/card` |  | C·강문군 |  |
 | 잔돈수집 | 포인트 전환 적립 | POST | `/api/cma/collect/point` |  | C·강문군 |  |
+| 잔돈수집 | 외화 잔돈 적립(연동 USD 지갑 → CMA 달러풀, 환전 없음) | POST | `/api/cma/collect/fx` |  | C·강문군 | ✅ |
 | 잔돈수집 | 적립 소스 설정(카드/계좌별 ON/OFF) | PUT | `/api/cma/collect/settings` |  | C·강문군 | ✅ |
 | 잔돈수집 | 적립 이력 조회 | GET | `/api/cma/collect/history` |  | C·강문군 | ✅ |
 | CMA | CMA 잔액·성과율(원화RP/외화RP) 조회 | GET | `/api/cma/balance` |  | C·강문군 | ✅ |
 | CMA | CMA 계좌내역(입금·출금·이자) 조회 | GET | `/api/cma/transactions` |  | C·강문군 | ✅ |
+| 자금이체 | CMA 풀 → 위탁 예수금 이체(매수용 충전, BUY_TRANSFER) | POST | `/api/cma/transfer` |  | C·강문군 | ✅ |
 | 자금이체 | 자금 이동 이력 조회 | GET | `/api/cma/transfers` |  | C·강문군 | ✅ |
+| 충전 | 은행계좌 → CMA 원화풀 부족분 충전(DEPOSIT) | POST | `/api/cma/deposit` |  | C·강문군 | ✅ |
 | 자동충전 | 부족금액 자동충전 설정 조회 | GET | `/api/cma/auto-charge-settings` |  | C·강문군 |  |
 | 자동충전 | 부족금액 자동충전 설정(ON/OFF·1회한도·대상계좌) | PUT | `/api/cma/auto-charge-settings` |  | C·강문군 |  |
 
@@ -104,15 +107,14 @@
 | 실시간시세 | [해외] 실시간 체결가 | WS | `/topic/foreign/transaction/{symbol}` | HDFSCNT0 (해외 실시간지연체결가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [해외] 실시간 호가(온주) | WS | `/topic/foreign/quote/{symbol}` | HDFSASP0 (해외 실시간호가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | 실시간 체결통보(주문 결과) | WS | `/topic/order-notification` | SC1(국내)·AS1(해외) [자체 시뮬] | B·김준형 |  |
-| 소수점투자 | 소수점 매수(금액/수량) → 차수 합산 온주주문 | POST | `/api/trading/orders/fractional/buy` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 | 접수=즉시 QUEUED(비동기)·국내먼저(D4) #151 |
-| 소수점투자 | 소수점 매도(금액/전량) → 차수 합산 온주주문 | POST | `/api/trading/orders/fractional/sell` | CSPAT00601(국내)·COSMT00300(해외) [자체 시뮬] | B·김준형 | 접수=즉시 QUEUED(비동기)·국내먼저(D4) #151 |
+| 소수점투자 | 소수점 매수/매도(side로 구분) → 차수 합산 온주주문 | POST | `/api/trading/orders/fractional` | CSPAT00601(국내)·COSAT00301/COSMT00300(해외) [자체 시뮬] | B·김준형 | ✅ side=BUY/SELL(body)·접수=즉시 QUEUED(비동기)·국내먼저(D4) #151 |
 | 소수점투자 | 온주 매수/매도(호가 기반) | POST | `/api/trading/orders/whole` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 | ✅ |
 | 소수점투자 | 주문 취소(소수점 QUEUED·온주 PENDING 공용) | DELETE | `/api/trading/orders/{orderId}` | CSPAT00801(국내)·COSAT00311(해외) [자체 시뮬] | B·김준형 | ✅ |
 | 소수점투자 | 거래내역 조회(매수·매도·달성) | GET | `/api/trading/orders` |  | B·김준형 | ✅ |
-| 소수점투자 | 미체결 주문 조회 | GET | `/api/trading/orders/pending` |  | B·김준형 |  |
+| 소수점투자 | 미체결 주문 조회(온주 PENDING + 소수점 QUEUED) | GET | `/api/trading/orders/pending` |  | B·김준형 | ✅ |
 | 소수점투자 | 보유종목·잔고(평가·수익률) 조회 | GET | `/api/trading/holdings` |  | B·김준형 | ✅ |
-| 소수점투자 | 온주 전환 실행(소수→온주, 사용자 버튼) | POST | `/api/trading/whole-shares` |  | B·김준형 | 소수 정수부를 온주(직접소유)로 굳힘 #157 |
-| 소수점투자 | 온주 전환내역 조회 | GET | `/api/trading/whole-shares` |  | B·김준형 | #157 |
+| 소수점투자 | 온주 전환 실행(소수→온주, 사용자 버튼) | POST | `/api/trading/whole-shares` |  | B·김준형 | ✅ 소수 정수부를 온주(직접소유)로 굳힘 #157 |
+| 소수점투자 | 온주 전환내역 조회 | GET | `/api/trading/whole-shares` |  | B·김준형 | ✅ #157 |
 | 정기적립식 | 자동모으기 설정 등록(주기/조건) | POST | `/api/trading/auto-invest` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 설정 수정 | PUT | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 일시중지/재개/해제 | PATCH | `/api/trading/auto-invest/{id}/status` |  | B·김준형 |  |
@@ -162,9 +164,10 @@
 |---|---|---|---|-------------------------|---|---|
 | 환전 | 환율 조회(USD/KRW, 예상 환전금액) | GET | `/api/exchange/rate` | CUR 기반(시세 캐시) [LS 실전]   | B·김준형 | ✅ |
 | 환전 | 실시간 환율(USD/KRW) | WS | `/topic/currency/usd-krw` | CUR (현물USD 실시간) [LS 실전] | B·김준형 | ✅ |
-| 환전 | 환전 가능여부·가능금액 검증 | GET | `/api/exchange/validate` |                         | B·김준형 |  |
+| 환전 | 환전 가능여부·가능금액 검증 | GET | `/api/exchange/validate` |                         | B·김준형 | ✅ direction(KRW_TO_USD/USD_TO_KRW)+amount(선택), dry-run |
 | 환전 | 원화→달러 환전 | POST | `/api/exchange/krw-to-usd` |                         | B·김준형 | ✅ |
 | 환전 | 달러→원화 환전 | POST | `/api/exchange/usd-to-krw` |                         | B·김준형 | ✅ |
+| 환전 | 자동환전 설정 조회 | GET | `/api/exchange/auto-settings` |                         | B·김준형 | ✅ |
 | 환전 | 자동환전 설정(달러우선·한도·잔돈) | PUT | `/api/exchange/auto-settings` |                         | B·김준형 | ✅ |
 | 환전 | 환전 이력 조회 | GET | `/api/exchange/history` |                         | B·김준형 | ✅ |
 
@@ -177,3 +180,30 @@
 | 알림 | 알림 전체 읽음 | PATCH | `/api/notifications/read-all` |  | A·우정인 | ✅ |
 | 알림 | 푸시 토큰 등록 | POST | `/api/notifications/token` |  | A·우정인 | ✅ |
 | 알림 | 알림 수신 설정 | PUT | `/api/notifications/settings` |  | A·우정인 | ✅ |
+
+## Recon
+
+> 원장 복식부기 정합성 검산용. 전사 감사라 특정 유저가 아닌 전역 집계 — 실서비스는 관리자 권한 게이팅 필요(현재 인증만, TODO).
+
+| 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
+|---|---|---|---|---|---|---|
+| 정합성 | 원장 복식부기 불변식 검산(balanced·깨진 통화/종목) | GET | `/api/recon/ledger` |  | B·김준형 | ✅ #96 |
+
+## Internal (MSA 내부 전용)
+
+> 서비스 간 내부 호출 전용(core↔ledger). 클라이언트 비공개 — `@CurrentUserId` 대신 본문/파라미터 userId 인증.
+
+| 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
+|---|---|---|---|---|---|---|
+| CMA | 휴면계좌 해지 잔액 CMA 적립(DORMANT, 멱등) | POST | `/internal/cma/credit` |  | C·강문군 | ✅ |
+| CMA | CMA 총 평가액(KRW 환산) 조회 — 자산 요약용 | GET | `/internal/cma/krw-total` |  | C·강문군 | ✅ |
+| CMA | 끝전 임계값·활성 적립 소스 조회 — 잔돈 스캔용 | GET | `/internal/cma/collection-settings` |  | C·강문군 | ✅ |
+| 환전 | 매매기준율 조회 — 외화 잔돈 KRW 환산용 | GET | `/internal/exchange/usd-krw-rate` |  | B·김준형 | ✅ |
+| 자산 | 연동 계좌(끝전 적립 대상) 잔액 요약 조회 | GET | `/internal/assets/accounts` |  | C·강문군 | ✅ |
+| 자산 | 연동 USD 지갑 목록 조회 | GET | `/internal/assets/fx-wallets` |  | C·강문군 | ✅ |
+| 자산 | 카드 라운드업 대상·금액 조회 | GET | `/internal/assets/card-roundup` |  | C·강문군 | ✅ |
+| 자산 | 카드 라운드업 수집 완료 마킹 | PATCH | `/internal/assets/card-roundup/mark-collected` |  | C·강문군 | ✅ |
+| 자산 | 사용 가능 포인트 조회 | GET | `/internal/assets/points` |  | C·강문군 | ✅ |
+| 자산 | 계좌 끝전 차감 | PATCH | `/internal/assets/accounts/deduct` |  | C·강문군 | ✅ |
+| 자산 | 포인트 차감 | PATCH | `/internal/assets/points/deduct` |  | C·강문군 | ✅ |
+| 캘린더 | 종목 캘린더 이벤트(배당·실적) 일괄 upsert | POST | `/internal/calendar/stock-events` |  | D·김서현 | ✅ |

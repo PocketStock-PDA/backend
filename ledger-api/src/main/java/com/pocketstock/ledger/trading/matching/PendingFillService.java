@@ -2,14 +2,14 @@ package com.pocketstock.ledger.trading.matching;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.service.DepositService;
 import com.pocketstock.ledger.trading.service.OperatingInventoryService;
+import com.pocketstock.ledger.trading.service.OrderFundingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +36,8 @@ public class PendingFillService {
     private final OperatingCashService operatingCashService;
     private final OperatingInventoryService operatingInventoryService;
     private final HoldingMapper holdingMapper;
-    private final CurrencyRateCache currencyRateCache;
+    private final CurrencyRateProvider currencyRateProvider;
+    private final OrderFundingService fundingService;
 
     /**
      * @return true=이 호출이 체결을 확정, false=경합에서 짐(이미 취소·체결됨).
@@ -64,6 +65,8 @@ public class PendingFillService {
                     cmd.quantity(), cmd.fillPrice(), krwAmount, cmd.currency(), BigDecimal.ZERO);
             // 복식부기 주식 leg: 유저 holdings 증가의 짝으로 회사 옴니버스 재고 −qty.
             operatingInventoryService.record(cmd.stockCode(), -cmd.quantity().intValueExact());
+            // 가격개선분 반납(#174): 체결 후 예수금 주문가능(지정가−체결가 잔류분)을 CMA로 sweep(REVERT). 같은 트랜잭션.
+            fundingService.revertUnusedFunding(cmd.userId(), cmd.accountId(), cmd.currency(), cmd.orderId(), "improve");
         } else {
             // 묶은 온주 수량 해제 → 보유 수량 실차감(release 후 온주 매도가능 복원돼 가드 통과).
             holdingMapper.releaseWholeReserve(cmd.accountId(), cmd.stockCode(), cmd.quantity());
@@ -76,6 +79,8 @@ public class PendingFillService {
             operatingCashService.record("SELL", total.negate(), cmd.currency(), "order", cmd.orderId(), idemKey);
             // 복식부기 주식 leg: 유저 holdings 감소의 짝으로 회사 옴니버스 재고 +qty.
             operatingInventoryService.record(cmd.stockCode(), cmd.quantity().intValueExact());
+            // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금 잔류 0. 같은 트랜잭션.
+            fundingService.returnFromSell(cmd.userId(), cmd.accountId(), cmd.currency(), total, cmd.orderId());
         }
         return true;
     }
@@ -83,14 +88,10 @@ public class PendingFillService {
     /**
      * 해외 매수 원화원가 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 지정가 PENDING은 주문 시점이
      * 아니라 '실제 체결 시점'의 환율을 취득원가로 박아야 맞다(즉시체결 {@code WholeOrderService}와 동일 소스).
-     * 콜드스타트(환율 틱 미수신)면 던져서 이번 체결을 보류 → 매칭 엔진이 다음 틱에 재시도.
+     * 캐시 미스면 야후 폴백, 그것도 실패(콜드스타트)면 던져서 이번 체결을 보류 → 매칭 엔진이 다음 틱에 재시도.
      */
     private BigDecimal fxRateForKrwBasis() {
-        CurrencyRateResponse rate = currencyRateCache.get();
-        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
-        }
-        return rate.exchangeRate();
+        return currencyRateProvider.current().exchangeRate();
     }
 
     /** 체결 1건 명령 — 인덱스 스냅샷(side·limitPrice·quantity 등)에 매칭이 산정한 체결가(fillPrice)를 더한 것. */

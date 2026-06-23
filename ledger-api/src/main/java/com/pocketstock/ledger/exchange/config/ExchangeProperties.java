@@ -27,4 +27,7 @@ public class ExchangeProperties {
 
     /** 환율 우대율 (0~1, 예: 0.90). 스프레드를 이 비율만큼 할인. */
     private BigDecimal preferentialRate;
+
+    /** 외부 환율 폴백 소스(야후) URL — WS 첫 틱 전 부팅 시드·캐시 미스 시 최후의 수단. */
+    private String fxSourceUrl;
 }

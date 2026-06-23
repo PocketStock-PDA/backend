@@ -13,4 +13,7 @@ public interface CmaAccountMapper {
     CmaAccount findByUserIdForUpdate(@Param("userId") Long userId);
 
     int insert(CmaAccount account);
+
+    /** 로컬 시드 계좌번호 적재용 — account_no_enc를 현재 키 암호문으로 덮어쓴다(@Profile local 전용). */
+    int updateAccountNoEnc(@Param("id") Long id, @Param("enc") byte[] enc);
 }

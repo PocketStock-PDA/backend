@@ -2,8 +2,7 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.kis.KisRankingClient;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
@@ -54,7 +53,7 @@ public class WelcomeRewardService {
     private final HoldingMapper holdingMapper;
     private final WelcomeRewardMapper rewardMapper;
     private final StockPriceService stockPriceService;
-    private final CurrencyRateCache currencyRateCache;
+    private final CurrencyRateProvider currencyRateProvider;
 
     // ===== 후보 조회 =====
 
@@ -204,13 +203,10 @@ public class WelcomeRewardService {
         return price;
     }
 
-    /** 1,000원 등 KRW 금액을 매매기준율(mid)로 USD 환산. 스프레드 미적용(무상 선물). */
+    /** 1,000원 등 KRW 금액을 매매기준율(mid)로 USD 환산. 스프레드 미적용(무상 선물). 캐시 미스면 야후 폴백, 둘 다 비면 502. */
     private BigDecimal convertKrwToUsd(int krw) {
-        CurrencyRateResponse rate = currencyRateCache.get();
-        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 조회 실패(USD/KRW)");
-        }
-        return BigDecimal.valueOf(krw).divide(rate.exchangeRate(), FX_SCALE, RoundingMode.HALF_UP);
+        BigDecimal rate = currencyRateProvider.current().exchangeRate();
+        return BigDecimal.valueOf(krw).divide(rate, FX_SCALE, RoundingMode.HALF_UP);
     }
 
     /** 보유 적립 — 기존 있으면 수량 합산·가중평균, 없으면 신규. */
