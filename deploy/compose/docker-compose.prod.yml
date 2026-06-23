@@ -1,0 +1,63 @@
+# 운영(데모) compose — EC2 1대: nginx 게이트웨이 + core/ledger + redis
+# DB는 외부 RDS(환경변수로 endpoint 주입). 시크릿/endpoint는 같은 폴더의 .env 에서 읽음.
+# 실행:  cd deploy/compose && docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  core-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.core-api
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: UTC
+      DB_URL: "jdbc:mysql://${RDS_CORE_ENDPOINT}:3306/pocketstock_main?serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false"
+      DB_USERNAME: ${CORE_DB_USERNAME}
+      DB_PASSWORD: ${CORE_DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      LEDGER_API_URL: http://ledger-api:8082
+      JWT_SECRET: ${JWT_SECRET}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@pocketstock.app}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  ledger-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.ledger-api
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: UTC
+      DB_URL: "jdbc:mysql://${RDS_LEDGER_ENDPOINT}:3306/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false"
+      DB_USERNAME: ${LEDGER_DB_USERNAME}
+      DB_PASSWORD: ${LEDGER_DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CORE_API_URL: http://core-api:8081
+      JWT_SECRET: ${JWT_SECRET}
+      ACCOUNT_CIPHER_SECRET: ${ACCOUNT_CIPHER_SECRET}
+      LS_APP_KEY: ${LS_APP_KEY:-}
+      LS_APP_SECRET_KEY: ${LS_APP_SECRET_KEY:-}
+      KIS_APP_KEY: ${KIS_APP_KEY:-}
+      KIS_APP_SECRET: ${KIS_APP_SECRET:-}
+      DART_API_KEY: ${DART_API_KEY:-}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - core-api
+      - ledger-api
+    restart: unless-stopped

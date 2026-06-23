@@ -1,0 +1,7 @@
+# ledger-api 운영(데모) 오버라이드 — SPRING_PROFILES_ACTIVE=prod 일 때 application.yml 위에 덮어씀
+logging:
+  level:
+    com.pocketstock: INFO
+    org.mybatis: INFO
+server:
+  shutdown: graceful

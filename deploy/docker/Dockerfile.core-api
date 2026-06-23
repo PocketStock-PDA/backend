@@ -1,0 +1,17 @@
+# core-api 이미지 — 멀티스테이지(빌드용 JDK / 실행용 JRE 분리)
+# 빌드 컨텍스트 = 레포 루트 (compose의 context: ../..)
+
+# ---- 1) 빌드 단계: 소스로 bootJar 생성 ----
+FROM eclipse-temurin:17-jdk AS build
+WORKDIR /src
+COPY . .
+RUN chmod +x ./gradlew && ./gradlew :core-api:bootJar --no-daemon -x test
+
+# ---- 2) 실행 단계: 가벼운 JRE + 비루트 유저 ----
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+RUN useradd -r -u 1001 appuser
+COPY --from=build /src/core-api/build/libs/*.jar app.jar
+USER appuser
+EXPOSE 8081
+ENTRYPOINT ["java","-jar","app.jar"]

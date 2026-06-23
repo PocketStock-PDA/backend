@@ -22,3 +22,6 @@ dependencies {
     implementation 'io.github.openfeign:feign-okhttp'
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
 }
+
+// plain jar 비활성 → bootJar 하나만 남겨 Dockerfile의 COPY *.jar 모호성 제거
+jar { enabled = false }

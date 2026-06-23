@@ -1,0 +1,10 @@
+# core-api 운영(데모) 오버라이드 — SPRING_PROFILES_ACTIVE=prod 일 때 application.yml 위에 덮어씀
+logging:
+  level:
+    com.pocketstock: INFO
+    org.mybatis: INFO
+server:
+  shutdown: graceful
+auth:
+  refresh-cookie:
+    secure: false   # HTTP 데모용(쿠키 전송 허용). 도메인+HTTPS 붙이면 true로 되돌리기
