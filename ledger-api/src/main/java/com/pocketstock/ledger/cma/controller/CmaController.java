@@ -100,6 +100,15 @@ public class CmaController {
                 collectService.collectFromPoint(userId, resolveKey(idempotencyKey)));
     }
 
+    /** 외화 잔액 적립 — 연동 USD 지갑 전액을 CMA 달러 풀로 입금(환전 없음, USD→USD). */
+    @PostMapping("/collect/fx")
+    public ApiResponse<CollectResult> collectFx(
+            @CurrentUserId Long userId,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok("외화 잔액 적립 완료",
+                collectService.collectFromFx(userId, resolveKey(idempotencyKey)));
+    }
+
     @GetMapping("/collect/history")
     public ApiResponse<List<CmaTransactionResponse>> getCollectHistory(
             @CurrentUserId Long userId,

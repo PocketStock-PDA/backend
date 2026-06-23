@@ -11,7 +11,7 @@ import java.math.BigDecimal;
  * @param status SUCCESS(적립됨) / SKIPPED(소스 비활성·수집 잔돈 없음) / FAILED(예기치 못한 오류)
  */
 public record CollectResult(
-        String sourceType,      // ACCOUNT / CARD / POINT
+        String sourceType,      // ACCOUNT / CARD / POINT / FX(외화 USD 지갑)
         String status,
         BigDecimal amount,      // 적립 금액 (SKIPPED/FAILED는 null 또는 0)
         BigDecimal balanceAfter,
