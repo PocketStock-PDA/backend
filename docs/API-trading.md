@@ -473,35 +473,23 @@
 
 ### POST `/api/trading/orders/fractional/buy`
 
-소수점 매수 — **접수 즉시 1분 차수에 `QUEUED` 편입(비동기)**. 체결은 차수 집행기가 수행(상계·회사 선부담 ceil·시뮬·비례배분). 응답의 `estQuantity`는 접수 시점 예상수량(참고치) — 확정 수량·체결가는 거래내역/배분에서 확인.
+소수점 매수 — **백엔드가 정수부=온주 / 소수부=소수로 split(FRAC-010 #157)**. 한 트랜잭션이라 둘 다 성공 or 둘 다 롤백. 프론트는 split을 모르고 수량/금액 그대로 한 번만 보낸다(13.14주→온주13+소수0.14, 0.1→소수만, 1.0→온주만).
+- **온주분**: `WholeOrderService`로 MARKET **즉시 호가체결**(직접소유·정수).
+- **소수분**: 현재 1분 차수에 `QUEUED` 편입(차수 집행기가 상계·ceil·시뮬·배분).
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-- **D4(국내 먼저)**: 현재 국내(KRW)만 접수. 해외는 후속(#155 해외 확장).
-- **자금 hold(D1)**: `AMOUNT`=주문금액 그대로(버퍼X) / `QUANTITY`=예상금액×(1+버퍼 1%) 잠금(체결 후 미사용분 환원). 실제 잠근 금액은 `heldAmount`.
-- **market은 받지 않음** — `stockCode`→exchange에서 파생(온주와 동일). `clientOrderId`(멱등키) 필수.
+- **D4(국내 먼저)**: 현재 국내(KRW)만. 해외는 후속(#155).
+- **자금 hold**: 온주분=즉시 차감 / 소수분 `AMOUNT`=남은금액 그대로·`QUANTITY`=예상금액×(1+버퍼 1%).
+- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수 — 내부 서브키 `:W`(온주)/`:F`(소수)로 파생.
 
-**Request Body** (`orderType`: AMOUNT 금액 / QUANTITY 수량)
-
-```json
-{
-  "clientOrderId": "frac-buy-20260623-001",
-  "stockCode": "005930",
-  "orderType": "AMOUNT",
-  "amount": 10000
- }
-```
+**Request Body** (`orderType`: AMOUNT 금액 / QUANTITY 수량. 수량은 0.1·1.3·13.14 등 제한 없음)
 
 ```json
-{
-  "clientOrderId": "frac-buy-20260623-002",
-  "stockCode": "005930",
-  "orderType": "QUANTITY",
-  "quantity": 0.5
- }
+{ "clientOrderId": "frac-buy-001", "stockCode": "005930", "orderType": "QUANTITY", "quantity": 13.14 }
 ```
 
-**Response Body**
+**Response Body** (`whole*`=온주분/없으면 null · `fractional*`=소수분/없으면 null)
 
 ```json
 {
@@ -509,14 +497,17 @@
   "code": "SUCCESS",
   "message": "소수점 매수 접수 성공",
   "data": {
-    "orderId": 1024,
-    "roundId": 88,
     "stockCode": "005930",
     "side": "BUY",
-    "orderType": "AMOUNT",
-    "estQuantity": 0.140845,
-    "heldAmount": 10000,
-    "status": "QUEUED",
+    "wholeOrderId": 1024,
+    "wholeQty": 13,
+    "wholeFillPrice": 76100,
+    "wholeAmount": 989300,
+    "fractionalOrderId": 1025,
+    "roundId": 88,
+    "fractionalEstQty": 0.14,
+    "fractionalHeld": 10654,
+    "fractionalStatus": "QUEUED",
     "orderable": 90000
   }
  }

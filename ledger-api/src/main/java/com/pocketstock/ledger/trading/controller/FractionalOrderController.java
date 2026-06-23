@@ -3,6 +3,7 @@ package com.pocketstock.ledger.trading.controller;
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
 import com.pocketstock.ledger.trading.dto.FractionalOrderResponse;
+import com.pocketstock.ledger.trading.dto.SplitOrderResponse;
 import com.pocketstock.ledger.trading.service.FractionalOrderService;
 import com.pocketstock.user.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +23,10 @@ public class FractionalOrderController {
 
     private final FractionalOrderService fractionalOrderService;
 
-    /** 소수점 매수 (AMOUNT 금액 / QUANTITY 수량) */
+    /** 소수점 매수 (AMOUNT 금액 / QUANTITY 수량) — 백엔드가 정수부=온주 즉시체결 / 소수부=소수 차수배치로 split. */
     @PostMapping("/orders/fractional/buy")
-    public ApiResponse<FractionalOrderResponse> buy(@CurrentUserId Long userId,
-                                                    @RequestBody FractionalOrderRequest request) {
+    public ApiResponse<SplitOrderResponse> buy(@CurrentUserId Long userId,
+                                               @RequestBody FractionalOrderRequest request) {
         return ApiResponse.ok("소수점 매수 접수 성공", fractionalOrderService.placeBuy(userId, request));
     }
 

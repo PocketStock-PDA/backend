@@ -10,6 +10,9 @@ import com.pocketstock.ledger.trading.domain.TradingRound;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
 import com.pocketstock.ledger.trading.dto.FractionalOrderResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
+import com.pocketstock.ledger.trading.dto.SplitOrderResponse;
+import com.pocketstock.ledger.trading.dto.WholeOrderRequest;
+import com.pocketstock.ledger.trading.dto.WholeOrderResponse;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.trading.mapper.RoundMapper;
@@ -64,11 +67,174 @@ public class FractionalOrderService {
     private final DepositService depositService;
     private final OrderbookService orderbookService;
     private final OrderRejectionService rejectionService;
+    private final WholeOrderService wholeOrderService;
 
-    /** 소수점 매수 — method=AMOUNT(금액) | QUANTITY(수량). */
+    /**
+     * 소수점 매수 — split 라우터(FRAC-010 #157). 정수부=온주 즉시 호가체결 / 소수부=소수 차수 배치로 쪼갠다.
+     * 한 트랜잭션이라 둘 다 성공 or 둘 다 롤백(부분 실패 없음). 13.14주→온주13+소수0.14, 0.1→소수만, 1.0→온주만.
+     * 프론트는 split을 모르고 "13.14 매수" 한 번만 보낸다.
+     */
     @Transactional
-    public FractionalOrderResponse placeBuy(Long userId, FractionalOrderRequest req) {
-        return place(userId, req, "BUY");
+    public SplitOrderResponse placeBuy(Long userId, FractionalOrderRequest req) {
+        Ctx ctx = resolveContext(userId, req, "BUY");
+        String method = normalize(req.orderType());
+        // 멱등 replay — 서브키(:W/:F) 중 하나라도 있으면 이미 처리됨 → 재구성 반환(한 tx라 둘 다 있거나 둘 다 없음).
+        SplitOrderResponse replay = findSplitReplay(userId, ctx);
+        if (replay != null) {
+            return replay;
+        }
+        try {
+            BigDecimal estPrice = domesticEstPrice(ctx.stock().getStockCode(), true);
+            return "QUANTITY".equals(method)
+                    ? splitBuyByQuantity(userId, ctx, req, estPrice)
+                    : splitBuyByAmount(userId, ctx, req, estPrice);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT) {
+                try {
+                    rejectionService.recordRejection(userId, ctx.account().getId(), ctx.stock().getStockCode(),
+                            ctx.stock().getExchange(), "BUY", method, null, null, CURRENCY_KRW, e.getMessage());
+                } catch (Exception ignore) {
+                    // 감사 기록 실패가 원 예외를 가리지 않게 무시.
+                }
+            }
+            throw e;
+        }
+    }
+
+    // ---- 매수 split (온주 즉시체결 + 소수 차수배치, 한 tx) ----
+
+    /** 수량매수 split — whole=floor(qty)는 온주 MARKET 즉시체결, frac=qty−whole는 소수 차수배치. */
+    private SplitOrderResponse splitBuyByQuantity(Long userId, Ctx ctx, FractionalOrderRequest req, BigDecimal estPrice) {
+        BigDecimal qty = req.quantity();
+        if (qty == null || qty.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "주문수량(quantity)을 입력해주세요.");
+        }
+        qty = qty.setScale(QTY_SCALE, RoundingMode.DOWN);
+        if (estPrice.multiply(qty).compareTo(MIN_ORDER_KRW) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "예상 주문금액이 최소 1,000원 이상이어야 합니다.");
+        }
+        int whole = qty.setScale(0, RoundingMode.FLOOR).intValueExact();
+        BigDecimal frac = qty.subtract(BigDecimal.valueOf(whole));
+
+        WholeOrderResponse w = whole >= 1 ? placeWholeBuy(userId, ctx, whole) : null;
+        FracEnq f = null;
+        if (frac.signum() > 0) {
+            // 소수분 hold = 예상금액×(1+버퍼). split 잔여라 표준 최소주문 검증은 생략(총주문에서 이미 검증).
+            BigDecimal hold = estPrice.multiply(frac).multiply(BigDecimal.ONE.add(BUFFER_DOMESTIC))
+                    .setScale(4, RoundingMode.UP);
+            f = enqueueFracBuy(userId, ctx, "QUANTITY", null, frac, frac, hold);
+        }
+        return buildSplit(ctx, w, f);
+    }
+
+    /** 금액매수 split — whole=floor(amount/현재가)는 온주로(실대금 차감), 남은 금액은 소수 금액매수로. */
+    private SplitOrderResponse splitBuyByAmount(Long userId, Ctx ctx, FractionalOrderRequest req, BigDecimal estPrice) {
+        BigDecimal amount = req.amount();
+        if (amount == null || amount.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "주문금액(amount)을 입력해주세요.");
+        }
+        if (amount.compareTo(MIN_ORDER_KRW) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "최소 주문금액은 1,000원입니다.");
+        }
+        if (amount.remainder(KRW_UNIT).signum() != 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "주문금액은 1,000원 단위입니다.");
+        }
+        int whole = amount.divide(estPrice, 0, RoundingMode.DOWN).intValueExact();
+
+        WholeOrderResponse w = null;
+        BigDecimal remaining = amount;
+        if (whole >= 1) {
+            w = placeWholeBuy(userId, ctx, whole);
+            remaining = amount.subtract(w.totalAmount());   // 온주 실체결대금 차감 → 남은 예산
+        }
+        FracEnq f = null;
+        if (remaining.signum() > 0) {
+            BigDecimal estQty = remaining.divide(estPrice, QTY_SCALE, RoundingMode.DOWN);
+            // 금액매수는 돈이 상한이라 버퍼X — 남은 금액 그대로 hold.
+            f = enqueueFracBuy(userId, ctx, "AMOUNT", remaining, null, estQty, remaining);
+        }
+        return buildSplit(ctx, w, f);
+    }
+
+    /** 정수부 온주 MARKET 매수 — 같은 tx에 합류(즉시 호가체결). 멱등키 서브키 :W. */
+    private WholeOrderResponse placeWholeBuy(Long userId, Ctx ctx, int wholeShares) {
+        WholeOrderRequest wreq = new WholeOrderRequest(ctx.clientOrderId() + ":W",
+                ctx.stock().getStockCode(), "BUY", "MARKET", null, wholeShares);
+        return wholeOrderService.placeWholeOrder(userId, wreq);
+    }
+
+    /** 소수분 접수 — 예수금 hold + 현재 차수 QUEUED 편입. 멱등키 서브키 :F. */
+    private FracEnq enqueueFracBuy(Long userId, Ctx ctx, String method, BigDecimal orderAmount,
+                                   BigDecimal orderQuantity, BigDecimal estQty, BigDecimal hold) {
+        depositService.hold(ctx.account().getId(), hold);
+        TradingRound round = currentRound(ACCOUNT_DOMESTIC);
+        Order order = Order.builder()
+                .clientOrderId(ctx.clientOrderId() + ":F")
+                .userId(userId)
+                .accountId(ctx.account().getId())
+                .stockCode(ctx.stock().getStockCode())
+                .exchange(ctx.stock().getExchange())
+                .side("BUY")
+                .orderType(method)
+                .orderAmount(orderAmount)
+                .orderQuantity(orderQuantity)
+                .estQuantity(estQty)
+                .heldAmount(hold)
+                .status(OrderStatus.QUEUED)
+                .source("MANUAL")
+                .roundId(round.getId())
+                .currency(CURRENCY_KRW)
+                .requestedAt(LocalDateTime.now())
+                .build();
+        try {
+            orderMapper.insert(order);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 처리 중인 주문입니다.");
+        }
+        return new FracEnq(order.getId(), round.getId(), estQty, hold);
+    }
+
+    /** split 결과 합성. */
+    private SplitOrderResponse buildSplit(Ctx ctx, WholeOrderResponse w, FracEnq f) {
+        BigDecimal orderable = depositService.getBalance(ctx.account().getId());
+        return new SplitOrderResponse(ctx.stock().getStockCode(), "BUY",
+                w == null ? null : w.orderId(),
+                w == null ? null : w.quantity(),
+                w == null ? null : w.fillPrice(),
+                w == null ? null : w.totalAmount(),
+                f == null ? null : f.orderId(),
+                f == null ? null : f.roundId(),
+                f == null ? null : f.estQty(),
+                f == null ? null : f.held(),
+                f == null ? null : OrderStatus.QUEUED.name(),
+                orderable);
+    }
+
+    /** 멱등 replay 재구성 — 서브키(:W/:F) 주문이 이미 있으면 그 결과로 합성. 없으면 null. */
+    private SplitOrderResponse findSplitReplay(Long userId, Ctx ctx) {
+        Order wo = orderMapper.findByClientOrderId(ctx.clientOrderId() + ":W");
+        Order fo = orderMapper.findByClientOrderId(ctx.clientOrderId() + ":F");
+        if (wo == null && fo == null) {
+            return null;
+        }
+        if ((wo != null && !wo.getUserId().equals(userId)) || (fo != null && !fo.getUserId().equals(userId))) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 사용된 멱등키입니다.");
+        }
+        BigDecimal orderable = depositService.getBalance(ctx.account().getId());
+        return new SplitOrderResponse(ctx.stock().getStockCode(), "BUY",
+                wo == null ? null : wo.getId(),
+                wo == null ? null : (wo.getOrderQuantity() == null ? null : wo.getOrderQuantity().longValueExact()),
+                wo == null ? null : wo.getPrice(),
+                wo == null ? null : (wo.getPrice() == null ? null : wo.getPrice().multiply(wo.getOrderQuantity())),
+                fo == null ? null : fo.getId(),
+                fo == null ? null : fo.getRoundId(),
+                fo == null ? null : fo.getEstQuantity(),
+                fo == null ? null : fo.getHeldAmount(),
+                fo == null ? null : fo.getStatus().name(),
+                orderable);
+    }
+
+    private record FracEnq(Long orderId, Long roundId, BigDecimal estQty, BigDecimal held) {
     }
 
     /** 소수점 매도 — method=AMOUNT(금액) | ALL(전량). */
@@ -78,17 +244,13 @@ public class FractionalOrderService {
     }
 
     private FractionalOrderResponse place(Long userId, FractionalOrderRequest req, String side) {
-        if (userId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
+        Ctx ctx = resolveContext(userId, req, side);
+        String clientOrderId = ctx.clientOrderId();
+        TradableStock stock = ctx.stock();
+        SecuritiesAccount account = ctx.account();
         String method = normalize(req.orderType());
-        validateMethod(side, method);
 
-        String clientOrderId = req.clientOrderId() == null ? "" : req.clientOrderId().trim();
-        if (clientOrderId.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "멱등키(clientOrderId)가 필요합니다.");
-        }
-        // 멱등 단락 — 같은 키 재요청이면 재접수 없이 기존 결과 반환(따닥 탭·재전송 방어, 온주 동형).
+        // 멱등 단락 — 매도는 단일 주문이라 base 키(매수 split은 :W/:F 서브키, findSplitReplay가 처리).
         Order existing = orderMapper.findByClientOrderId(clientOrderId);
         if (existing != null) {
             if (!existing.getUserId().equals(userId)) {
@@ -97,35 +259,9 @@ public class FractionalOrderService {
             return toResponse(existing);
         }
 
-        TradableStock stock = stockMapper.findByCode(req.stockCode());
-        if (stock == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + req.stockCode());
-        }
-        boolean overseas = OVERSEAS_EXCHANGES.contains(stock.getExchange());
-        if (overseas) {
-            // D4: 국내 먼저 — 해외는 USD 충전경로(#137)·자동환전·환율 콜드스타트 가드 선결(#155 해외 확장).
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "해외 소수점 주문은 후속 지원입니다(국내 먼저).");
-        }
-        if (!DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 거래소: " + stock.getExchange());
-        }
-        if (Boolean.FALSE.equals(stock.getIsActive())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "거래 정지 종목입니다: " + stock.getStockCode());
-        }
-        // 거래소→통화 불변식(국내=KRW). 마스터 데이터 불일치면 서버 오류.
-        if (!CURRENCY_KRW.equals(stock.getCurrency())) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR,
-                    "종목 통화 불일치: " + stock.getStockCode() + " 마스터=" + stock.getCurrency());
-        }
-
-        SecuritiesAccount account = accountMapper.findByUserIdAndMarket(userId, ACCOUNT_DOMESTIC);
-        if (account == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "국내 위탁계좌가 없습니다. 먼저 계좌를 개설하세요.");
-        }
-
         // 종목·계좌 해석 이후의 비즈니스 실패는 REJECTED로 감사 기록(H3). 멱등 충돌은 제외.
         try {
-            // 접수 시점 예상가 — 국내 호가 스냅샷(매수=최우선 매도호가/매도=최우선 매수호가, 폴백 현재가).
+            // 접수 시점 예상가 — 매도=최우선 매수호가, 폴백 현재가.
             BigDecimal estPrice = domesticEstPrice(stock.getStockCode(), "BUY".equals(side));
             Reserve r = "BUY".equals(side)
                     ? reserveBuy(account.getId(), method, req, estPrice)
@@ -174,6 +310,45 @@ public class FractionalOrderService {
             }
             throw e;
         }
+    }
+
+    /** 공통 검증·해석 — userId·method·멱등키 비어있음·종목(국내·거래가능·통화)·계좌. 멱등 단락은 호출자별로. */
+    private Ctx resolveContext(Long userId, FractionalOrderRequest req, String side) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        validateMethod(side, normalize(req.orderType()));
+        String clientOrderId = req.clientOrderId() == null ? "" : req.clientOrderId().trim();
+        if (clientOrderId.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "멱등키(clientOrderId)가 필요합니다.");
+        }
+        TradableStock stock = stockMapper.findByCode(req.stockCode());
+        if (stock == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + req.stockCode());
+        }
+        if (OVERSEAS_EXCHANGES.contains(stock.getExchange())) {
+            // D4: 국내 먼저 — 해외는 USD 충전경로·자동환전·환율 콜드스타트 가드 선결(#155 해외 확장).
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "해외 소수점 주문은 후속 지원입니다(국내 먼저).");
+        }
+        if (!DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 거래소: " + stock.getExchange());
+        }
+        if (Boolean.FALSE.equals(stock.getIsActive())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "거래 정지 종목입니다: " + stock.getStockCode());
+        }
+        if (!CURRENCY_KRW.equals(stock.getCurrency())) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR,
+                    "종목 통화 불일치: " + stock.getStockCode() + " 마스터=" + stock.getCurrency());
+        }
+        SecuritiesAccount account = accountMapper.findByUserIdAndMarket(userId, ACCOUNT_DOMESTIC);
+        if (account == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "국내 위탁계좌가 없습니다. 먼저 계좌를 개설하세요.");
+        }
+        return new Ctx(clientOrderId, stock, account);
+    }
+
+    /** 검증 통과 컨텍스트. */
+    private record Ctx(String clientOrderId, TradableStock stock, SecuritiesAccount account) {
     }
 
     // ---- 자금/수량 hold ----

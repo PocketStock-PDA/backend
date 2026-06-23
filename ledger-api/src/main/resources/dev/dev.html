@@ -120,9 +120,10 @@
   <button onclick="placeFractional()">소수점 접수</button>
   <div id="fracView"></div>
   <pre id="fracRaw" class="muted">결과 raw JSON</pre>
-  <div class="muted">국내 먼저(D4). 매수=AMOUNT(금액·천원단위)/QUANTITY(수량) · 매도=AMOUNT(금액)/ALL(전량).
-    접수 즉시 현재 1분 차수에 QUEUED 편입 — 체결은 차수 집행기(스케줄러)가 수행(아직 미구현 #152·#153).
-    멱등키는 자동 생성. 거래내역·취소는 위 4)번 버튼 공용(QUEUED 취소 시 hold 환원).</div>
+  <div class="muted">국내 먼저(D4). <b>매수=AMOUNT(금액·천원단위) / QUANTITY(수량)</b> · 매도=AMOUNT(금액)/ALL(전량).
+    방식을 <b>수량</b>으로 고르면 수량칸이 활성화됨(기본은 금액). 접수 즉시 현재 1분 차수에 QUEUED 편입 →
+    매 분 5초 차수 집행기(#152·#153)가 체결·정산(holdings 소수 칼럼 증가). 멱등키 자동 생성.
+    거래내역·취소는 위 4)번 버튼 공용(QUEUED 취소 시 hold 환원).</div>
   <hr/>
   <b>온주 전환</b> (소수→온주, 사용자 버튼)
   종목 <input id="convCode" value="005930" size="8"/>
@@ -826,10 +827,19 @@ async function placeFractional() {
   const v = document.getElementById('fracView');
   if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
   const d = b.data;
-  const held = d.heldAmount != null ? ` · hold ${won(d.heldAmount)}` : '';
-  v.innerHTML = `<p class="up">접수 #${d.orderId} (차수 ${d.roundId}): ${d.side} ${d.orderType} `
-    + `예상 ${Number(d.estQuantity)}주${held} → ${d.status}</p>`;
-  loadOrders();
+  let msg;
+  if (side === 'BUY') {
+    // split 응답: 온주 즉시체결 + 소수 차수배치
+    const parts = [];
+    if (d.wholeOrderId) parts.push(`온주 #${d.wholeOrderId} ${Number(d.wholeQty)}주 @ ${won(d.wholeFillPrice)} = ${won(d.wholeAmount)}원 FILLED`);
+    if (d.fractionalOrderId) parts.push(`소수 #${d.fractionalOrderId}(차수 ${d.roundId}) 예상 ${Number(d.fractionalEstQty)}주 · hold ${won(d.fractionalHeld)} QUEUED`);
+    msg = parts.join(' + ') || '처리됨';
+  } else {
+    const held = d.heldAmount != null ? ` · hold ${won(d.heldAmount)}` : '';
+    msg = `접수 #${d.orderId}(차수 ${d.roundId}): 소수 ${d.orderType} 예상 ${Number(d.estQuantity)}주${held} → ${d.status}`;
+  }
+  v.innerHTML = `<p class="up">${msg}</p>`;
+  loadHoldings(); loadOrders();
 }
 
 // ---- 온주 전환 (소수→온주) ----
