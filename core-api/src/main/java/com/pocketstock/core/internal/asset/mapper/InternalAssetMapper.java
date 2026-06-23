@@ -16,6 +16,9 @@ public interface InternalAssetMapper {
             @Param("ids") List<Long> ids
     );
 
+    // 외화(USD) 지갑 목록 — 잔돈 수집의 FX 소스(전액 입금 대상). id+잔액 반환(수집 후 잔액 차감에 사용)
+    List<LinkedAccountSummary> findUsdWallets(@Param("userId") Long userId);
+
     // id, amount 두 컬럼만 반환 — 서비스에서 라운드업 계산
     List<Map<String, Object>> findUncollectedCardTxs(
             @Param("userId") Long userId,

@@ -28,6 +28,11 @@ public class InternalAssetController {
         return service.getLinkedAccounts(userId, enabledIds);
     }
 
+    @GetMapping("/fx-wallets")
+    public List<LinkedAccountSummary> getUsdWallets(@RequestParam Long userId) {
+        return service.getUsdWallets(userId);
+    }
+
     @GetMapping("/card-roundup")
     public CardRoundupSummary getCardRoundup(
             @RequestParam Long userId,

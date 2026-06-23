@@ -15,6 +15,18 @@
           </foreach>
     </select>
 
+    <!-- 외화(USD) 지갑 목록 — 잔돈 수집의 FX 소스(전액 입금 대상). scan(sumUsdWalletBalance)과 동일 모집단
+         (미해지·비휴면 USD 지갑). id+잔액을 반환해 수집 후 deductAccountBalance로 원천을 닫는다. -->
+    <select id="findUsdWallets"
+            resultType="com.pocketstock.core.internal.asset.dto.LinkedAccountSummary">
+        SELECT id, account_type, balance, currency
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND currency = 'USD'
+          AND is_dormant = FALSE
+          AND closed_at IS NULL
+    </select>
+
     <!-- is_roundup_collected=FALSE, 미취소 건만 조회. card_id = linked_cards.id (구 linked_account_id) -->
     <select id="findUncollectedCardTxs" resultType="map">
         SELECT id, amount
