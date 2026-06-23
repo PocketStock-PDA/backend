@@ -3,16 +3,25 @@ package com.pocketstock.ledger.dev;
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.calendar.DividendBatchService;
 import com.pocketstock.ledger.calendar.EarningsBatchService;
+import com.pocketstock.ledger.cma.domain.CmaAccount;
+import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
+import com.pocketstock.ledger.cma.service.CmaAccountService;
+import com.pocketstock.ledger.cma.service.CmaLedgerWriter;
+import com.pocketstock.ledger.exchange.CurrencyRateCache;
+import com.pocketstock.ledger.exchange.client.YahooFxClient;
+import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.service.DepositService;
 import com.pocketstock.ledger.trading.service.SecuritiesAccountService;
+import com.pocketstock.user.security.TxnAuth;
 import com.pocketstock.user.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +38,8 @@ import java.util.Map;
  * 로컬 전용 개발 테스트 하니스. local 프로파일에서만 등록된다.
  * - GET /dev          : 시세/WS 수동 테스트 페이지(resources/dev/dev.html)
  * - GET /dev/token    : 테스트용 JWT 발급(로그인 도메인 없이도 보호 API 호출)
+ * - GET /dev/txn-auth : 거래 인증 키 발급(회원 도메인 /verify가 core-api에만 있어 8082에서 대체)
+ * - GET /dev/cma-credit : 은행→CMA 풀 직접 적립(매수 자금원 마련)
  */
 @Slf4j
 @Profile("local")
@@ -41,6 +53,12 @@ public class DevController {
     private final DepositService depositService;
     private final DividendBatchService dividendBatchService;
     private final EarningsBatchService earningsBatchService;
+    private final StringRedisTemplate redis;
+    private final CmaAccountService cmaAccountService;
+    private final CmaAccountMapper cmaAccountMapper;
+    private final CmaLedgerWriter cmaLedgerWriter;
+    private final CurrencyRateCache currencyRateCache;
+    private final YahooFxClient yahooFxClient;
 
     @GetMapping(value = "/dev", produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     public String page() throws IOException {
@@ -66,6 +84,61 @@ public class DevController {
                 amount, "KRW", "dev", null, null);   // dev 충전 — 멱등키 불요
         log.info("[DEV] 예수금 충전 userId={} amount={} balance={}", userId, amount, balance);
         return ApiResponse.ok("예수금 충전 완료", Map.of("balance", balance.toPlainString()));
+    }
+
+    /**
+     * 거래 인증 키 발급 — 회원 도메인 {@code /api/users/account-password/verify}가 core-api에만 있어
+     * ledger-api(8082)에서 직접 못 부르므로 dev 대체. Redis {@code txn-auth:{userId}}에 유지 세션(KEEP)을
+     * 30분 발급해 매매/환전/CMA가 {@link com.pocketstock.user.security.TxnAuthGuard}를 통과한다.
+     */
+    @GetMapping("/dev/txn-auth")
+    public ApiResponse<Map<String, String>> txnAuth(@RequestParam(defaultValue = "1") Long userId) {
+        redis.opsForValue().set(TxnAuth.key(userId), TxnAuth.VALUE_KEEP, TxnAuth.TTL);
+        log.info("[DEV] 거래 인증 키 발급 userId={} ttl={}분", userId, TxnAuth.TTL.toMinutes());
+        return ApiResponse.ok("거래 인증 완료(30분 유지)", Map.of(
+                "userId", String.valueOf(userId),
+                "ttlMinutes", String.valueOf(TxnAuth.TTL.toMinutes())));
+    }
+
+    /**
+     * 은행 → CMA 원화풀 직접 적립 — 매수 자금원 마련용. CMA 계좌 보장 후 KRW 풀에 DEPOSIT 1줄 기록한다.
+     * 달러풀은 직접 충전하지 않는다(환전·자동환전으로만 채워 실제 모델과 동일하게).
+     */
+    @GetMapping("/dev/cma-credit")
+    public ApiResponse<Map<String, String>> cmaCredit(@RequestParam(defaultValue = "1") Long userId,
+                                                      @RequestParam(defaultValue = "10000000") BigDecimal amount) {
+        cmaAccountService.openOrGet(userId);   // 시드엔 있지만 없는 환경에서도 무해하게 보장
+        CmaAccount account = cmaAccountMapper.findByUserId(userId);
+        BigDecimal balance = cmaLedgerWriter.applyEntry(userId, account.getId(), "KRW",
+                "DEPOSIT", "BANK", amount, null, null, null);   // dev 충전 — 멱등키 불요
+        log.info("[DEV] 은행→CMA 원화풀 적립 userId={} amount={} balance={}", userId, amount, balance);
+        return ApiResponse.ok("CMA 원화풀 충전 완료", Map.of("krwPool", balance.toPlainString()));
+    }
+
+    /**
+     * 환율 파이프라인 헬스체크 — 야후 폴백 소스 생존 + Redis 캐시(WS가 채우는 SSOT) 상태를 한 번에 진단.
+     * cache.present=false면 WS 첫 틱 미수신(콜드스타트), yahoo.alive=false면 폴백 소스 단절.
+     * 둘 다 false라야 매수·환전이 502로 막힌다(하나라도 살아 있으면 provider가 환율을 공급).
+     */
+    @GetMapping("/dev/fx-health")
+    public ApiResponse<Map<String, Object>> fxHealth() {
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        // 1) 야후 폴백 소스 — 직접 1회 호출(캐시 거치지 않음)
+        CurrencyRateResponse yahoo = yahooFxClient.fetchUsdKrw();
+        result.put("yahoo", yahoo == null
+                ? Map.of("alive", false)
+                : Map.of("alive", true, "rate", yahoo.exchangeRate(),
+                        "change", yahoo.change(), "fetchedAt", yahoo.updatedAt()));
+
+        // 2) Redis 캐시(WS가 채우는 SSOT) — 폴백 없이 raw 조회(WS·Redis 생존 프록시)
+        CurrencyRateResponse cached = currencyRateCache.get();
+        result.put("cache", cached == null
+                ? Map.of("present", false, "note", "WS 첫 틱 미수신 또는 Redis 비어있음(콜드스타트)")
+                : Map.of("present", true, "rate", cached.exchangeRate(), "updatedAt", cached.updatedAt()));
+
+        log.info("[DEV] FX health — yahoo.alive={} cache.present={}", yahoo != null, cached != null);
+        return ApiResponse.ok("환율 헬스체크", result);
     }
 
     /** KIS 배당일정 배치 수동 트리거 — 배치 동작 확인용. */

@@ -2,8 +2,7 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.domain.Order;
 import com.pocketstock.ledger.trading.domain.OrderStatus;
@@ -61,7 +60,7 @@ public class WholeOrderService {
     private final OperatingInventoryService operatingInventoryService;
     private final OrderRejectionService rejectionService;
     private final OrderbookService orderbookService;
-    private final CurrencyRateCache currencyRateCache;
+    private final CurrencyRateProvider currencyRateProvider;
     private final ApplicationEventPublisher eventPublisher;
     private final OrderFundingService fundingService;
 
@@ -402,13 +401,9 @@ public class WholeOrderService {
         holdingMapper.upsertBuy(userId, accountId, stockCode, qty, fillPrice, krwAmount, currency, BigDecimal.ZERO);
     }
 
-    /** 해외 매수 원화원가 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 콜드스타트(틱 미수신)면 502. */
+    /** 해외 매수 원화원가 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 캐시 미스면 야후 폴백, 둘 다 비면 502. */
     private BigDecimal fxRateForKrwBasis() {
-        CurrencyRateResponse rate = currencyRateCache.get();
-        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
-        }
-        return rate.exchangeRate();
+        return currencyRateProvider.current().exchangeRate();
     }
 
     /** 온주 매도 — 보유 수량 원자 차감(온주 매도가능 가드). 전량매도 시 quantity=0으로 row 보존. */

@@ -1,7 +1,7 @@
 package com.pocketstock.ledger.trading.matching;
 
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.trading.domain.TradingRound;
 import com.pocketstock.ledger.trading.mapper.RoundMapper;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ public class FractionalRoundScheduler {
 
     private final RoundMapper roundMapper;
     private final FractionalBatchService batchService;
-    private final CurrencyRateCache currencyRateCache;
+    private final CurrencyRateProvider currencyRateProvider;
 
     @Scheduled(cron = "5 * * * * *")
     public void runDueRounds() {
@@ -69,9 +69,16 @@ public class FractionalRoundScheduler {
         }
     }
 
-    /** 매매기준율(USD/KRW) 미수신 여부 — 해외 차수 집행 전 콜드스타트 가드(true면 보류). */
+    /**
+     * 매매기준율(USD/KRW) 미수신 여부 — 해외 차수 집행 전 콜드스타트 가드(true면 보류).
+     * 캐시가 비면 야후 폴백까지 시도하고, 그것도 실패할 때만 보류(다음 분 재시도).
+     */
     private boolean rateColdStart() {
-        CurrencyRateResponse rate = currencyRateCache.get();
-        return rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0;
+        try {
+            currencyRateProvider.current();   // 캐시 미스면 야후 폴백 시도
+            return false;
+        } catch (BusinessException e) {
+            return true;                      // 폴백까지 실패 — 이번 분 보류
+        }
     }
 }

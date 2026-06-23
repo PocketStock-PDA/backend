@@ -26,21 +26,55 @@
 <h2>PocketStock — DEV 테스트 (local only)</h2>
 
 <fieldset>
-  <legend>1) 테스트 토큰</legend>
+  <legend>1) 테스트 토큰 · 거래 인증</legend>
   <button onclick="issueToken()">토큰 발급</button>
   <span id="tokenState" class="muted">없음</span>
-  <div class="muted">/dev/token 으로 발급한 JWT를 localStorage에 저장해 이후 호출에 Bearer로 사용.</div>
+  <button onclick="issueTxnAuth()">거래 인증(30분)</button>
+  <span id="txnAuthState" class="muted">미인증</span>
+  <div class="muted">토큰=/dev/token JWT(localStorage). <b>거래 인증</b>=/dev/txn-auth로 Redis txn-auth 키 발급 —
+    매수·매도·환전·CMA는 거래 인증이 있어야 통과(없으면 TXN_AUTH_REQUIRED). 운영은 계좌비번 /verify, dev는 이 버튼으로 대체.</div>
 </fieldset>
 
 <div class="tabs">
-  <button data-tab="quote" class="active" onclick="showTab('quote')">시세·종목</button>
+  <button data-tab="flow" class="active" onclick="showTab('flow')">자금흐름</button>
+  <button data-tab="quote" onclick="showTab('quote')">시세·종목</button>
   <button data-tab="trade" onclick="showTab('trade')">거래(온주·소수점)</button>
   <button data-tab="account" onclick="showTab('account')">계좌·보상</button>
   <button data-tab="realtime" onclick="showTab('realtime')">실시간(WS)</button>
   <button data-tab="fx" onclick="showTab('fx')">환율·환전</button>
 </div>
 
-<section id="tab-quote" class="tab active">
+<section id="tab-flow" class="tab active">
+<fieldset>
+  <legend>0) 자금 흐름 — 은행 → CMA ⇄ 국내/해외 예수금 ⇄ 매수/매도</legend>
+  <button onclick="refreshFlow()">전체 새로고침</button>
+  <span class="muted">매수/매도/환전/충전 시 자동 갱신. 돈이 어디서 빠지고 어디로 들어가는지 한눈에.</span>
+  <div id="flowBoard" style="margin-top:12px"></div>
+  <hr/>
+  <b>① 은행 → CMA 원화 충전</b>
+  <button onclick="cmaCredit(1000000)">+100만</button>
+  <button onclick="cmaCredit(10000000)">+1천만</button>
+  <span class="muted">/dev/cma-credit — 은행에서 CMA 원화풀로 적립(DEPOSIT). 달러풀은 환전(아래 ③)으로만 채움.</span>
+  <hr/>
+  <b>② 매수 / 매도</b> (체결 시 CMA↓·holdings↑, 매도 시 CMA↑ 환류가 위 보드에 반영)
+  <div style="margin-top:6px">
+    종목 <input id="flowCode" value="005930" size="8"/>
+    <select id="flowSide"><option value="BUY">매수</option><option value="SELL">매도</option></select>
+    수량 <input id="flowQty" value="1" size="4"/>주
+    <button onclick="flowOrder()">온주 시장가 주문</button>
+    <span class="muted">미국주식(예: NVDA)은 달러 부족 시 ③ 자동환전 ON이어야 체결.</span>
+  </div>
+  <div id="flowOrderView"></div>
+  <hr/>
+  <b>③ CMA 원화 → 달러 환전</b> (해외 매수용 달러풀 마련)
+  <input id="flowFxKrw" value="1000000" size="9"/>원 →
+  <button onclick="flowFx()">달러로 환전</button>
+  <span class="muted">자동환전 설정은 "환율·환전" 탭 12번. ON이면 매수 시 부족분 자동 환전.</span>
+  <div id="flowFxView"></div>
+</fieldset>
+</section>
+
+<section id="tab-quote" class="tab">
 <fieldset>
   <legend>1-1) 종목 검색 / 상세 (search · {code})</legend>
   검색어 <input id="searchQ" value="삼성" size="10"/>
@@ -80,8 +114,8 @@
 <section id="tab-trade" class="tab">
 <fieldset>
   <legend>4) 온주 주문 (whole) + 보유/내역</legend>
-  <button onclick="credit()">예수금 1천만원 충전</button>
-  <span id="balState" class="muted">예수금 미조회</span>
+  <div class="muted">자금은 <b>은행→CMA→예수금 자동충당</b>(매수 시 CMA풀에서 자동 출금, 매도 시 CMA로 환류).
+    예수금은 0으로 수렴 — 직접 충전 안 함. CMA 충전·잔액은 <b>자금흐름</b> 탭에서.</div>
   <hr/>
   종목 <input id="ordCode" value="005930" size="8"/>
   <select id="ordSide"><option value="BUY">매수</option><option value="SELL">매도</option></select>
@@ -204,6 +238,15 @@
 </section>
 
 <section id="tab-fx" class="tab">
+<fieldset>
+  <legend>9.5) 환율 파이프라인 헬스체크 (DEV · /dev/fx-health)</legend>
+  <button onclick="checkFxHealth()">야후 + 캐시(WS) 생존 확인</button>
+  <div id="fxHealthView"></div>
+  <pre id="fxHealthRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted"><b>야후 폴백</b>=외부 환율 소스 직접 호출(살아있나). <b>Redis 캐시(WS SSOT)</b>=LS CUR 실시간이 채운 값(콜드스타트면 비어있음).
+    둘 중 하나라도 살아 있으면 provider가 환율을 공급 → 매수·환전 안 막힘. 둘 다 단절이라야 502.</div>
+</fieldset>
+
 <fieldset>
   <legend>10) 환율 조회 (REST · /api/exchange/rate)</legend>
   <button onclick="getExchangeRate()">환율 조회</button>
@@ -348,11 +391,105 @@ function togglePrice() {
   document.getElementById('ordPrice').disabled = document.getElementById('ordType').value !== 'LIMIT';
 }
 
-async function credit() {
-  const res = await fetch('/dev/deposit?userId=1&amount=10000000');
-  const b = await res.json();
-  document.getElementById('balState').textContent = b.success
-    ? ('예수금 ' + won(b.data.balance) + '원') : ('실패: ' + b.message);
+// ---- 거래 인증(거래 비번 대체 dev 키) ----
+async function issueTxnAuth() {
+  const b = await (await fetch('/dev/txn-auth?userId=1')).json();
+  document.getElementById('txnAuthState').textContent = b.success
+    ? ('인증됨 · ' + b.data.ttlMinutes + '분 유지') : ('실패: ' + b.message);
+}
+
+// 매매/환전 실패가 거래 인증 누락이면 안내(자동 재인증 유도)
+function hintTxnAuth(b) {
+  if (b && !b.success && /인증|TXN_AUTH/i.test((b.code || '') + (b.message || ''))) {
+    document.getElementById('txnAuthState').textContent = '미인증 — "거래 인증(30분)" 먼저 누르세요';
+  }
+}
+
+// ---- 0) 자금 흐름 보드 ----
+const usd = n => '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 4 });
+const krw = n => '₩' + Number(n).toLocaleString();
+
+async function cmaCredit(amount) {
+  const b = await (await fetch('/dev/cma-credit?userId=1&amount=' + amount)).json();
+  if (!b.success) { alert('충전 실패: ' + b.message); return; }
+  refreshFlow();
+}
+
+async function refreshFlow() {
+  const h = await authHeaders();
+  const [cma, dep, hold] = await Promise.all([
+    fetch('/api/cma/balance', { headers: h }).then(r => r.json()).catch(() => ({})),
+    fetch('/api/trading/deposit', { headers: h }).then(r => r.json()).catch(() => ({})),
+    fetch('/api/trading/holdings', { headers: h }).then(r => r.json()).catch(() => ({}))
+  ]);
+
+  // CMA 풀(통화별)
+  let cmaKrw = 0, cmaUsd = 0;
+  if (cma.success) for (const a of (cma.data.accounts || [])) {
+    if (a.currency === 'KRW') cmaKrw = a.balance; else if (a.currency === 'USD') cmaUsd = a.balance;
+  }
+  // 예수금(국내 KRW / 해외 USD) — #137 per-currency
+  let depDom = null, depOvs = null;
+  if (dep.success) for (const x of (dep.data.balances || [])) {
+    if (x.currency === 'KRW') depDom = x; else if (x.currency === 'USD') depOvs = x;
+  }
+  // 보유종목
+  const holds = (hold.success ? hold.data : []) || [];
+  const holdRows = holds.map(x =>
+    `<tr><td>${x.stockCode}</td><td>${Number(x.quantity)}</td><td>${Number(x.wholeQty)}</td><td>${Number(x.fractionalQty)}</td><td>${won(x.avgBuyPrice)}</td><td>${x.currency}</td></tr>`).join('');
+
+  const arrow = '<div style="text-align:center;color:#888;margin:2px 0">│</div><div style="text-align:center;color:#888">▼</div>';
+  const box = (title, inner, bg) =>
+    `<div style="border:1px solid #ccc;border-radius:6px;padding:8px 12px;background:${bg}"><b>${title}</b><div>${inner}</div></div>`;
+
+  document.getElementById('flowBoard').innerHTML =
+    box('🏦 은행 (가상 소스)', '<span class="muted">끝전·라운드업·포인트·직접이체 → CMA 충전</span>', '#fafafa') +
+    arrow +
+    box('💰 CMA (DB B)',
+      `원화풀 <b>${krw(cmaKrw)}</b> · 달러풀 <b>${usd(cmaUsd)}</b>` +
+      `<div class="muted">매수=BUY_TRANSFER 출금 / 매도=SELL_RETURN 환류 · 환전 KRW⇄USD(위탁 안 거침)</div>`, '#eef6ff') +
+    arrow +
+    box('📂 예수금 (trading 위탁)',
+      `국내 KRW ${depDom ? `<b>${krw(depDom.deposit)}</b> (주문가능 ${krw(depDom.orderable)})` : '<span class="muted">계좌없음</span>'}` +
+      ` · 해외 USD ${depOvs ? `<b>${usd(depOvs.deposit)}</b> (주문가능 ${usd(depOvs.orderable)})` : '<span class="muted">계좌없음</span>'}` +
+      `<div class="muted">자동충당 모델 — 평시 0 수렴(체결 시 순간 경유)</div>`, '#f3fff3') +
+    arrow +
+    box('📈 보유종목 (holdings)',
+      `<table style="margin-top:4px"><tr><th>종목</th><th>총수량</th><th>온주</th><th>소수</th><th>평단</th><th>통화</th></tr>` +
+      `${holdRows || '<tr><td colspan="6" class="muted">보유 없음</td></tr>'}</table>`, '#fffef0');
+}
+
+async function flowOrder() {
+  const h = await authHeaders();
+  const side = document.getElementById('flowSide').value;
+  const body = {
+    clientOrderId: 'flow-' + side + '-' + Date.now(),
+    stockCode: document.getElementById('flowCode').value.trim(),
+    side: side, orderType: 'MARKET', price: null,
+    quantity: Number(document.getElementById('flowQty').value)
+  };
+  const b = await (await fetch('/api/trading/orders/whole', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  })).json();
+  const v = document.getElementById('flowOrderView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; hintTxnAuth(b); return; }
+  const d = b.data;
+  v.innerHTML = `<p class="up">체결: ${d.side} ${Number(d.quantity)}주 @ ${won(d.fillPrice)} = ${won(d.totalAmount)} · 예수금 ${won(d.balanceAfter)}</p>`;
+  refreshFlow();
+}
+
+async function flowFx() {
+  const h = await authHeaders();
+  const amount = Number(document.getElementById('flowFxKrw').value);
+  const body = { krwAmount: amount, idempotencyKey: 'flowfx-' + Date.now() };
+  const b = await (await fetch('/api/exchange/krw-to-usd', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  })).json();
+  const v = document.getElementById('flowFxView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; hintTxnAuth(b); return; }
+  const d = b.data;
+  v.innerHTML = `<p class="up">환전: ${usd(d.exchangedUsd)} @ ${Number(d.appliedRate).toLocaleString()} · 원화풀 ${won(d.remainKrw)}</p>`;
+  refreshFlow();
 }
 
 async function placeOrder() {
@@ -373,10 +510,10 @@ async function placeOrder() {
   const b = await res.json();
   document.getElementById('ordRaw').textContent = JSON.stringify(b, null, 2);
   const v = document.getElementById('ordView');
-  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; hintTxnAuth(b); return; }
   const d = b.data;
   v.innerHTML = `<p class="up">체결: ${d.side} ${d.quantity}주 @ ${won(d.fillPrice)} = ${won(d.totalAmount)}원 · 예수금 ${won(d.balanceAfter)}원</p>`;
-  loadHoldings();
+  loadHoldings(); refreshFlow();
 }
 
 async function loadHoldings() {
@@ -627,6 +764,30 @@ function renderAsking(d) {
     </table>`;
 }
 
+// ---- 9.5) 환율 파이프라인 헬스체크 (DEV /dev/fx-health) ----
+async function checkFxHealth() {
+  const b = await (await fetch('/dev/fx-health')).json();
+  document.getElementById('fxHealthRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('fxHealthView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const y = b.data.yahoo, c = b.data.cache;
+  const yCls = y.alive ? 'up' : 'down';
+  const cCls = c.present ? 'up' : 'down';
+  const ok = y.alive || c.present;
+  v.innerHTML = `
+    <table>
+      <tr><th>야후 폴백</th><td class="${yCls}">${y.alive
+        ? '살아있음 · ' + Number(y.rate).toLocaleString() + ' (' + y.change + ') · ' + y.fetchedAt
+        : '단절(null)'}</td></tr>
+      <tr><th>Redis 캐시(WS SSOT)</th><td class="${cCls}">${c.present
+        ? '존재 · ' + Number(c.rate).toLocaleString() + ' · ' + c.updatedAt
+        : '비어있음(콜드스타트)'}</td></tr>
+      <tr><th>매수·환전 가능?</th><td>${ok
+        ? '<span class="up">가능 (provider 공급)</span>'
+        : '<span class="down">502 — 둘 다 단절</span>'}</td></tr>
+    </table>`;
+}
+
 // ---- 10) 환율 조회 (REST /api/exchange/rate) ----
 async function getExchangeRate() {
   const h = await authHeaders();
@@ -716,13 +877,13 @@ async function settleFx() {
   const b = await res.json();
   document.getElementById('fxSettleRaw').textContent = JSON.stringify(b, null, 2);
   const v = document.getElementById('fxSettleView');
-  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; hintTxnAuth(b); return; }
   const d = b.data;
   const isKrwToUsd = dir === 'krw-to-usd';
   const got = isKrwToUsd ? `${Number(d.exchangedUsd)} USD` : `${won(d.exchangedKrw)} KRW`;
   const remain = isKrwToUsd ? `원화풀 ${won(d.remainKrw)}원` : `달러풀 ${Number(d.remainUsd)} USD`;
   v.innerHTML = `<p class="up">체결: ${got} @ ${Number(d.appliedRate).toLocaleString()} (수수료 ${d.fee}) · ${remain}</p>`;
-  loadFxHistory();
+  loadFxHistory(); refreshFlow();
 }
 
 // ---- 1-1) 종목 검색 / 상세 ----
@@ -787,7 +948,7 @@ async function cancelOrder() {
   const b = await (await fetch('/api/trading/orders/' + id, { method: 'DELETE', headers: h })).json();
   document.getElementById('cancelState').textContent = b.success
     ? `취소됨: #${b.data.orderId} → ${b.data.status}` : ('실패: ' + b.message);
-  loadOrders();
+  loadOrders(); refreshFlow();   // PENDING 매수 취소 시 충당분 CMA 환류가 보드에 반영
 }
 
 // ---- 탭 전환 ----
@@ -813,12 +974,12 @@ async function placeFractional() {
   const body = {
     clientOrderId: 'frac-' + side + '-' + Date.now(),   // 멱등키 자동 생성(요청 1건당 1개)
     stockCode: document.getElementById('fracCode').value.trim(),
+    side: side,                                          // 통일 엔드포인트 — side를 body로(온주와 동일 정책)
     orderType: method,
     amount: method === 'AMOUNT' ? Number(document.getElementById('fracAmount').value) : null,
     quantity: method === 'QUANTITY' ? Number(document.getElementById('fracQty').value) : null
   };
-  const path = side === 'BUY' ? 'buy' : 'sell';
-  const res = await fetch('/api/trading/orders/fractional/' + path, {
+  const res = await fetch('/api/trading/orders/fractional', {
     method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   });
   const b = await res.json();
@@ -834,7 +995,7 @@ async function placeFractional() {
     parts.push(`소수 #${d.fractionalOrderId}(차수 ${d.roundId}) ${Number(d.fractionalEstQty)}주${held} QUEUED`);
   }
   v.innerHTML = `<p class="up">[${side === 'BUY' ? '매수' : '매도'}] ${parts.join(' + ') || '처리됨'}</p>`;
-  loadHoldings(); loadOrders();
+  loadHoldings(); loadOrders(); refreshFlow();
 }
 
 // ---- 온주 전환 (소수→온주) ----
@@ -865,6 +1026,7 @@ async function loadWholeShares() {
 
 setTokenState();
 fracToggle();
+refreshFlow();   // 자금흐름 탭 기본 활성 — 진입 시 보드 즉시 렌더(토큰 자동 발급)
 </script>
 </body>
 </html>

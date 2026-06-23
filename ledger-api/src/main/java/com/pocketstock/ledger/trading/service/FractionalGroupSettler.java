@@ -2,8 +2,7 @@ package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.domain.Allocation;
 import com.pocketstock.ledger.trading.domain.BatchOrder;
@@ -59,7 +58,7 @@ public class FractionalGroupSettler {
     private final OperatingCashService operatingCashService;
     private final OperatingInventoryService operatingInventoryService;
     private final OrderbookService orderbookService;
-    private final CurrencyRateCache currencyRateCache;
+    private final CurrencyRateProvider currencyRateProvider;
     private final OrderFundingService fundingService;
 
     /**
@@ -289,13 +288,9 @@ public class FractionalGroupSettler {
         return BigDecimal.valueOf(1_000);
     }
 
-    /** 해외 매수 취득원가(KRW) 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 콜드스타트면 502(온주와 동일 가드). */
+    /** 해외 매수 취득원가(KRW) 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 캐시 미스면 야후 폴백, 둘 다 비면 502(온주와 동일 가드). */
     private BigDecimal fxRateForKrwBasis() {
-        CurrencyRateResponse rate = currencyRateCache.get();
-        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
-        }
-        return rate.exchangeRate();
+        return currencyRateProvider.current().exchangeRate();
     }
 
     private static BigDecimal firstPrice(List<OrderbookResponse.Level> levels) {
