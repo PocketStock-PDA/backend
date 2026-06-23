@@ -1,5 +1,7 @@
 package com.pocketstock.core.internal.asset;
 
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
 import com.pocketstock.core.internal.asset.dto.PointSummary;
@@ -71,7 +73,8 @@ public class InternalAssetService {
     public void deductAccountBalances(Long userId, List<SourceDeduction> deductions) {
         if (deductions == null) return;
         for (SourceDeduction d : deductions) {
-            mapper.deductAccountBalance(userId, d.id(), d.amount());
+            int updated = mapper.deductAccountBalance(userId, d.id(), d.amount());
+            requireSingleRowDeducted(updated, "연동 계좌", d);
         }
     }
 
@@ -80,7 +83,19 @@ public class InternalAssetService {
     public void deductPointBalances(Long userId, List<SourceDeduction> deductions) {
         if (deductions == null) return;
         for (SourceDeduction d : deductions) {
-            mapper.deductPointBalance(userId, d.id(), d.amount());
+            int updated = mapper.deductPointBalance(userId, d.id(), d.amount());
+            requireSingleRowDeducted(updated, "연동 포인트", d);
+        }
+    }
+
+    /**
+     * 차감이 정확히 1건 반영됐는지 강제한다. 0건이면(대상 없음/해지/잔액 부족 등) 예외를 던져
+     * 트랜잭션을 롤백시키고, 원장은 적립됐는데 원천 차감이 누락되는 부분성공(금액 유실)을 막는다.
+     */
+    private void requireSingleRowDeducted(int updated, String sourceLabel, SourceDeduction d) {
+        if (updated != 1) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE,
+                    sourceLabel + " 잔액 차감에 실패했습니다. (id=" + d.id() + ", amount=" + d.amount() + ")");
         }
     }
 }

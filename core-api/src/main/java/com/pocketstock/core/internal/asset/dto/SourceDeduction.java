@@ -13,4 +13,15 @@ import java.math.BigDecimal;
 public record SourceDeduction(
         Long id,
         BigDecimal amount
-) {}
+) {
+    // 차감 계약 불변식 강제 — 잘못된(null/음수/0) 값이 차감 SQL까지 전파되지 않도록
+    // 생성/역직렬화 시점에 즉시 차단(Jackson도 이 정규 생성자를 사용).
+    public SourceDeduction {
+        if (id == null) {
+            throw new IllegalArgumentException("SourceDeduction.id는 필수입니다.");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("SourceDeduction.amount는 0보다 커야 합니다. (id=" + id + ")");
+        }
+    }
+}

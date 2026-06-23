@@ -9,4 +9,14 @@ import java.math.BigDecimal;
 public record SourceDeduction(
         Long id,
         BigDecimal amount
-) {}
+) {
+    // 차감 계약 불변식 강제 — 잘못된(null/음수/0) 값이 Feign 호출까지 전파되지 않도록 생성 시점에 차단.
+    public SourceDeduction {
+        if (id == null) {
+            throw new IllegalArgumentException("SourceDeduction.id는 필수입니다.");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("SourceDeduction.amount는 0보다 커야 합니다. (id=" + id + ")");
+        }
+    }
+}

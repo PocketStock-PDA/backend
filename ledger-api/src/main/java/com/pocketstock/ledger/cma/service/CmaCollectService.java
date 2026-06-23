@@ -88,14 +88,15 @@ public class CmaCollectService {
 
         List<LinkedAccountSummary> accounts = assetFeignClient.getLinkedAccounts(userId, enabledIds);
 
-        // 계좌별 끝전(잔액 % threshold)을 계산해 합산하고, 차감 대상(끝전>0)을 함께 모은다.
+        // 계좌별 끝전(잔액 % threshold)을 계산한다. 적립액(amount)과 차감액(deductions)은
+        // 반드시 같아야 하므로 끝전>0 인 계좌만 양쪽에 함께 반영한다(음수 잔액이 섞여도 불일치 방지).
         BigDecimal amount = BigDecimal.ZERO;
         List<SourceDeduction> deductions = new ArrayList<>();
         for (LinkedAccountSummary a : accounts) {
             BigDecimal threshold = thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD);
             BigDecimal remainder = a.balance().remainder(threshold);
-            amount = amount.add(remainder);
             if (remainder.signum() > 0) {
+                amount = amount.add(remainder);
                 deductions.add(new SourceDeduction(a.id(), remainder));
             }
         }
@@ -159,15 +160,17 @@ public class CmaCollectService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 포인트 적립 소스가 없습니다.");
         }
 
+        // 적립액(amount)과 차감액(deductions)이 일치하도록, 전환 가능 포인트가 있는(>0) 소스만
+        // 양쪽과 ref_id 후보에 함께 반영한다.
         BigDecimal amount = BigDecimal.ZERO;
         List<Long> refIds = new ArrayList<>();
         List<SourceDeduction> deductions = new ArrayList<>();
         for (CollectionSetting setting : enabled) {
             PointSummary point = assetFeignClient.getAvailablePoints(userId, setting.getSourceRefId());
             BigDecimal points = point.availablePoints();
-            amount = amount.add(points);
-            refIds.add(setting.getSourceRefId());
             if (points.signum() > 0) {
+                amount = amount.add(points);
+                refIds.add(setting.getSourceRefId());
                 deductions.add(new SourceDeduction(setting.getSourceRefId(), points));
             }
         }
