@@ -473,35 +473,23 @@
 
 ### POST `/api/trading/orders/fractional/buy`
 
-소수점 매수 — **접수 즉시 1분 차수에 `QUEUED` 편입(비동기)**. 체결은 차수 집행기가 수행(상계·회사 선부담 ceil·시뮬·비례배분). 응답의 `estQuantity`는 접수 시점 예상수량(참고치) — 확정 수량·체결가는 거래내역/배분에서 확인.
+소수점 매수 — **백엔드가 정수부=온주 / 소수부=소수로 split(FRAC-010 #157)**. 한 트랜잭션이라 둘 다 성공 or 둘 다 롤백. 프론트는 split을 모르고 수량/금액 그대로 한 번만 보낸다(13.14주→온주13+소수0.14, 0.1→소수만, 1.0→온주만).
+- **온주분**: `WholeOrderService`로 MARKET **즉시 호가체결**(직접소유·정수).
+- **소수분**: 현재 1분 차수에 `QUEUED` 편입(차수 집행기가 상계·ceil·시뮬·배분).
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-- **D4(국내 먼저)**: 현재 국내(KRW)만 접수. 해외는 후속(#155 해외 확장).
-- **자금 hold(D1)**: `AMOUNT`=주문금액 그대로(버퍼X) / `QUANTITY`=예상금액×(1+버퍼 1%) 잠금(체결 후 미사용분 환원). 실제 잠근 금액은 `heldAmount`.
-- **market은 받지 않음** — `stockCode`→exchange에서 파생(온주와 동일). `clientOrderId`(멱등키) 필수.
+- **D4(국내 먼저)**: 현재 국내(KRW)만. 해외는 후속(#155).
+- **자금 hold**: 온주분=즉시 차감 / 소수분 `AMOUNT`=남은금액 그대로·`QUANTITY`=예상금액×(1+버퍼 1%).
+- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수 — 내부 서브키 `:W`(온주)/`:F`(소수)로 파생.
 
-**Request Body** (`orderType`: AMOUNT 금액 / QUANTITY 수량)
-
-```json
-{
-  "clientOrderId": "frac-buy-20260623-001",
-  "stockCode": "005930",
-  "orderType": "AMOUNT",
-  "amount": 10000
- }
-```
+**Request Body** (`orderType`: AMOUNT 금액 / QUANTITY 수량. 수량은 0.1·1.3·13.14 등 제한 없음)
 
 ```json
-{
-  "clientOrderId": "frac-buy-20260623-002",
-  "stockCode": "005930",
-  "orderType": "QUANTITY",
-  "quantity": 0.5
- }
+{ "clientOrderId": "frac-buy-001", "stockCode": "005930", "orderType": "QUANTITY", "quantity": 13.14 }
 ```
 
-**Response Body**
+**Response Body** (`whole*`=온주분/없으면 null · `fractional*`=소수분/없으면 null)
 
 ```json
 {
@@ -509,14 +497,17 @@
   "code": "SUCCESS",
   "message": "소수점 매수 접수 성공",
   "data": {
-    "orderId": 1024,
-    "roundId": 88,
     "stockCode": "005930",
     "side": "BUY",
-    "orderType": "AMOUNT",
-    "estQuantity": 0.140845,
-    "heldAmount": 10000,
-    "status": "QUEUED",
+    "wholeOrderId": 1024,
+    "wholeQty": 13,
+    "wholeFillPrice": 76100,
+    "wholeAmount": 989300,
+    "fractionalOrderId": 1025,
+    "roundId": 88,
+    "fractionalEstQty": 0.14,
+    "fractionalHeld": 10654,
+    "fractionalStatus": "QUEUED",
     "orderable": 90000
   }
  }
@@ -526,23 +517,19 @@
 
 ### POST `/api/trading/orders/fractional/sell`
 
-소수점 매도 — **접수 즉시 `QUEUED` 편입(비동기)**. 접수 시 매도가능 보유수량을 hold(`holdings.held_quantity`). `ALL`=매도가능 전량, `AMOUNT`=예상가로 환산한 주수(상한=매도가능 전량).
+소수점 매도 — **백엔드가 정수부=온주 즉시매도 / 소수부=소수 차수매도로 split**(매수와 거울, FRAC-010 #157). `whole = min(floor(매도수량), 온주 매도가능)`, `frac = 매도수량 − whole`. **소수부가 소수 매도가능 초과면 거부**(온주→소수 분할 불가 — 5.5주 중 0.8 매도 불가). 한 트랜잭션.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수.
+- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수 — 서브키 `:W`/`:F`.
 
-**Request Body** (`orderType`: AMOUNT 금액 / ALL 전량)
+**Request Body** (`orderType`: QUANTITY 수량 / AMOUNT 금액 / ALL 전량)
 
 ```json
-{
-  "clientOrderId": "frac-sell-20260623-001",
-  "stockCode": "005930",
-  "orderType": "ALL"
- }
+{ "clientOrderId": "frac-sell-001", "stockCode": "005930", "orderType": "QUANTITY", "quantity": 13.14 }
 ```
 
-**Response Body**
+**Response Body** (응답 형태는 매수 split과 동일 — `SplitOrderResponse`. `wholeAmount`=온주 매도대금, `fractionalHeld`=null)
 
 ```json
 {
@@ -550,15 +537,18 @@
   "code": "SUCCESS",
   "message": "소수점 매도 접수 성공",
   "data": {
-    "orderId": 1025,
-    "roundId": 88,
     "stockCode": "005930",
     "side": "SELL",
-    "orderType": "ALL",
-    "estQuantity": 0.5,
-    "heldAmount": null,
-    "status": "QUEUED",
-    "orderable": null
+    "wholeOrderId": 1030,
+    "wholeQty": 13,
+    "wholeFillPrice": 76000,
+    "wholeAmount": 988000,
+    "fractionalOrderId": 1031,
+    "roundId": 89,
+    "fractionalEstQty": 0.14,
+    "fractionalHeld": null,
+    "fractionalStatus": "QUEUED",
+    "orderable": 1088000
   }
  }
 ```
@@ -744,6 +734,38 @@
 
 ---
 
+### POST `/api/trading/whole-shares`
+
+온주 전환 실행(소수→온주) — **사용자가 전환 버튼을 누르면** 그 종목의 소수점(신탁) 보유 **정수부를 온주(직접소유)로 굳힌다**(FRAC-010 #157). 전환분은 이후 **정수 매도만**, 남은 소수만 소수 매도 가능(온주→소수 역전환 불가). `holdings.quantity`는 불변(온주=quantity−fractional_qty가 +전환수량). **소수 보유가 1주 미만이면 거부.** 미체결 매도분(held)은 전환 대상에서 제외.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+**Request Body**
+
+```json
+{ "stockCode": "005930" }
+```
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "온주 전환 성공",
+  "data": {
+    "stockCode": "005930",
+    "convertedWholeQty": 1,
+    "remainingFractional": 0.2,
+    "wholeQty": 1.0,
+    "totalQuantity": 1.2
+  }
+ }
+```
+
+---
+
 ### GET `/api/trading/whole-shares`
 
 온주 전환내역 조회
@@ -759,13 +781,13 @@
   "code": "SUCCESS",
   "message": "온주 전환내역 조회 성공",
   "data": [
-  {
-  "stockCode": "005930",
-  "stockName": "삼성전자",
-  "fractionalQuantity": 1.0,
-  "convertedAt": "2025-06-10T00:00:00"
-  }
- ]
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "wholeQty": 1,
+      "convertedAt": "2026-06-23T10:00:00"
+    }
+  ]
  }
 ```
 

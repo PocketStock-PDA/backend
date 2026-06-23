@@ -25,7 +25,13 @@ public class HoldingService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         return holdingMapper.findByUserId(userId).stream()
-                .map(h -> new HoldingResponse(h.getStockCode(), h.getQuantity(), h.getAvgBuyPrice(), h.getCurrency()))
+                .map(h -> {
+                    java.math.BigDecimal frac = h.getFractionalQty() == null
+                            ? java.math.BigDecimal.ZERO : h.getFractionalQty();
+                    java.math.BigDecimal whole = h.getQuantity().subtract(frac);   // 온주(직접소유) = 총 − 소수
+                    return new HoldingResponse(h.getStockCode(), h.getQuantity(), whole, frac,
+                            h.getAvgBuyPrice(), h.getCurrency());
+                })
                 .toList();
     }
 }

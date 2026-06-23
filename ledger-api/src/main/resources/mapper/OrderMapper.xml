@@ -55,6 +55,27 @@
         WHERE id = #{id} AND status = #{expected}
     </update>
 
+    <!-- 소수점 QUEUED→SENT + batch_id 부착(차수 집행 시 전송, 취소 불가 전이). -->
+    <update id="sendForBatch">
+        UPDATE orders
+        SET status = 'SENT', batch_id = #{batchId}
+        WHERE id = #{id} AND status = 'QUEUED'
+    </update>
+
+    <!-- 소수점 SENT→FILLED(배분 완료). -->
+    <update id="markFilledFractional">
+        UPDATE orders
+        SET status = 'FILLED'
+        WHERE id = #{id} AND status = 'SENT'
+    </update>
+
+    <!-- 소수점 활성(QUEUED/SENT)→REJECTED + 사유(FRAC-014 자금원복과 함께). -->
+    <update id="rejectActive">
+        UPDATE orders
+        SET status = 'REJECTED', fail_reason = #{reason}
+        WHERE id = #{id} AND status IN ('QUEUED', 'SENT')
+    </update>
+
     <!-- 취소 가드: 취소 가능 상태(QUEUED/PENDING)일 때만 CANCELLED. 동시 체결/이중취소 차단. -->
     <update id="cancelIfCancellable">
         UPDATE orders
@@ -68,6 +89,14 @@
         FROM orders
         WHERE user_id = #{userId}
         ORDER BY id DESC
+    </select>
+
+    <!-- 차수 집행 대상 — 그 차수의 QUEUED 소수점 주문 전건(#153). -->
+    <select id="findQueuedByRound" resultMap="order">
+        SELECT <include refid="cols"/>
+        FROM orders
+        WHERE round_id = #{roundId} AND status = 'QUEUED'
+        ORDER BY id
     </select>
 
     <select id="findByClientOrderId" resultMap="order">

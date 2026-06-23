@@ -65,16 +65,21 @@ INSERT INTO cma_transactions (id,user_id,cma_account_id,currency,tx_type,source_
 (33,1,1,'KRW','COLLECT','CARD',600.0000,405090.0000,NULL,NULL,'cma-card-roundup-tx46','2026-06-13 13:00:00'),
 (34,1,1,'KRW','COLLECT','CARD',400.0000,405490.0000,NULL,NULL,'cma-card-roundup-tx47','2026-06-15 09:00:00');
 
+-- 국내·해외 위탁계좌 각 1개. account_no_enc는 NULL(SQL에서 AES-GCM 암호문 생성 불가 — CMA 시드와 동일 규약).
+-- 계좌번호는 표시용 가짜라 NULL이어도 거래는 account_id로 동작(AccountNoCipher 호출부는 NULL 가드됨).
 INSERT INTO securities_accounts (id,user_id,market,account_no_enc,status,is_fractional_enabled,opened_at,created_at,updated_at) VALUES
-(1,1,'DOMESTIC',NULL,'ACTIVE',TRUE,'2026-02-10 09:00:00','2026-02-10 09:00:00','2026-02-10 09:00:00');
+(1,1,'DOMESTIC',NULL,'ACTIVE',TRUE,'2026-02-10 09:00:00','2026-02-10 09:00:00','2026-02-10 09:00:00'),
+(2,1,'OVERSEAS',NULL,'ACTIVE',TRUE,'2026-02-10 09:00:00','2026-02-10 09:00:00','2026-02-10 09:00:00');
 
 INSERT INTO deposit_transactions (id,user_id,account_id,tx_type,amount,currency,balance_after,ref_type,ref_id,idempotency_key,created_at) VALUES
 (1,1,1,'DEPOSIT',500000.0000,'KRW',500000.0000,NULL,NULL,'sec-init-deposit-20260210','2026-02-10 09:05:00'),
 (2,1,1,'BUY',-352500.0000,'KRW',147500.0000,NULL,NULL,'sec-buy-005930-5sh-20260210','2026-02-10 09:10:00');
 
--- 예수금 현재잔액 = deposit_transactions 최종 balance_after(147,500). 계좌당 1행(account_id=1, DOMESTIC/KRW).
+-- 예수금 현재잔액 = 계좌당 1행. 국내(KRW 147,500=deposit_transactions 최종 balance_after) + 해외(USD 0, 충전 전).
+-- 해외 USD는 환전(krw-to-usd)→CMA→위탁이체로 충전(#56·#136). 시드는 0으로 시작(잔액행만 보장).
 INSERT INTO account_balances (id,account_id,currency,balance,created_at,updated_at) VALUES
-(1,1,'KRW',147500.0000,'2026-02-10 09:10:00','2026-02-10 09:10:00');
+(1,1,'KRW',147500.0000,'2026-02-10 09:10:00','2026-02-10 09:10:00'),
+(2,2,'USD',0.0000,'2026-02-10 09:10:00','2026-02-10 09:10:00');
 
 INSERT INTO holdings (id,user_id,account_id,stock_code,quantity,avg_buy_price,krw_cost_basis,currency,created_at,updated_at) VALUES
 (1,1,1,'005930',5.000000,70500.0000,352500.0000,'KRW','2026-02-10 09:10:00','2026-02-10 09:10:00');

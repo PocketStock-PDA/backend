@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.WholeShareMapper">
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.WholeShareEvent"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO whole_share_events
+            (user_id, account_id, stock_code, whole_qty, triggered_at)
+        VALUES
+            (#{userId}, #{accountId}, #{stockCode}, #{wholeQty}, #{triggeredAt})
+    </insert>
+
+    <resultMap id="event" type="com.pocketstock.ledger.trading.domain.WholeShareEvent">
+        <id     property="id"          column="id"/>
+        <result property="userId"      column="user_id"/>
+        <result property="accountId"   column="account_id"/>
+        <result property="stockCode"   column="stock_code"/>
+        <result property="wholeQty"    column="whole_qty"/>
+        <result property="triggeredAt" column="triggered_at"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="stockName"   column="stock_name"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="event">
+        SELECT e.id, e.user_id, e.account_id, e.stock_code, e.whole_qty, e.triggered_at, e.created_at,
+               s.stock_name
+        FROM whole_share_events e
+        LEFT JOIN tradable_stocks s ON s.stock_code = e.stock_code
+        WHERE e.user_id = #{userId}
+        ORDER BY e.id DESC
+    </select>
+
+</mapper>

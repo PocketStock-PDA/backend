@@ -53,7 +53,11 @@ public class SecuritiesAccountService {
         List<String> requested = normalizeTypes(request);
 
         List<SecuritiesAccount> existing = accountMapper.findByUserId(userId);
+        // 기존 계좌의 번호 베이스 재사용 — 없거나 미발급(enc=NULL, 시드 계좌)이면 새로 생성.
         String base = existing.isEmpty() ? generateBase() : baseOf(existing.get(0));
+        if (base == null) {
+            base = generateBase();
+        }
 
         for (String market : requested) {
             if (accountMapper.existsByUserIdAndMarket(userId, market)) {
@@ -83,10 +87,10 @@ public class SecuritiesAccountService {
         requireAuth(userId);
         List<AccountStatusResponse> result = new ArrayList<>();
         for (SecuritiesAccount account : accountMapper.findByUserId(userId)) {
-            result.add(new AccountStatusResponse(
-                    account.getMarket(),
-                    cipher.decrypt(account.getAccountNoEnc()),
-                    account.getStatus()));
+            // 번호 미발급(enc=NULL, 시드 계좌)이면 복호화 생략 — null 표시(거래는 account_id로 동작).
+            String accountNo = account.getAccountNoEnc() == null
+                    ? null : cipher.decrypt(account.getAccountNoEnc());
+            result.add(new AccountStatusResponse(account.getMarket(), accountNo, account.getStatus()));
         }
         return result;
     }
@@ -159,8 +163,11 @@ public class SecuritiesAccountService {
         return String.format("%05d", ThreadLocalRandom.current().nextInt(10000, 100000));
     }
 
-    /** 기존 계좌의 암호문에서 베이스('-' 앞부분) 추출 */
+    /** 기존 계좌의 암호문에서 베이스('-' 앞부분) 추출. 번호 미발급(enc=NULL, 시드 계좌 등)이면 null. */
     private String baseOf(SecuritiesAccount account) {
+        if (account.getAccountNoEnc() == null) {
+            return null;
+        }
         String accountNo = cipher.decrypt(account.getAccountNoEnc());
         int dash = accountNo.indexOf('-');
         return dash > 0 ? accountNo.substring(0, dash) : accountNo;
