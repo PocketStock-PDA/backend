@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.asset.mapper.AssetSummaryMapper">
+
+    <!-- 연동 은행 계좌를 자산 유형별로 집계.
+         account_type → 표시 카테고리 매핑:
+           SAVINGS / DEPOSIT          → 예금·적금
+           PENSION                    → 연금
+           REAL_ESTATE                → 부동산
+           DEMAND / 그 외              → 기타
+         해지된 계좌(closed_at IS NOT NULL) 제외. 금액 0인 카테고리도 반환(서비스에서 필터). -->
+    <select id="findBankAssetsByCategory" resultType="com.pocketstock.core.asset.dto.AssetCategoryRow">
+        SELECT
+            CASE
+                WHEN account_type IN ('SAVINGS', 'DEPOSIT') THEN '예금·적금'
+                WHEN account_type = 'PENSION'               THEN '연금'
+                WHEN account_type = 'REAL_ESTATE'           THEN '부동산'
+                ELSE '기타'
+            END AS category,
+            SUM(balance) AS amount
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND closed_at IS NULL
+        GROUP BY category
+        HAVING amount > 0
+        ORDER BY amount DESC
+    </select>
+
+    <!-- 타사 보유 종목 평가금액 합계 → '증권' 카테고리로 사용 -->
+    <select id="sumExternalHoldings" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(eval_amount), 0)
+        FROM external_holdings
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 이번 달 카드 지출을 고정비/변동비로 분류해 집계.
+         고정비: 보험·통신·월세·교통·관리비
+         변동비: 그 외 모든 카테고리
+         취소 건(is_cancelled=true) 제외. -->
+    <select id="findSpendingByType" resultType="com.pocketstock.core.asset.dto.AssetCategoryRow">
+        SELECT
+            CASE
+                WHEN category IN ('보험', '통신', '월세', '교통', '관리비') THEN 'FIXED'
+                ELSE 'VARIABLE'
+            END AS category,
+            SUM(amount) AS amount
+        FROM card_transactions
+        WHERE user_id = #{userId}
+          AND is_cancelled = FALSE
+          AND paid_at >= #{from}
+          AND paid_at &lt;  #{to}
+        GROUP BY 1
+    </select>
+
+</mapper>
