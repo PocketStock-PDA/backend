@@ -10,6 +10,9 @@ RUN chmod +x ./gradlew && ./gradlew :ledger-api:bootJar --no-daemon -x test
 # ---- 2) 실행 단계: 가벼운 JRE + 비루트 유저 ----
 FROM eclipse-temurin:17-jre
 WORKDIR /app
+# curl: compose healthcheck / 배포 스크립트의 /actuator/health 판정용 (앱 포트는 호스트에 미노출이라 컨테이너 내부에서 확인)
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd -r -u 1001 appuser
 COPY --from=build /src/ledger-api/build/libs/*.jar app.jar
 USER appuser
