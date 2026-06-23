@@ -22,6 +22,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +41,7 @@ public class BudgetGoalService {
 
     @Transactional
     public AutoBudgetGoalResponse setAutoGoals(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         LocalDate firstOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
         String currentPeriod = today.format(PERIOD_FMT);
 
@@ -68,7 +69,7 @@ public class BudgetGoalService {
 
     @Transactional
     public AutoBudgetGoalResponse setManualGoals(Long userId, BudgetGoalRequest request) {
-        String currentPeriod = LocalDate.now().format(PERIOD_FMT);
+        String currentPeriod = LocalDate.now(ZoneId.of("UTC")).format(PERIOD_FMT);
 
         List<BudgetGoalItem> categories = request.categories();
 
@@ -86,7 +87,7 @@ public class BudgetGoalService {
     }
 
     public BudgetGoalSummary getGoals(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         String currentPeriod = today.format(PERIOD_FMT);
 
         List<BudgetGoalRow> goalRows = budgetGoalMapper.findGoalsByPeriod(userId, currentPeriod);
@@ -138,7 +139,7 @@ public class BudgetGoalService {
                 .collect(Collectors.toMap(DailySpendingRow::getDate, DailySpendingRow::getSpent));
 
         // 오늘까지만 표시 (미래 날짜 제외)
-        LocalDate today   = LocalDate.now();
+        LocalDate today   = LocalDate.now(ZoneId.of("UTC"));
         LocalDate lastDay = ym.atEndOfMonth().isBefore(today) ? ym.atEndOfMonth() : today;
 
         List<CalendarDayItem> days = new ArrayList<>();

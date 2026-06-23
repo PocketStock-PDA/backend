@@ -64,6 +64,7 @@
 | 자산연동 | 휴면계좌 해지·잔액 이체 | POST | `/api/assets/dormant/close` |  | C·강문군 |  |
 | 소비패턴분석 | 소비패턴 분석 결과 조회 | GET | `/api/assets/spending` |  | D·김서현 | ✅ |
 | 소비패턴분석 | 소비분석 리포트 | GET | `/api/assets/spending/report` |  | D·김서현 | ✅ |
+| 자산분석 | 자산 분석 탭 요약 (순자산·포트폴리오·고정비/변동비 합산) | GET | `/api/assets/summary` |  | D·김서현 | ✅ |
 | 타사소수점 | 타사 보유 소수점 통합 조회 | GET | `/api/assets/external-holdings` |  | C·강문군 |  |
 
 ## CMA

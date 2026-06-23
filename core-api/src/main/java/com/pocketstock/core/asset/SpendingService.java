@@ -15,6 +15,7 @@ import java.math.RoundingMode;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -75,7 +76,7 @@ public class SpendingService {
     public SpendingReportResponse getSpendingReport(Long userId, Integer year, Integer month) {
         validate(year, month);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         int y = year  != null ? year  : today.getYear();
         int m = month != null ? month : today.getMonthValue();
 

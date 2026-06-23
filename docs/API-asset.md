@@ -678,6 +678,82 @@ SOL트래블 외화잔액 연동 (개별)
 
 ---
 
+## 자산분석
+
+### GET `/api/assets/summary`
+
+자산 분석 탭 메인 화면에 필요한 데이터를 단일 요청으로 반환합니다.
+순자산 합계·전월 대비·또래 순위, 자산 유형별 포트폴리오, 이번 달 고정비/변동비를 포함합니다.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "자산 분석 요약 조회 성공",
+  "data": {
+    "netAssets": 142380000,
+    "momDiff": 2140000,
+    "peerAgeGroup": "40대",
+    "peerRankPercent": 38,
+    "portfolio": [
+      { "category": "예금·적금", "amount": 62000000, "ratio": 43.5 },
+      { "category": "연금",      "amount": 18000000, "ratio": 12.6 },
+      { "category": "증권",      "amount":  2295520, "ratio":  1.6 },
+      { "category": "CMA",       "amount":    84480, "ratio":  0.1 },
+      { "category": "기타",      "amount": 60000000, "ratio": 42.2 }
+    ],
+    "fixedExpenses": 524000,
+    "variableExpenses": 323200
+  }
+}
+```
+
+**응답 필드**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `netAssets` | `number` | 순자산 합계 (원) |
+| `momDiff` | `number` | 전월 대비 순자산 증감액 (양수=증가, 음수=감소, 0=데이터 없음) |
+| `peerAgeGroup` | `string` | 또래 연령대 레이블 (예: `"40대"`) |
+| `peerRankPercent` | `number` | 또래 내 상위 퍼센트 (1~100, 낮을수록 상위; 0=데이터 없음) |
+| `portfolio` | `array` | 자산 유형별 포트폴리오 목록 (amount 내림차순) |
+| `portfolio[].category` | `string` | 자산 카테고리명 |
+| `portfolio[].amount` | `number` | 해당 카테고리 금액 (원) |
+| `portfolio[].ratio` | `number` | 전체 자산 대비 비율 (%, 소수점 1자리) |
+| `fixedExpenses` | `number` | 이번 달 고정비 합계 (원) |
+| `variableExpenses` | `number` | 이번 달 변동비 합계 (원) |
+
+**포트폴리오 카테고리 분류 기준**
+
+`linked_bank_accounts.account_type` 값을 아래 규칙으로 매핑합니다.
+
+| account_type 값 | 표시 카테고리 |
+|---|---|
+| `SAVINGS`, `DEPOSIT` | `예금·적금` |
+| `PENSION` | `연금` |
+| `REAL_ESTATE` | `부동산` |
+| `DEMAND`, 그 외 | `기타` |
+
+`증권`은 `external_holdings.eval_amount` 합계를 별도 집계합니다.  
+`CMA`는 CMA 계좌 잔액(ledger-api 연동 예정 / 현재는 0 또는 생략).  
+금액이 0인 카테고리는 응답에서 제외합니다.
+
+**고정비 / 변동비 분류 기준**
+
+`card_transactions.category` 값 기준으로 이번 달(1일 00:00 ~ 다음 달 1일 00:00)을 집계합니다.
+
+| 분류 | 해당 카테고리 |
+|---|---|
+| 고정비 (FIXED) | `보험`, `통신`, `월세`, `교통`, `관리비` |
+| 변동비 (VARIABLE) | 위 외 모든 카테고리 |
+
+---
+
 ## 타사소수점
 
 ### GET `/api/assets/external-holdings`

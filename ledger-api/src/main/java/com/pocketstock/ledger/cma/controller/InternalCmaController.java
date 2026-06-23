@@ -1,10 +1,13 @@
 package com.pocketstock.ledger.cma.controller;
 
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.cma.dto.request.InternalCmaCreditRequest;
 import com.pocketstock.ledger.cma.dto.response.CmaCreditResponse;
 import com.pocketstock.ledger.cma.dto.response.CollectionSettingView;
 import com.pocketstock.ledger.cma.mapper.CollectionSettingMapper;
 import com.pocketstock.ledger.cma.service.CmaDormantCreditService;
+import com.pocketstock.ledger.cma.service.CmaQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -26,6 +30,7 @@ public class InternalCmaController {
 
     private final CollectionSettingMapper collectionSettingMapper;
     private final CmaDormantCreditService dormantCreditService;
+    private final CmaQueryService cmaQueryService;
 
     @GetMapping("/collection-settings")
     public List<CollectionSettingView> getCollectionSettings(@RequestParam Long userId) {
@@ -41,5 +46,18 @@ public class InternalCmaController {
     @PostMapping("/credit")
     public CmaCreditResponse credit(@RequestBody InternalCmaCreditRequest request) {
         return new CmaCreditResponse(dormantCreditService.credit(request));
+    }
+
+    /** CMA 총 평가액(KRW 환산) — 자산 요약 집계용. 계좌 없으면 0 반환. */
+    @GetMapping("/krw-total")
+    public BigDecimal getCmaTotalKrw(@RequestParam Long userId) {
+        try {
+            return cmaQueryService.getBalance(userId).totalKrwEquivalent();
+        } catch (BusinessException e) {
+            if (ErrorCode.NOT_FOUND.equals(e.getErrorCode())) {
+                return BigDecimal.ZERO;
+            }
+            throw e;
+        }
     }
 }
