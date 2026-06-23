@@ -28,4 +28,25 @@ public class OperatingInventoryService {
     public void record(String stockCode, int signedQty) {
         operatingInventoryMapper.applyWholeDelta(stockCode, signedQty);
     }
+
+    /** 소수점 정산용 — 종목 firm 끝수재고(fractional_remainder). 없으면 0. */
+    @Transactional(readOnly = true)
+    public java.math.BigDecimal fractionalRemainder(String stockCode) {
+        java.math.BigDecimal r = operatingInventoryMapper.findFractionalRemainder(stockCode);
+        return r == null ? java.math.BigDecimal.ZERO : r;
+    }
+
+    /**
+     * 소수점 firm 끝수재고 양방향 갱신 — fractional_remainder += delta(흡수 +/선공급 −), 음수가드.
+     * 0행이면 가드 위반(총재고<0) = ceil/floor 산식 위반 버그 → 호출자가 롤백·알람.
+     */
+    @Transactional
+    public void applyFractional(String stockCode, java.math.BigDecimal delta) {
+        operatingInventoryMapper.seedRow(stockCode);
+        if (operatingInventoryMapper.applyFractionalDelta(stockCode, delta) == 0) {
+            throw new com.pocketstock.common.exception.BusinessException(
+                    com.pocketstock.common.exception.ErrorCode.INTERNAL_ERROR,
+                    "firm 끝수재고 음수 가드 위반 stockCode=" + stockCode + " delta=" + delta);
+        }
+    }
 }

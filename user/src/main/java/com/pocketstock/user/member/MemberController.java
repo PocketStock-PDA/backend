@@ -29,7 +29,7 @@ public class MemberController {
 
     @GetMapping("/check-username")
     public ResponseEntity<ApiResponse<UsernameCheckResponse>> checkUsername(
-            @RequestParam String username) {
+            @RequestParam("username") String username) {
         UsernameCheckResponse data = memberService.checkUsername(username);
         return ResponseEntity.ok(ApiResponse.ok("아이디 사용 가능 여부 조회 성공", data));
     }
