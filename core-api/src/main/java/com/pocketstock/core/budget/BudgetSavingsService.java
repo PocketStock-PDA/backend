@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,7 +40,7 @@ public class BudgetSavingsService {
     private final NotificationService notificationService;
 
     public CategorySavingsResponse getCategoryWithSavings(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         String period = today.format(PERIOD_FMT);
         LocalDateTime from = today.withDayOfMonth(1).atStartOfDay();
         LocalDateTime to = from.plusMonths(1);
@@ -68,7 +69,7 @@ public class BudgetSavingsService {
     }
 
     public ComparisonResponse getComparison(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         String currentPeriod = today.format(PERIOD_FMT);
         String lastPeriod = today.minusMonths(1).format(PERIOD_FMT);
 
@@ -104,7 +105,7 @@ public class BudgetSavingsService {
     }
 
     public SavingsStatusResponse getSavingsStatus(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         String period = today.format(PERIOD_FMT);
         LocalDateTime from = today.withDayOfMonth(1).atStartOfDay();
         LocalDateTime to = from.plusMonths(1);
@@ -132,7 +133,7 @@ public class BudgetSavingsService {
 
     @Transactional
     public void agreeCollect(Long userId) {
-        String period = LocalDate.now().format(PERIOD_FMT);
+        String period = LocalDate.now(ZoneId.of("UTC")).format(PERIOD_FMT);
         BudgetSavingsRow current = savingsMapper.findBudgetSavings(userId, period);
         if (current != null && current.isCollectAgreed()) return;
         savingsMapper.agreeCollect(userId, period);

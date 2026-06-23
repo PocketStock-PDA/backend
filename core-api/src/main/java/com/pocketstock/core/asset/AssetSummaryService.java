@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,7 @@ public class AssetSummaryService {
         BigDecimal securitiesAmount = mapper.sumExternalHoldings(userId);
 
         // 이번 달 범위
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         LocalDateTime from = today.withDayOfMonth(1).atStartOfDay();
         LocalDateTime to   = from.plusMonths(1);
 

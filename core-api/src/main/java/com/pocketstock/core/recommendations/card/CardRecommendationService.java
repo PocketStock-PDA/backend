@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,8 +40,8 @@ public class CardRecommendationService {
     private static final int TOP_N = 5;
 
     public List<CardRecommendationItem> recommend(Long userId) {
-        LocalDateTime from = LocalDate.now().minusMonths(3).atStartOfDay();
-        LocalDateTime to = LocalDate.now().plusDays(1).atStartOfDay();
+        LocalDateTime from = LocalDate.now(ZoneId.of("UTC")).minusMonths(3).atStartOfDay();
+        LocalDateTime to = LocalDate.now(ZoneId.of("UTC")).plusDays(1).atStartOfDay();
 
         List<CategoryAmountRow> spending = cardMapper.findCategorySpending(userId, from, to);
 

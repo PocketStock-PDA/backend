@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 @RestController
 @RequestMapping("/api/trading")
@@ -29,7 +30,7 @@ public class CalendarController {
             @RequestParam(required = false) Integer month) {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         int y = year  != null ? year  : today.getYear();
         int m = month != null ? month : today.getMonthValue();
         if (y < 2000 || y > 2100 || m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
@@ -45,7 +46,7 @@ public class CalendarController {
             @RequestParam(required = false) Integer month) {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         int y = year  != null ? year  : today.getYear();
         int m = month != null ? month : today.getMonthValue();
         if (y < 2000 || y > 2100 || m < 1 || m > 12) throw new BusinessException(ErrorCode.INVALID_INPUT);
