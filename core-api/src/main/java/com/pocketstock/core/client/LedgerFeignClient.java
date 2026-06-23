@@ -33,4 +33,8 @@ public interface LedgerFeignClient {
     /** 휴면계좌 해지 입금 — 해지 잔액을 사용자 CMA 풀에 DORMANT로 적립한다. 멱등키는 ledger가 파생. */
     @PostMapping("/internal/cma/credit")
     CmaCreditView creditDormant(@RequestBody CmaDormantCreditRequest request);
+
+    /** CMA 총 평가액(KRW 환산) — 자산 요약 집계용. 계좌 없으면 0 반환. */
+    @GetMapping("/internal/cma/krw-total")
+    java.math.BigDecimal getCmaTotalKrw(@RequestParam("userId") Long userId);
 }

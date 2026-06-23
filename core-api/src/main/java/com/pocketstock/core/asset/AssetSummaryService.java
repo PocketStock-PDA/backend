@@ -4,7 +4,9 @@ import com.pocketstock.core.asset.dto.AssetCategoryRow;
 import com.pocketstock.core.asset.dto.AssetPortfolioItem;
 import com.pocketstock.core.asset.dto.AssetSummaryResponse;
 import com.pocketstock.core.asset.mapper.AssetSummaryMapper;
+import com.pocketstock.core.client.LedgerFeignClient;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssetSummaryService {
@@ -27,14 +30,15 @@ public class AssetSummaryService {
     private static final String TYPE_VARIABLE = "VARIABLE";
 
     private final AssetSummaryMapper mapper;
+    private final LedgerFeignClient ledgerFeignClient;
 
     @Transactional(readOnly = true)
     public AssetSummaryResponse getSummary(Long userId) {
         // 은행 계좌 카테고리별 집계
         List<AssetCategoryRow> bankRows = mapper.findBankAssetsByCategory(userId);
 
-        // 타사 증권 평가금액
-        BigDecimal securitiesAmount = mapper.sumExternalHoldings(userId);
+        // 타사 증권 평가금액 + CMA 총 평가액(KRW 환산) → 증권 카테고리로 합산
+        BigDecimal securitiesAmount = mapper.sumExternalHoldings(userId).add(fetchCmaKrwTotal(userId));
 
         // 이번 달 범위
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
@@ -98,6 +102,16 @@ public class AssetSummaryService {
         }
 
         return items;
+    }
+
+    private BigDecimal fetchCmaKrwTotal(Long userId) {
+        try {
+            BigDecimal total = ledgerFeignClient.getCmaTotalKrw(userId);
+            return total != null ? total : BigDecimal.ZERO;
+        } catch (Exception e) {
+            log.warn("CMA 잔액 조회 실패 (userId={}): {}", userId, e.getMessage());
+            return BigDecimal.ZERO;
+        }
     }
 
     private BigDecimal ratio(BigDecimal amount, BigDecimal total) {
