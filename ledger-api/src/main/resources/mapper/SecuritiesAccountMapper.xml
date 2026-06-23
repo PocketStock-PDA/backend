@@ -46,4 +46,9 @@
         LIMIT 1
     </select>
 
+    <!-- 로컬 시드 계좌번호 적재(@Profile local) — 현재 키 암호문으로 덮어쓴다. -->
+    <update id="updateAccountNoEnc">
+        UPDATE securities_accounts SET account_no_enc = #{enc} WHERE id = #{id}
+    </update>
+
 </mapper>
