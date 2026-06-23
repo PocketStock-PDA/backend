@@ -2,14 +2,13 @@ package com.pocketstock.ledger.exchange.service;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.exchange.ExchangeRatePolicy;
 import com.pocketstock.ledger.exchange.domain.FxTransaction;
 import com.pocketstock.ledger.exchange.dto.request.KrwToUsdRequest;
 import com.pocketstock.ledger.exchange.dto.request.UsdToKrwRequest;
 import com.pocketstock.ledger.exchange.dto.response.KrwToUsdResponse;
 import com.pocketstock.ledger.exchange.dto.response.UsdToKrwResponse;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.exchange.mapper.FxTransactionMapper;
 import com.pocketstock.ledger.exchange.port.CmaFundsPort;
 import com.pocketstock.ledger.exchange.port.FxLegResult;
@@ -47,7 +46,7 @@ public class ExchangeSettleService {
     private static final int USD_SCALE = 2;
     private static final int KRW_SCALE = 0;
 
-    private final CurrencyRateCache rateCache;
+    private final CurrencyRateProvider rateProvider;
     private final ExchangeRatePolicy ratePolicy;
     private final FxTransactionMapper fxMapper;
     private final CmaFundsPort cmaFunds;
@@ -152,13 +151,9 @@ public class ExchangeSettleService {
         }
     }
 
-    /** 캐시의 매매기준율(LS CUR). 콜드스타트(틱 미수신) 시 502. */
+    /** 매매기준율(LS CUR 캐시 우선·야후 폴백). 캐시·폴백 모두 비면 502. */
     private BigDecimal baseRate() {
-        CurrencyRateResponse latest = rateCache.get();
-        if (latest == null) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
-        }
-        return latest.exchangeRate();
+        return rateProvider.current().exchangeRate();
     }
 
     /** fx_transactions 적재(COMPLETED). insert 후 채워진 id를 CMA 원장 ref_id로 넘긴다. */

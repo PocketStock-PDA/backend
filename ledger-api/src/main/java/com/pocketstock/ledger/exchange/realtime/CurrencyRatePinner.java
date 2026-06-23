@@ -1,5 +1,6 @@
 package com.pocketstock.ledger.exchange.realtime;
 
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.ls.LsRealtimeClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +30,11 @@ public class CurrencyRatePinner {
     private static final String TR_KEY = String.format("%-8s", "USD");
 
     private final LsRealtimeClient lsClient;
+    private final CurrencyRateProvider rateProvider;
 
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
+        rateProvider.seedIfEmpty();   // 콜드스타트 방지: WS 첫 틱 전 외부 환율(야후)로 캐시 시드
         pin();
     }
 

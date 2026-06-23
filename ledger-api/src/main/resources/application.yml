@@ -55,6 +55,8 @@ exchange:
   spread:
     USD: 0.0096          # 전신환(송금) 스프레드 0.96% — 신한 고시 기준
   preferential-rate: 0.90 # 환율 우대율 90%(기본70+계좌10+이벤트10), 변동 가능
+  # 외부 환율 폴백(야후) — WS(LS CUR) 첫 틱 전 부팅 시드 + 캐시 미스 시 최후의 수단. meta만 사용(캔들 불필요).
+  fx-source-url: ${FX_SOURCE_URL:https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=1d}
 
 feign:
   core-api:

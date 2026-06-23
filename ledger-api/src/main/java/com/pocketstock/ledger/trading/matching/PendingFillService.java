@@ -2,8 +2,7 @@ package com.pocketstock.ledger.trading.matching;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
-import com.pocketstock.ledger.exchange.CurrencyRateCache;
-import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
@@ -37,7 +36,7 @@ public class PendingFillService {
     private final OperatingCashService operatingCashService;
     private final OperatingInventoryService operatingInventoryService;
     private final HoldingMapper holdingMapper;
-    private final CurrencyRateCache currencyRateCache;
+    private final CurrencyRateProvider currencyRateProvider;
     private final OrderFundingService fundingService;
 
     /**
@@ -89,14 +88,10 @@ public class PendingFillService {
     /**
      * 해외 매수 원화원가 환산용 — 체결 시점 실시간 매매기준율(USD/KRW). 지정가 PENDING은 주문 시점이
      * 아니라 '실제 체결 시점'의 환율을 취득원가로 박아야 맞다(즉시체결 {@code WholeOrderService}와 동일 소스).
-     * 콜드스타트(환율 틱 미수신)면 던져서 이번 체결을 보류 → 매칭 엔진이 다음 틱에 재시도.
+     * 캐시 미스면 야후 폴백, 그것도 실패(콜드스타트)면 던져서 이번 체결을 보류 → 매칭 엔진이 다음 틱에 재시도.
      */
     private BigDecimal fxRateForKrwBasis() {
-        CurrencyRateResponse rate = currencyRateCache.get();
-        if (rate == null || rate.exchangeRate() == null || rate.exchangeRate().signum() <= 0) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 정보를 아직 받지 못했습니다.");
-        }
-        return rate.exchangeRate();
+        return currencyRateProvider.current().exchangeRate();
     }
 
     /** 체결 1건 명령 — 인덱스 스냅샷(side·limitPrice·quantity 등)에 매칭이 산정한 체결가(fillPrice)를 더한 것. */
