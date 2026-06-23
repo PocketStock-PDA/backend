@@ -112,7 +112,7 @@
   </select>
   방식 <select id="fracMethod" onchange="fracToggle()">
     <option value="AMOUNT">금액(AMOUNT)</option>
-    <option value="QUANTITY">수량(QUANTITY·매수)</option>
+    <option value="QUANTITY">수량(QUANTITY)</option>
     <option value="ALL">전량(ALL·매도)</option>
   </select>
   금액 <input id="fracAmount" value="10000" size="9"/>원
@@ -801,8 +801,7 @@ function showTab(id) {
 function fracToggle() {
   const side = document.getElementById('fracSide').value;
   const m = document.getElementById('fracMethod');
-  if (side === 'BUY' && m.value === 'ALL') m.value = 'AMOUNT';
-  if (side === 'SELL' && m.value === 'QUANTITY') m.value = 'AMOUNT';
+  if (side === 'BUY' && m.value === 'ALL') m.value = 'AMOUNT';   // 매수엔 전량 없음(매도 QUANTITY는 허용)
   document.getElementById('fracAmount').disabled = m.value !== 'AMOUNT';
   document.getElementById('fracQty').disabled = m.value !== 'QUANTITY';
 }
@@ -827,18 +826,14 @@ async function placeFractional() {
   const v = document.getElementById('fracView');
   if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
   const d = b.data;
-  let msg;
-  if (side === 'BUY') {
-    // split 응답: 온주 즉시체결 + 소수 차수배치
-    const parts = [];
-    if (d.wholeOrderId) parts.push(`온주 #${d.wholeOrderId} ${Number(d.wholeQty)}주 @ ${won(d.wholeFillPrice)} = ${won(d.wholeAmount)}원 FILLED`);
-    if (d.fractionalOrderId) parts.push(`소수 #${d.fractionalOrderId}(차수 ${d.roundId}) 예상 ${Number(d.fractionalEstQty)}주 · hold ${won(d.fractionalHeld)} QUEUED`);
-    msg = parts.join(' + ') || '처리됨';
-  } else {
-    const held = d.heldAmount != null ? ` · hold ${won(d.heldAmount)}` : '';
-    msg = `접수 #${d.orderId}(차수 ${d.roundId}): 소수 ${d.orderType} 예상 ${Number(d.estQuantity)}주${held} → ${d.status}`;
+  // split 응답(매수·매도 공통): 온주 즉시체결 + 소수 차수배치
+  const parts = [];
+  if (d.wholeOrderId) parts.push(`온주 #${d.wholeOrderId} ${Number(d.wholeQty)}주 @ ${won(d.wholeFillPrice)} = ${won(d.wholeAmount)}원 FILLED`);
+  if (d.fractionalOrderId) {
+    const held = d.fractionalHeld != null ? ` · hold ${won(d.fractionalHeld)}` : '';
+    parts.push(`소수 #${d.fractionalOrderId}(차수 ${d.roundId}) ${Number(d.fractionalEstQty)}주${held} QUEUED`);
   }
-  v.innerHTML = `<p class="up">${msg}</p>`;
+  v.innerHTML = `<p class="up">[${side === 'BUY' ? '매수' : '매도'}] ${parts.join(' + ') || '처리됨'}</p>`;
   loadHoldings(); loadOrders();
 }
 

@@ -517,23 +517,19 @@
 
 ### POST `/api/trading/orders/fractional/sell`
 
-소수점 매도 — **접수 즉시 `QUEUED` 편입(비동기)**. 접수 시 매도가능 보유수량을 hold(`holdings.held_quantity`). `ALL`=매도가능 전량, `AMOUNT`=예상가로 환산한 주수(상한=매도가능 전량).
+소수점 매도 — **백엔드가 정수부=온주 즉시매도 / 소수부=소수 차수매도로 split**(매수와 거울, FRAC-010 #157). `whole = min(floor(매도수량), 온주 매도가능)`, `frac = 매도수량 − whole`. **소수부가 소수 매도가능 초과면 거부**(온주→소수 분할 불가 — 5.5주 중 0.8 매도 불가). 한 트랜잭션.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수.
+- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수 — 서브키 `:W`/`:F`.
 
-**Request Body** (`orderType`: AMOUNT 금액 / ALL 전량)
+**Request Body** (`orderType`: QUANTITY 수량 / AMOUNT 금액 / ALL 전량)
 
 ```json
-{
-  "clientOrderId": "frac-sell-20260623-001",
-  "stockCode": "005930",
-  "orderType": "ALL"
- }
+{ "clientOrderId": "frac-sell-001", "stockCode": "005930", "orderType": "QUANTITY", "quantity": 13.14 }
 ```
 
-**Response Body**
+**Response Body** (응답 형태는 매수 split과 동일 — `SplitOrderResponse`. `wholeAmount`=온주 매도대금, `fractionalHeld`=null)
 
 ```json
 {
@@ -541,15 +537,18 @@
   "code": "SUCCESS",
   "message": "소수점 매도 접수 성공",
   "data": {
-    "orderId": 1025,
-    "roundId": 88,
     "stockCode": "005930",
     "side": "SELL",
-    "orderType": "ALL",
-    "estQuantity": 0.5,
-    "heldAmount": null,
-    "status": "QUEUED",
-    "orderable": null
+    "wholeOrderId": 1030,
+    "wholeQty": 13,
+    "wholeFillPrice": 76000,
+    "wholeAmount": 988000,
+    "fractionalOrderId": 1031,
+    "roundId": 89,
+    "fractionalEstQty": 0.14,
+    "fractionalHeld": null,
+    "fractionalStatus": "QUEUED",
+    "orderable": 1088000
   }
  }
 ```
