@@ -159,7 +159,15 @@ public class LsRealtimeClient implements RealtimeUpstream {
             }
             JsonNode body = root.path("body");
             if (body.isMissingNode() || body.isNull() || body.isEmpty()) {
-                log.debug("LS 실시간 ack/빈 프레임 tr_cd={} rsp={}", trCd, header.path("rsp_msg").asText(""));
+                // 등록 ack 또는 거부. rsp_cd가 정상("00000")이 아니면 LS 거절 → WARN으로 노출
+                // (예: 10001 "token 계좌정보와 서버정보(실전,모의) 불일치" = Redis 캐시 토큰이 서버 타입과 불일치).
+                String rspCd = header.path("rsp_cd").asText("");
+                String rspMsg = header.path("rsp_msg").asText("");
+                if (!rspCd.isEmpty() && !"00000".equals(rspCd)) {
+                    log.warn("LS 실시간 거부 tr_cd={} rsp_cd={} rsp_msg={}", trCd, rspCd, rspMsg);
+                } else {
+                    log.debug("LS 실시간 ack tr_cd={} rsp={}", trCd, rspMsg);
+                }
                 return;
             }
             LsRealtimeListener listener = listeners.get(trCd);

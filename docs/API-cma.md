@@ -41,6 +41,9 @@ CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 401 Unauthorized / 404 Not Found
+- `cmaBalance`: 통화별 잔액 Map(KRW·USD 모두 보유 시 둘 다 내려감).
+- `collectedSources`: "수집한 잔돈" 내역 — **이번 달 카드 라운드업 수집액만** 노출(`CARD` 단건, 수집액>0일 때만). 계좌 끝전/포인트 전환은 노출하지 않는다. 이번 달 카드 수집이 없으면 빈 배열.
+- `collectSources`: "**수집 가능한** 잔돈"(아직 안 모은 끝전/라운드업/포인트). `collectedSources`(이미 모은 내역)와 구분.
 
 **Response Body**
 
@@ -53,7 +56,9 @@ CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서
     "cmaBalance": { "KRW": 37840.0, "USD": 45.67 },
     "interestRate": 0.0350,
     "todayInterest": 3,
-    "collectedToday": 5830.0,
+    "collectedSources": [
+      { "sourceType": "CARD", "name": "카드 사용 잔돈", "amount": 3400.0 }
+    ],
     "collectSources": [
       { "sourceType": "ACCOUNT", "name": "신한은행",       "amount": 320.0  },
       { "sourceType": "CARD",    "name": "SOL트래블",      "amount": 870.0  },

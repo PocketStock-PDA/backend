@@ -36,6 +36,8 @@ public class CmaQueryService {
             "CARD",    "SOL트래블",
             "POINT",   "마이신한포인트"
     );
+    // "수집한 잔돈" 영역은 카드(CARD)만 노출 — 계좌 끝전/포인트 전환은 응답에서 제외(확정).
+    private static final String COLLECTED_CARD_NAME = "카드 사용 잔돈";
     private static final BigDecimal DEFAULT_THRESHOLD = BigDecimal.valueOf(10000);
     private static final String KRW = "KRW";
     private static final String USD = "USD";
@@ -69,8 +71,12 @@ public class CmaQueryService {
                         .divide(BigDecimal.valueOf(365), 0, RoundingMode.DOWN)
                 : BigDecimal.ZERO;
 
-        BigDecimal collectedToday = transactionMapper.sumCollectedToday(userId);
-        if (collectedToday == null) collectedToday = BigDecimal.ZERO;
+        // "수집한 잔돈" 영역 — 이번 달 카드 라운드업 수집액만 노출(수집 0건이면 빈 리스트).
+        BigDecimal cardCollected = transactionMapper.sumCardCollectedThisMonth(userId);
+        List<CmaHomeResponse.CollectSource> collectedSources =
+                (cardCollected != null && cardCollected.signum() > 0)
+                        ? List.of(new CmaHomeResponse.CollectSource("CARD", COLLECTED_CARD_NAME, cardCollected))
+                        : List.of();
 
         List<CollectionSetting> settings = settingMapper.findByUserId(userId);
 
@@ -87,7 +93,7 @@ public class CmaQueryService {
 
         return new CmaHomeResponse(
                 cmaBalance, interestRate, todayInterest,
-                collectedToday, collectSources, totalCollectable
+                collectedSources, collectSources, totalCollectable
         );
     }
 
