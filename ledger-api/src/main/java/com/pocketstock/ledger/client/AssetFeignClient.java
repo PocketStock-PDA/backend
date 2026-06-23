@@ -19,6 +19,9 @@ public interface AssetFeignClient {
     List<LinkedAccountSummary> getLinkedAccounts(@RequestParam("userId") Long userId,
                                                   @RequestParam("enabledIds") List<Long> enabledIds);
 
+    @GetMapping("/internal/assets/fx-wallets")
+    List<LinkedAccountSummary> getUsdWallets(@RequestParam("userId") Long userId);
+
     @GetMapping("/internal/assets/card-roundup")
     CardRoundupSummary getCardRoundup(@RequestParam("userId") Long userId,
                                        @RequestParam("linkedAccountId") Long linkedAccountId);

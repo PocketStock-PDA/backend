@@ -43,10 +43,12 @@ public class CmaCollectService {
             List.of(BigDecimal.valueOf(1000), BigDecimal.valueOf(5000), BigDecimal.valueOf(10000));
 
     private static final String KRW = "KRW";
+    private static final String USD = "USD";
     private static final String TX_COLLECT = "COLLECT";
     private static final String SRC_ACCOUNT = "ACCOUNT";
     private static final String SRC_CARD = "CARD";
     private static final String SRC_POINT = "POINT";
+    private static final String SRC_FX = "FX";
     private static final String REF_BANK_ACCOUNT = "LINKED_BANK_ACCOUNT";  // E-2
     private static final String REF_CARD = "LINKED_CARD";
     private static final String REF_POINT = "LINKED_POINT";
@@ -187,6 +189,43 @@ public class CmaCollectService {
     }
 
     /**
+     * 외화(USD) 지갑 적립 — 연동된 USD 지갑 잔액 전액을 CMA 달러 풀로 입금한다.
+     * <b>환전이 아니다</b> — 달러를 달러 그대로 옮기는 동일 통화 이동이라 환율을 쓰지 않는다(USD→USD 풀).
+     * 입금 후 USD↔KRW 환전은 사용자가 원할 때 하는 별도 단계로 유지한다.
+     *
+     * <p>다른 소스와 달리 {@code collection_settings} 토글 대상이 아니라 USD 지갑을 직접 읽어 전액 수집한다
+     * (잔돈 스캔의 FX 소스 정의와 동일 모집단). E-1: 합산 1줄, ref_id는 지갑 1개면 해당 id·여러 개면 null.
+     */
+    @Transactional
+    public CollectResult collectFromFx(Long userId, String idempotencyKey) {
+        CmaAccount account = getAccountOrThrow(userId);
+
+        // 적립액(amount)과 차감액(deductions)이 일치하도록, 잔액 있는(>0) 지갑만 양쪽·ref_id 후보에 함께 반영한다.
+        BigDecimal amount = BigDecimal.ZERO;
+        List<Long> walletIds = new ArrayList<>();
+        List<SourceDeduction> deductions = new ArrayList<>();
+        for (LinkedAccountSummary wallet : assetFeignClient.getUsdWallets(userId)) {
+            BigDecimal balance = wallet.balance();
+            if (balance != null && balance.signum() > 0) {
+                amount = amount.add(balance);
+                walletIds.add(wallet.id());
+                deductions.add(new SourceDeduction(wallet.id(), balance));
+            }
+        }
+        requireCollectible(amount);
+
+        // 동일 통화(USD) 입금 — ref_type은 출처 테이블(LINKED_BANK_ACCOUNT) 기준(E-2). 환전의 FX_TX와 구분된다.
+        Long refId = walletIds.size() == 1 ? walletIds.get(0) : null;
+        BigDecimal balanceAfter = ledgerWriter.applyEntry(userId, account.getId(), USD,
+                TX_COLLECT, SRC_FX, amount, REF_BANK_ACCOUNT, refId, idempotencyKey);
+
+        // 수집된 외화만큼 연동 USD 지갑 잔액 차감(core-api, DB A) — 같은 외화가 다시 수집돼 금액이 복사되지 않게 한다.
+        // 교차 DB라 한 트랜잭션에 못 묶음 → 원장 기록 후 호출(실패 시 본 트랜잭션 롤백되어 재시도 가능).
+        assetFeignClient.deductAccountBalances(userId, deductions);
+        return CollectResult.success(SRC_FX, amount, balanceAfter);
+    }
+
+    /**
      * 통합 수집 — 활성 소스 전체를 독립 실행하고 소스별 결과를 모아 반환(E-1, 부분 성공 허용).
      * 자체 트랜잭션 없음 — 소스별 @Transactional은 {@link #self} 프록시 경유로 적용된다.
      *
@@ -200,6 +239,7 @@ public class CmaCollectService {
         results.add(runSource(SRC_ACCOUNT, () -> self.collectFromAccount(userId, baseKey + ":ACCOUNT")));
         results.add(runSource(SRC_CARD, () -> self.collectFromCard(userId, baseKey + ":CARD")));
         results.add(runSource(SRC_POINT, () -> self.collectFromPoint(userId, baseKey + ":POINT")));
+        results.add(runSource(SRC_FX, () -> self.collectFromFx(userId, baseKey + ":FX")));
         return results;
     }
 

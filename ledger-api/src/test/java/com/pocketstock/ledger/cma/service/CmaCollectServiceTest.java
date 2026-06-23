@@ -205,6 +205,59 @@ class CmaCollectServiceTest {
     }
 
     @Test
+    @DisplayName("외화: USD 지갑 전액을 달러 풀(USD)로 입금하고 지갑 잔액을 차감한다(환전 없음, ref_id=지갑 id)")
+    void collectFromFx_singleWallet() {
+        when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
+        when(feign.getUsdWallets(USER_ID))
+                .thenReturn(List.of(new LinkedAccountSummary(7L, "FX_WALLET", new BigDecimal("120.50"), "USD")));
+        // 통화는 USD 풀, ref_type은 출처 테이블(LINKED_BANK_ACCOUNT) — 환전(FX_TX)과 구분된다
+        when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("USD"), eq("COLLECT"), eq("FX"),
+                eq(new BigDecimal("120.50")), eq("LINKED_BANK_ACCOUNT"), eq(7L), eq("key-fx")))
+                .thenReturn(new BigDecimal("120.50"));
+
+        CollectResult result = service(null).collectFromFx(USER_ID, "key-fx");
+
+        assertThat(result.status()).isEqualTo("SUCCESS");
+        assertThat(result.amount()).isEqualByComparingTo("120.50");
+        // 수집한 외화만큼 연동 USD 지갑 잔액을 차감해 원천을 닫아야 한다(재수집/금액 복사 방지)
+        verify(feign).deductAccountBalances(USER_ID, List.of(new SourceDeduction(7L, new BigDecimal("120.50"))));
+    }
+
+    @Test
+    @DisplayName("외화: 여러 USD 지갑이면 합산하고 ref_id는 null(다출처), 지갑별로 차감한다")
+    void collectFromFx_multipleWallets() {
+        when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
+        when(feign.getUsdWallets(USER_ID)).thenReturn(List.of(
+                new LinkedAccountSummary(7L, "FX_WALLET", new BigDecimal("120.50"), "USD"),
+                new LinkedAccountSummary(8L, "FX_WALLET", new BigDecimal("30.00"), "USD")));
+        when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("USD"), eq("COLLECT"), eq("FX"),
+                eq(new BigDecimal("150.50")), eq("LINKED_BANK_ACCOUNT"), isNull(), eq("key-fx")))
+                .thenReturn(new BigDecimal("150.50"));
+
+        CollectResult result = service(null).collectFromFx(USER_ID, "key-fx");
+
+        assertThat(result.amount()).isEqualByComparingTo("150.50");   // 120.50 + 30.00
+        verify(feign).deductAccountBalances(USER_ID, List.of(
+                new SourceDeduction(7L, new BigDecimal("120.50")),
+                new SourceDeduction(8L, new BigDecimal("30.00"))));
+    }
+
+    @Test
+    @DisplayName("외화: 수집할 USD 지갑 잔액이 없으면 INVALID_INPUT을 던지고 입금/차감하지 않는다")
+    void collectFromFx_nothingCollectible() {
+        when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
+        when(feign.getUsdWallets(USER_ID))
+                .thenReturn(List.of(new LinkedAccountSummary(7L, "FX_WALLET", BigDecimal.ZERO, "USD")));
+
+        assertThatThrownBy(() -> service(null).collectFromFx(USER_ID, "key-fx"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+
+        verify(ledgerWriter, never()).applyEntry(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(feign, never()).deductAccountBalances(any(), any());
+    }
+
+    @Test
     @DisplayName("통합 수집: 소스별 독립 실행, 성공/건너뜀이 섞여도 모두 결과로 모은다(부분 성공)")
     void collectAll_partialSuccess() {
         CmaCollectService self = mock(CmaCollectService.class);
@@ -215,14 +268,18 @@ class CmaCollectServiceTest {
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 카드 적립 소스가 없습니다."));
         when(self.collectFromPoint(eq(USER_ID), anyString()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "수집 가능한 잔돈이 없습니다."));
+        when(self.collectFromFx(eq(USER_ID), anyString()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "수집 가능한 잔돈이 없습니다."));
 
         List<CollectResult> results = service(self).collectAll(USER_ID, "base-key");
 
-        assertThat(results).hasSize(3);
+        assertThat(results).hasSize(4);
         assertThat(results.get(0).sourceType()).isEqualTo("ACCOUNT");
         assertThat(results.get(0).status()).isEqualTo("SUCCESS");
         assertThat(results.get(1).status()).isEqualTo("SKIPPED");
         assertThat(results.get(2).status()).isEqualTo("SKIPPED");
+        assertThat(results.get(3).sourceType()).isEqualTo("FX");
+        assertThat(results.get(3).status()).isEqualTo("SKIPPED");
     }
 
     @Test
@@ -236,12 +293,15 @@ class CmaCollectServiceTest {
                 .thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌를 찾을 수 없습니다."));  // 실제 오류
         when(self.collectFromPoint(eq(USER_ID), anyString()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "수집 가능한 잔돈이 없습니다."));
+        when(self.collectFromFx(eq(USER_ID), anyString()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "수집 가능한 잔돈이 없습니다."));
 
         List<CollectResult> results = service(self).collectAll(USER_ID, "base-key");
 
         assertThat(results.get(0).status()).isEqualTo("SUCCESS");
         assertThat(results.get(1).status()).isEqualTo("FAILED");   // NOT_FOUND → 가려지지 않음
         assertThat(results.get(2).status()).isEqualTo("SKIPPED");  // INVALID_INPUT → 정상 건너뜀
+        assertThat(results.get(3).status()).isEqualTo("SKIPPED");
     }
 
     @Test
@@ -255,13 +315,17 @@ class CmaCollectServiceTest {
                 .thenReturn(CollectResult.success("CARD", new BigDecimal("280"), new BigDecimal("413270")));
         when(self.collectFromPoint(eq(USER_ID), eq("base:POINT")))
                 .thenReturn(CollectResult.success("POINT", new BigDecimal("5000"), new BigDecimal("418270")));
+        when(self.collectFromFx(eq(USER_ID), eq("base:FX")))
+                .thenReturn(CollectResult.success("FX", new BigDecimal("120.50"), new BigDecimal("120.50")));
 
         List<CollectResult> results = service(self).collectAll(USER_ID, "base");
 
-        assertThat(results).extracting(CollectResult::status).containsExactly("SUCCESS", "SUCCESS", "SUCCESS");
+        assertThat(results).extracting(CollectResult::status)
+                .containsExactly("SUCCESS", "SUCCESS", "SUCCESS", "SUCCESS");
         verify(self).collectFromAccount(USER_ID, "base:ACCOUNT");
         verify(self).collectFromCard(USER_ID, "base:CARD");
         verify(self).collectFromPoint(USER_ID, "base:POINT");
+        verify(self).collectFromFx(USER_ID, "base:FX");
     }
 
     @Test

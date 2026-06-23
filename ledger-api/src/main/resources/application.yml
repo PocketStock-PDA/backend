@@ -5,6 +5,13 @@ spring:
   application:
     name: ledger-api
 
+  # Feign HTTP 클라이언트를 OkHttp로 교체 — 기본 HttpURLConnection은 PATCH를 지원하지 않음.
+  # ledger→core 원천 차감/수집완료 표시(deduct·mark-collected)가 PATCH라 필수.
+  cloud:
+    openfeign:
+      okhttp:
+        enabled: true
+
   # DB B (pocketstock_ledger @ mysql-b:3307, 원장) - cma/exchange/trading
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3307/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false}

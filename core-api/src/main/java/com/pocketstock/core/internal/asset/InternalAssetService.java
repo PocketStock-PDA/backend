@@ -30,6 +30,12 @@ public class InternalAssetService {
         return mapper.findLinkedAccountsByUserAndIds(userId, enabledIds);
     }
 
+    /** 외화(USD) 지갑 목록 — 잔돈 수집의 FX 소스. ledger-api가 전액을 CMA 달러 풀로 입금 후 차감 호출한다. */
+    @Transactional(readOnly = true)
+    public List<LinkedAccountSummary> getUsdWallets(Long userId) {
+        return mapper.findUsdWallets(userId);
+    }
+
     @Transactional(readOnly = true)
     public CardRoundupSummary getCardRoundup(Long userId, Long linkedAccountId) {
         List<Map<String, Object>> rows = mapper.findUncollectedCardTxs(userId, linkedAccountId);
