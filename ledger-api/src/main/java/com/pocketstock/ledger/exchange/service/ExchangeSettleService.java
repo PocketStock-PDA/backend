@@ -4,6 +4,9 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.exchange.ExchangeRatePolicy;
+import com.pocketstock.ledger.exchange.FxDirection;
+import com.pocketstock.ledger.exchange.FxQuote;
+import com.pocketstock.ledger.exchange.FxQuoteCalculator;
 import com.pocketstock.ledger.exchange.domain.FxTransaction;
 import com.pocketstock.ledger.exchange.dto.request.KrwToUsdRequest;
 import com.pocketstock.ledger.exchange.dto.request.UsdToKrwRequest;
@@ -48,6 +51,7 @@ public class ExchangeSettleService {
 
     private final CurrencyRateProvider rateProvider;
     private final ExchangeRatePolicy ratePolicy;
+    private final FxQuoteCalculator quoteCalc;
     private final FxTransactionMapper fxMapper;
     private final CmaFundsPort cmaFunds;
     private final FxFirmLegService firmLeg;
@@ -70,8 +74,10 @@ public class ExchangeSettleService {
 
         txnAuthGuard.requireTxnAuth(userId);
         BigDecimal mid = baseRate();
-        BigDecimal buyRate = ratePolicy.buyRate(USD, mid);
-        BigDecimal usd = krw.divide(buyRate, USD_SCALE, RoundingMode.DOWN);
+        // 검증(/validate)과 동일 환산 — 미리보기 금액 == 체결 금액 보장.
+        FxQuote q = quoteCalc.quote(FxDirection.KRW_TO_USD, krw, mid);
+        BigDecimal buyRate = q.appliedRate();
+        BigDecimal usd = q.receiveAmount();
 
         try {
             FxTransaction tx = record(userId, KRW, krw, USD, usd, buyRate, TRIGGER_MANUAL, null, key);
@@ -102,8 +108,10 @@ public class ExchangeSettleService {
 
         txnAuthGuard.requireTxnAuth(userId);
         BigDecimal mid = baseRate();
-        BigDecimal sellRate = ratePolicy.sellRate(USD, mid);
-        BigDecimal krw = usd.multiply(sellRate).setScale(KRW_SCALE, RoundingMode.DOWN);
+        // 검증(/validate)과 동일 환산 — 미리보기 금액 == 체결 금액 보장.
+        FxQuote q = quoteCalc.quote(FxDirection.USD_TO_KRW, usd, mid);
+        BigDecimal sellRate = q.appliedRate();
+        BigDecimal krw = q.receiveAmount();
 
         try {
             FxTransaction tx = record(userId, USD, usd, KRW, krw, sellRate, TRIGGER_MANUAL, null, key);

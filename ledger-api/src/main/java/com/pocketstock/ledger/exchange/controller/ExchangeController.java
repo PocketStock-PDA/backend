@@ -4,7 +4,9 @@ import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.exchange.dto.request.FxAutoSettingRequest;
 import com.pocketstock.ledger.exchange.dto.request.KrwToUsdRequest;
 import com.pocketstock.ledger.exchange.dto.request.UsdToKrwRequest;
+import com.pocketstock.ledger.exchange.FxDirection;
 import com.pocketstock.ledger.exchange.dto.response.ExchangeRateResponse;
+import com.pocketstock.ledger.exchange.dto.response.ExchangeValidateResponse;
 import com.pocketstock.ledger.exchange.dto.response.FxAutoSettingResponse;
 import com.pocketstock.ledger.exchange.dto.response.FxHistoryResponse;
 import com.pocketstock.ledger.exchange.dto.response.KrwToUsdResponse;
@@ -23,9 +25,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
+
 /**
- * 환전 API — 환율 조회·이력·자동환전 설정·수동 환전 체결.
- * (체결 검증 {@code /validate}는 추후 추가.)
+ * 환전 API — 환율 조회·검증·이력·자동환전 설정·수동 환전 체결.
  */
 @RestController
 @RequestMapping("/api/exchange")
@@ -41,6 +44,19 @@ public class ExchangeController {
     @GetMapping("/rate")
     public ApiResponse<ExchangeRateResponse> getRate() {
         return ApiResponse.ok("환율 조회 성공", rateService.getUsdKrwRate());
+    }
+
+    /**
+     * 환전 가능여부·가능금액 검증 — 체결 전 읽기 전용 dry-run.
+     * {@code direction}으로 양방향 공용, {@code amount} 생략 시 환율·잔액·최대금액만 반환.
+     */
+    @GetMapping("/validate")
+    public ApiResponse<ExchangeValidateResponse> validate(
+            @CurrentUserId Long userId,
+            @RequestParam String direction,
+            @RequestParam(required = false) BigDecimal amount) {
+        return ApiResponse.ok("환전 검증 완료",
+                fxQueryService.validate(userId, FxDirection.from(direction), amount));
     }
 
     /** 원화 → 달러 환전 체결. */
