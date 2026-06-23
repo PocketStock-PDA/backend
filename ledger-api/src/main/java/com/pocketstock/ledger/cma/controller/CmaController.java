@@ -2,11 +2,13 @@ package com.pocketstock.ledger.cma.controller;
 
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.cma.dto.request.AutoChargeSettingRequest;
+import com.pocketstock.ledger.cma.dto.request.CmaDepositRequest;
 import com.pocketstock.ledger.cma.dto.request.CmaTransferRequest;
 import com.pocketstock.ledger.cma.dto.request.CollectionSettingRequest;
 import com.pocketstock.ledger.cma.dto.response.AutoChargeSettingResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaAccountResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
+import com.pocketstock.ledger.cma.dto.response.CmaDepositResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransferResponse;
@@ -14,6 +16,7 @@ import com.pocketstock.ledger.cma.dto.response.CollectResult;
 import com.pocketstock.ledger.cma.service.CmaAccountService;
 import com.pocketstock.ledger.cma.service.CmaAutoChargeSettingService;
 import com.pocketstock.ledger.cma.service.CmaCollectService;
+import com.pocketstock.ledger.cma.service.CmaDepositService;
 import com.pocketstock.ledger.cma.service.CmaQueryService;
 import com.pocketstock.ledger.cma.service.CmaTransferService;
 import com.pocketstock.user.security.CurrentUserId;
@@ -36,6 +39,7 @@ public class CmaController {
     private final CmaAccountService accountService;
     private final CmaAutoChargeSettingService autoChargeSettingService;
     private final CmaTransferService transferService;
+    private final CmaDepositService depositService;
 
     /** CMA 계좌 개설(멱등) — 온보딩 마지막 단계. 이미 있으면 기존 계좌 반환. */
     @PostMapping("/account")
@@ -140,6 +144,17 @@ public class CmaController {
             @CurrentUserId Long userId,
             @RequestBody @Valid CmaTransferRequest request) {
         return ApiResponse.ok("CMA 자금 이동 성공", transferService.transfer(userId, request));
+    }
+
+    /**
+     * 은행계좌 → CMA 원화풀 부족분 충전(DEPOSIT) — 매수 목표 금액과 CMA 잔액의 차액만 은행에서 끌어와 충전.
+     * 이미 충분하면 이체하지 않는다(KRW 전용). 사전 txn-auth 필요.
+     */
+    @PostMapping("/deposit")
+    public ApiResponse<CmaDepositResponse> deposit(
+            @CurrentUserId Long userId,
+            @RequestBody @Valid CmaDepositRequest request) {
+        return ApiResponse.ok("CMA 충전 성공", depositService.deposit(userId, request));
     }
 
     @PutMapping("/collect/settings")

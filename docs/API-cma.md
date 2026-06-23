@@ -326,6 +326,82 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | DE
 
 ---
 
+## 충전
+
+### POST `/api/cma/deposit`
+
+연동 은행계좌에서 CMA 원화풀로 **부족분만** 충전한다. 매수 화면에서 사려는 금액(`targetAmount`)을 보내면 서버가 현재 CMA 원화풀 잔액을 빼 **부족분(`targetAmount − CMA 원화잔액`)만** 은행계좌에서 끌어와 입금한다(차액은 서버가 계산 — 클라가 들고 있던 잔액이 낡아도 안전). CMA 잔액이 이미 목표 이상이면 이체하지 않는다(`sufficient=true`). **KRW 전용** — 해외(USD) 충전은 매수 시점 자동환전이 담당한다.
+
+- **거래 인증 필수(txn-auth)**: 사전 거래 세션이 없으면 `401`(거래 인증 필요). 본문에 비밀번호를 담지 않는다.
+- **멱등**: `idempotencyKey`(필수)로 따닥 탭·재전송 시 중복 충전이 방지된다. 단 `sufficient=true`(이체 없음)는 원장에 남지 않으므로 재요청 시 그때의 잔액으로 다시 판단한다.
+- 출처 은행계좌가 본인 소유·미해지여야 하며(아니면 `400`), 부족분보다 잔액이 작으면 `400`(잔액 부족)으로 거부한다.
+- `409 Conflict`: 거의 동시에 같은 `idempotencyKey`로 두 건이 들어온 경합, 또는 그 키가 이미 다른 사용자/다른 용도 거래에 사용된 경우. 같은 요청을 잠시 후 재시도하거나 새 멱등키로 보낸다.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized / 404 Not Found / 409 Conflict
+
+**Request Body**
+
+```json
+{
+  "targetAmount": 50000,
+  "sourceAccountId": 7,
+  "idempotencyKey": "c0ffee-1234"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `targetAmount` | number | 사려는 금액(KRW). 충전 목표. 양수 필수 |
+| `sourceAccountId` | number | 충전 재원이 될 연동 은행계좌 ID |
+| `idempotencyKey` | string | 클라 발급 멱등키(필수) |
+
+**Response Body** (부족분 충전)
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "CMA 충전 성공",
+  "data": {
+    "currency": "KRW",
+    "targetAmount": 50000,
+    "depositAmount": 20000,
+    "cmaBalanceAfter": 50000,
+    "sufficient": false
+  }
+}
+```
+
+**Response Body** (이미 충분 — 이체 없음)
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "CMA 충전 성공",
+  "data": {
+    "currency": "KRW",
+    "targetAmount": 50000,
+    "depositAmount": 0,
+    "cmaBalanceAfter": 80000,
+    "sufficient": true
+  }
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `currency` | string | `KRW` 고정 |
+| `targetAmount` | number | 사려는 금액(요청 echo) |
+| `depositAmount` | number | 실제 충전된 부족분(이미 충분하면 0) |
+| `cmaBalanceAfter` | number | 충전 후 CMA 원화풀 잔액 |
+| `sufficient` | boolean | `true`=이미 충분(이체 없음) / `false`=부족분 충전함 |
+
+원장에는 `txType=DEPOSIT`, `sourceType=MANUAL`, `currency=KRW`, `refType=LINKED_BANK_ACCOUNT`, `refId=sourceAccountId`로 입금 1줄이 남는다.
+
+---
+
 ## 자동충전
 
 ### GET `/api/cma/auto-charge-settings`
