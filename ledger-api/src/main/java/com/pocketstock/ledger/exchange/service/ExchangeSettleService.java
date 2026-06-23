@@ -4,6 +4,9 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.exchange.ExchangeRatePolicy;
+import com.pocketstock.ledger.exchange.FxDirection;
+import com.pocketstock.ledger.exchange.FxQuote;
+import com.pocketstock.ledger.exchange.FxQuoteCalculator;
 import com.pocketstock.ledger.exchange.domain.FxTransaction;
 import com.pocketstock.ledger.exchange.dto.request.KrwToUsdRequest;
 import com.pocketstock.ledger.exchange.dto.request.UsdToKrwRequest;
@@ -48,6 +51,7 @@ public class ExchangeSettleService {
 
     private final CurrencyRateProvider rateProvider;
     private final ExchangeRatePolicy ratePolicy;
+    private final FxQuoteCalculator quoteCalc;
     private final FxTransactionMapper fxMapper;
     private final CmaFundsPort cmaFunds;
     private final FxFirmLegService firmLeg;
@@ -70,8 +74,11 @@ public class ExchangeSettleService {
 
         txnAuthGuard.requireTxnAuth(userId);
         BigDecimal mid = baseRate();
-        BigDecimal buyRate = ratePolicy.buyRate(USD, mid);
-        BigDecimal usd = krw.divide(buyRate, USD_SCALE, RoundingMode.DOWN);
+        // 검증(/validate)과 동일 환산 — 미리보기 금액 == 체결 금액 보장.
+        FxQuote q = quoteCalc.quote(FxDirection.KRW_TO_USD, krw, mid);
+        BigDecimal buyRate = q.appliedRate();
+        BigDecimal usd = q.receiveAmount();
+        requireReceivable(usd);   // 수령액 0(절사) 환전 거부 — /validate 우회 직접 호출 방어
 
         try {
             FxTransaction tx = record(userId, KRW, krw, USD, usd, buyRate, TRIGGER_MANUAL, null, key);
@@ -102,8 +109,11 @@ public class ExchangeSettleService {
 
         txnAuthGuard.requireTxnAuth(userId);
         BigDecimal mid = baseRate();
-        BigDecimal sellRate = ratePolicy.sellRate(USD, mid);
-        BigDecimal krw = usd.multiply(sellRate).setScale(KRW_SCALE, RoundingMode.DOWN);
+        // 검증(/validate)과 동일 환산 — 미리보기 금액 == 체결 금액 보장.
+        FxQuote q = quoteCalc.quote(FxDirection.USD_TO_KRW, usd, mid);
+        BigDecimal sellRate = q.appliedRate();
+        BigDecimal krw = q.receiveAmount();
+        requireReceivable(krw);   // 수령액 0(절사) 환전 거부 — /validate 우회 직접 호출 방어
 
         try {
             FxTransaction tx = record(userId, USD, usd, KRW, krw, sellRate, TRIGGER_MANUAL, null, key);
@@ -203,5 +213,12 @@ public class ExchangeSettleService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "환전 금액은 0보다 커야 합니다.");
         }
         return amount;
+    }
+
+    /** 절사 후 수령액이 0이면 거부 — 너무 작은 금액은 받는 통화 최소단위(1센트/1원) 미만이라 환전 의미가 없다. */
+    private void requireReceivable(BigDecimal receiveAmount) {
+        if (receiveAmount.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "환전 금액이 너무 작아 받을 금액이 없습니다.");
+        }
     }
 }
