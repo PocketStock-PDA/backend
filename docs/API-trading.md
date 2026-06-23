@@ -471,31 +471,39 @@
 
 ## 소수점투자
 
-### POST `/api/trading/orders/fractional/buy`
+### POST `/api/trading/orders/fractional`
 
-소수점 매수 — **백엔드가 정수부=온주 / 소수부=소수로 split(FRAC-010 #157)**. 한 트랜잭션이라 둘 다 성공 or 둘 다 롤백. 프론트는 split을 모르고 수량/금액 그대로 한 번만 보낸다(13.14주→온주13+소수0.14, 0.1→소수만, 1.0→온주만).
+소수점 매수/매도 — **`side`(BUY/SELL)를 body로 받는다**(온주 `/orders/whole`과 동일 정책으로 통일 — 구 `/fractional/buy`·`/sell` 폐지). **백엔드가 정수부=온주 / 소수부=소수로 split(FRAC-010 #157)**. 한 트랜잭션이라 둘 다 성공 or 둘 다 롤백. 프론트는 split을 모르고 수량/금액 그대로 한 번만 보낸다(13.14주→온주13+소수0.14, 0.1→소수만, 1.0→온주만).
 - **온주분**: `WholeOrderService`로 MARKET **즉시 호가체결**(직접소유·정수).
 - **소수분**: 현재 1분 차수에 `QUEUED` 편입(차수 집행기가 상계·ceil·시뮬·배분).
+- **매도 split**: `whole = min(floor(매도수량), 온주 매도가능)`, `frac = 매도수량 − whole`. **소수부가 소수 매도가능 초과면 거부**(온주→소수 분할 불가 — 5.5주 중 0.8 매도 불가).
 
 - **Request Headers**: Authorization: Bearer {accessToken}
+- **거래 인증 필수**: 매매 진입에서 계좌 비밀번호 인증(txn-auth) 확인. 미인증 시 거부 — 예수금 부족 시 CMA풀에서 자동충당(BUY_TRANSFER)이 일어나므로 수동이체·환전과 동일 정책(#174).
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
 - **D4(국내 먼저)**: 현재 국내(KRW)만. 해외는 후속(#155).
-- **자금 hold**: 온주분=즉시 차감 / 소수분 `AMOUNT`=남은금액 그대로·`QUANTITY`=예상금액×(1+버퍼 1%).
+- **자금 hold**: 온주분=즉시 차감 / 소수분 `AMOUNT`=남은금액 그대로·`QUANTITY`=예상금액×(1+버퍼 1%). 예수금 부족분은 CMA풀에서 자동충당(#174).
 - **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수 — 내부 서브키 `:W`(온주)/`:F`(소수)로 파생.
 
-**Request Body** (`orderType`: AMOUNT 금액 / QUANTITY 수량. 수량은 0.1·1.3·13.14 등 제한 없음)
+**Request Body** (`side`: BUY/SELL · `orderType`: AMOUNT 금액 / QUANTITY 수량 / ALL 전량매도. 수량은 0.1·1.3·13.14 등 제한 없음)
 
+매수:
 ```json
-{ "clientOrderId": "frac-buy-001", "stockCode": "005930", "orderType": "QUANTITY", "quantity": 13.14 }
+{ "clientOrderId": "frac-buy-001", "stockCode": "005930", "side": "BUY", "orderType": "QUANTITY", "quantity": 13.14 }
+```
+매도:
+```json
+{ "clientOrderId": "frac-sell-001", "stockCode": "005930", "side": "SELL", "orderType": "QUANTITY", "quantity": 13.14 }
 ```
 
-**Response Body** (`whole*`=온주분/없으면 null · `fractional*`=소수분/없으면 null)
+**Response Body** (`SplitOrderResponse` — `whole*`=온주분/없으면 null · `fractional*`=소수분/없으면 null. 매도는 `fractionalHeld`=null)
 
+매수:
 ```json
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "소수점 매수 접수 성공",
+  "message": "소수점 주문 접수 성공",
   "data": {
     "stockCode": "005930",
     "side": "BUY",
@@ -512,30 +520,12 @@
   }
  }
 ```
-
----
-
-### POST `/api/trading/orders/fractional/sell`
-
-소수점 매도 — **백엔드가 정수부=온주 즉시매도 / 소수부=소수 차수매도로 split**(매수와 거울, FRAC-010 #157). `whole = min(floor(매도수량), 온주 매도가능)`, `frac = 매도수량 − whole`. **소수부가 소수 매도가능 초과면 거부**(온주→소수 분할 불가 — 5.5주 중 0.8 매도 불가). 한 트랜잭션.
-
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-- **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수 — 서브키 `:W`/`:F`.
-
-**Request Body** (`orderType`: QUANTITY 수량 / AMOUNT 금액 / ALL 전량)
-
-```json
-{ "clientOrderId": "frac-sell-001", "stockCode": "005930", "orderType": "QUANTITY", "quantity": 13.14 }
-```
-
-**Response Body** (응답 형태는 매수 split과 동일 — `SplitOrderResponse`. `wholeAmount`=온주 매도대금, `fractionalHeld`=null)
-
+매도:
 ```json
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "소수점 매도 접수 성공",
+  "message": "소수점 주문 접수 성공",
   "data": {
     "stockCode": "005930",
     "side": "SELL",
