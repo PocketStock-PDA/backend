@@ -105,7 +105,7 @@
 </fieldset>
 
 <fieldset>
-  <legend>4-2) 소수점 주문 (fractional · 접수=QUEUED 비동기)</legend>
+  <legend>4-2) 소수점 주문 (fractional · 백엔드 split: 정수부=온주 즉시 / 소수부=소수 차수)</legend>
   종목 <input id="fracCode" value="005930" size="8"/>
   <select id="fracSide" onchange="fracToggle()">
     <option value="BUY">매수</option><option value="SELL">매도</option>
@@ -116,14 +116,14 @@
     <option value="ALL">전량(ALL·매도)</option>
   </select>
   금액 <input id="fracAmount" value="10000" size="9"/>원
-  수량 <input id="fracQty" value="0.5" size="6" disabled/>주
+  수량 <input id="fracQty" value="0.5" size="8" disabled/>주
   <button onclick="placeFractional()">소수점 접수</button>
   <div id="fracView"></div>
   <pre id="fracRaw" class="muted">결과 raw JSON</pre>
-  <div class="muted">국내 먼저(D4). <b>매수=AMOUNT(금액·천원단위) / QUANTITY(수량)</b> · 매도=AMOUNT(금액)/ALL(전량).
-    방식을 <b>수량</b>으로 고르면 수량칸이 활성화됨(기본은 금액). 접수 즉시 현재 1분 차수에 QUEUED 편입 →
-    매 분 5초 차수 집행기(#152·#153)가 체결·정산(holdings 소수 칼럼 증가). 멱등키 자동 생성.
-    거래내역·취소는 위 4)번 버튼 공용(QUEUED 취소 시 hold 환원).</div>
+  <div class="muted">국내 먼저(D4). 매수=AMOUNT·QUANTITY / 매도=AMOUNT·QUANTITY·ALL. 수량은 <b>0.1·1.3·13.14 제한 없음</b>.
+    <b>백엔드 split</b>: 13.14주 → 온주 13 <b>즉시 시장가 체결</b> + 소수 0.14 <b>차수 QUEUED</b>(매 분 5초 집행기 #152·#153 체결).
+    0.1→소수만 / 1.0→온주만. 매도도 동일(소수부는 소수 보유 한도 내). 멱등키 자동 생성.
+    거래내역·취소는 위 4)번 버튼 공용(QUEUED 취소 시 hold 환원). 결과는 보유표 온주/소수 칼럼에서 확인.</div>
   <hr/>
   <b>온주 전환</b> (소수→온주, 사용자 버튼)
   종목 <input id="convCode" value="005930" size="8"/>
@@ -383,7 +383,7 @@ async function loadHoldings() {
   const h = await authHeaders();
   const b = await (await fetch('/api/trading/holdings', { headers: h })).json();
   const rows = (b.data || []).map(x =>
-    `<tr><td>${x.stockCode}</td><td>${won(x.quantity)}</td><td>${Number(x.wholeQty)}</td><td>${Number(x.fractionalQty)}</td><td>${won(x.avgBuyPrice)}</td><td>${x.currency}</td></tr>`).join('');
+    `<tr><td>${x.stockCode}</td><td>${Number(x.quantity)}</td><td>${Number(x.wholeQty)}</td><td>${Number(x.fractionalQty)}</td><td>${won(x.avgBuyPrice)}</td><td>${x.currency}</td></tr>`).join('');
   document.getElementById('portView').innerHTML =
     `<table><tr><th>종목</th><th>총수량</th><th>온주</th><th>소수</th><th>평단</th><th>통화</th></tr>${rows || '<tr><td colspan="6" class="muted">보유 없음</td></tr>'}</table>`;
 }
@@ -797,11 +797,11 @@ function showTab(id) {
 }
 
 // ---- 4-2) 소수점 주문 (fractional) ----
-// 방식에 따라 입력칸 활성/비활성 토글 + side와 모순되는 방식 자동 보정(매수 ALL X / 매도 QUANTITY X).
+// 방식에 따라 입력칸 활성/비활성 토글. 매수엔 ALL(전량) 없음 → AMOUNT로 보정. 매도는 AMOUNT·QUANTITY·ALL 다 허용.
 function fracToggle() {
   const side = document.getElementById('fracSide').value;
   const m = document.getElementById('fracMethod');
-  if (side === 'BUY' && m.value === 'ALL') m.value = 'AMOUNT';   // 매수엔 전량 없음(매도 QUANTITY는 허용)
+  if (side === 'BUY' && m.value === 'ALL') m.value = 'AMOUNT';
   document.getElementById('fracAmount').disabled = m.value !== 'AMOUNT';
   document.getElementById('fracQty').disabled = m.value !== 'QUANTITY';
 }
