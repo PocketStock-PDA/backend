@@ -30,6 +30,17 @@ public class DepositService {
     }
 
     /**
+     * 주문가능 예수금 = 현재잔액 − hold(M2). 매수 충당 부족분 계산에 쓴다.
+     * record("BUY", −X)의 가드(balance−X ≥ held)와 동일 기준이라, 충당으로 available을 필요액까지 끌어올리면
+     * 이어진 차감이 정확히 통과한다.
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal getAvailable(Long accountId) {
+        return depositMapper.findBalanceByAccount(accountId)
+                .subtract(depositMapper.findHeldByAccount(accountId));
+    }
+
+    /**
      * 매수 PENDING 진입 시 예수금 hold(M2) — 잔액은 그대로, 주문가능(balance−held)만 줄인다.
      * 주문가능 부족이면 INSUFFICIENT_BALANCE. 체결 시 released+실차감, 취소·미체결 시 release.
      */

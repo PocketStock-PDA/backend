@@ -15,7 +15,7 @@ INSERT INTO cma_accounts (id,user_id,account_no_enc,status,opened_at,created_at,
 (1,1,NULL,'ACTIVE','2026-01-20 10:00:00','2026-01-20 10:00:00','2026-01-20 10:00:00');
 
 INSERT INTO cma_balances (id,cma_account_id,currency,balance,interest_rate,created_at,updated_at) VALUES
-(1,1,'KRW',405490.0000,3.5000,'2026-01-20 10:00:00','2026-06-15 09:00:00'),
+(1,1,'KRW',552990.0000,3.5000,'2026-01-20 10:00:00','2026-06-15 09:00:30'),  -- 수집누적 405,490 + 과거 예수금 회수 147,500(#174 예수금 0 정렬). 매수 시 여기서 자동충당.
 (2,1,'USD',250.0000,4.2000,'2026-03-10 10:00:00','2026-06-15 09:00:00');  -- 환전 1회 거친 사용자 가정(달러풀). totalKrwEquivalent USD 환산 합산 시연용.
 
 INSERT INTO collection_settings (id,user_id,source_type,source_ref_id,is_enabled,threshold,created_at,updated_at) VALUES
@@ -63,7 +63,9 @@ INSERT INTO cma_transactions (id,user_id,cma_account_id,currency,tx_type,source_
 (31,1,1,'KRW','COLLECT','CARD',500.0000,404290.0000,NULL,NULL,'cma-card-roundup-tx43','2026-06-06 10:20:00'),
 (32,1,1,'KRW','COLLECT','CARD',200.0000,404490.0000,NULL,NULL,'cma-card-roundup-tx44','2026-06-09 15:30:00'),
 (33,1,1,'KRW','COLLECT','CARD',600.0000,405090.0000,NULL,NULL,'cma-card-roundup-tx46','2026-06-13 13:00:00'),
-(34,1,1,'KRW','COLLECT','CARD',400.0000,405490.0000,NULL,NULL,'cma-card-roundup-tx47','2026-06-15 09:00:00');
+(34,1,1,'KRW','COLLECT','CARD',400.0000,405490.0000,NULL,NULL,'cma-card-roundup-tx47','2026-06-15 09:00:00'),
+-- 과거 위탁 예수금 잔액(147,500)을 CMA 원화풀로 회수 — "예수금은 통과점, 평소 0"(#174). 짝=deposit_transactions OUT_TRANSFER.
+(35,1,1,'KRW','REVERT','SYSTEM',147500.0000,552990.0000,'DEPOSIT_TOPUP',1,'cma-deposit-sweep-init','2026-06-15 09:00:30');
 
 -- 국내·해외 위탁계좌 각 1개. account_no_enc는 NULL(SQL에서 AES-GCM 암호문 생성 불가 — CMA 시드와 동일 규약).
 -- 계좌번호는 표시용 가짜라 NULL이어도 거래는 account_id로 동작(AccountNoCipher 호출부는 NULL 가드됨).
@@ -73,12 +75,14 @@ INSERT INTO securities_accounts (id,user_id,market,account_no_enc,status,is_frac
 
 INSERT INTO deposit_transactions (id,user_id,account_id,tx_type,amount,currency,balance_after,ref_type,ref_id,idempotency_key,created_at) VALUES
 (1,1,1,'DEPOSIT',500000.0000,'KRW',500000.0000,NULL,NULL,'sec-init-deposit-20260210','2026-02-10 09:05:00'),
-(2,1,1,'BUY',-352500.0000,'KRW',147500.0000,NULL,NULL,'sec-buy-005930-5sh-20260210','2026-02-10 09:10:00');
+(2,1,1,'BUY',-352500.0000,'KRW',147500.0000,NULL,NULL,'sec-buy-005930-5sh-20260210','2026-02-10 09:10:00'),
+-- 남은 예수금 147,500을 CMA 원화풀로 회수 → 예수금 0 정렬(#174). 짝=cma_transactions REVERT.
+(3,1,1,'OUT_TRANSFER',-147500.0000,'KRW',0.0000,'CMA',1,'sec-deposit-sweep-init','2026-06-15 09:00:30');
 
--- 예수금 현재잔액 = 계좌당 1행. 국내(KRW 147,500=deposit_transactions 최종 balance_after) + 해외(USD 0, 충전 전).
--- 해외 USD는 환전(krw-to-usd)→CMA→위탁이체로 충전(#56·#136). 시드는 0으로 시작(잔액행만 보장).
+-- 예수금 현재잔액 = 계좌당 1행. 국내·해외 모두 0 — "예수금은 통과점, 평소 0"(CMA↔예수금 자동연동 #174 모델).
+-- 매수 시 CMA 원화풀/달러풀에서 자동충당돼 빠지고, 매도 시 CMA로 환류된다. 과거 예수금 잔액은 위 OUT_TRANSFER로 CMA 회수됨.
 INSERT INTO account_balances (id,account_id,currency,balance,created_at,updated_at) VALUES
-(1,1,'KRW',147500.0000,'2026-02-10 09:10:00','2026-02-10 09:10:00'),
+(1,1,'KRW',0.0000,'2026-06-15 09:00:30','2026-06-15 09:00:30'),
 (2,2,'USD',0.0000,'2026-02-10 09:10:00','2026-02-10 09:10:00');
 
 INSERT INTO holdings (id,user_id,account_id,stock_code,quantity,avg_buy_price,krw_cost_basis,currency,created_at,updated_at) VALUES

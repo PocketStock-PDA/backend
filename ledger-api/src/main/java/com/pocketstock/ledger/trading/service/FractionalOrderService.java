@@ -77,9 +77,22 @@ public class FractionalOrderService {
     private final RoundMapper roundMapper;
     private final HoldingMapper holdingMapper;
     private final DepositService depositService;
+    private final OrderFundingService fundingService;
     private final OrderbookService orderbookService;
     private final OrderRejectionService rejectionService;
     private final WholeOrderService wholeOrderService;
+
+    /** 소수점 매수/매도 통합 진입 — side(body)로 디스패치(엔드포인트 단일화, 온주와 동일 정책). */
+    public SplitOrderResponse place(Long userId, FractionalOrderRequest req) {
+        String side = req.side() == null ? "" : req.side().trim().toUpperCase();
+        if ("BUY".equals(side)) {
+            return placeBuy(userId, req);
+        }
+        if ("SELL".equals(side)) {
+            return placeSell(userId, req);
+        }
+        throw new BusinessException(ErrorCode.INVALID_INPUT, "side는 BUY 또는 SELL이어야 합니다.");
+    }
 
     /**
      * 소수점 매수 — split 라우터(FRAC-010 #157). 정수부=온주 즉시 호가체결 / 소수부=소수 차수 배치로 쪼갠다.
@@ -181,7 +194,6 @@ public class FractionalOrderService {
     /** 소수분 접수 — 예수금 hold + 현재 차수 QUEUED 편입. 멱등키 서브키 :F. */
     private FracEnq enqueueFracBuy(Long userId, Ctx ctx, String method, BigDecimal orderAmount,
                                    BigDecimal orderQuantity, BigDecimal estQty, BigDecimal hold) {
-        depositService.hold(ctx.account().getId(), hold);
         TradingRound round = currentRound(ctx.spec().accountMarket());
         Order order = Order.builder()
                 .clientOrderId(ctx.clientOrderId() + ":F")
@@ -206,6 +218,9 @@ public class FractionalOrderService {
         } catch (DuplicateKeyException e) {
             throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 처리 중인 주문입니다.");
         }
+        // CMA풀 → 예수금 자동충당(#174): hold가 예수금을 요구하므로 부족분을 먼저 충당(orderId 확보 후). 같은 tx.
+        fundingService.transferForBuy(userId, ctx.account().getId(), ctx.spec().currency(), hold, order.getId());
+        depositService.hold(ctx.account().getId(), hold);
         return new FracEnq(order.getId(), round.getId(), estQty, hold);
     }
 

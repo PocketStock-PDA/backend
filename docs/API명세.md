@@ -104,8 +104,7 @@
 | 실시간시세 | [해외] 실시간 체결가 | WS | `/topic/foreign/transaction/{symbol}` | HDFSCNT0 (해외 실시간지연체결가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | [해외] 실시간 호가(온주) | WS | `/topic/foreign/quote/{symbol}` | HDFSASP0 (해외 실시간호가) [KIS 실전] | B·김준형 | ✅ |
 | 실시간시세 | 실시간 체결통보(주문 결과) | WS | `/topic/order-notification` | SC1(국내)·AS1(해외) [자체 시뮬] | B·김준형 |  |
-| 소수점투자 | 소수점 매수(금액/수량) → 차수 합산 온주주문 | POST | `/api/trading/orders/fractional/buy` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 | 접수=즉시 QUEUED(비동기)·국내먼저(D4) #151 |
-| 소수점투자 | 소수점 매도(금액/전량) → 차수 합산 온주주문 | POST | `/api/trading/orders/fractional/sell` | CSPAT00601(국내)·COSMT00300(해외) [자체 시뮬] | B·김준형 | 접수=즉시 QUEUED(비동기)·국내먼저(D4) #151 |
+| 소수점투자 | 소수점 매수/매도(side로 구분) → 차수 합산 온주주문 | POST | `/api/trading/orders/fractional` | CSPAT00601(국내)·COSAT00301/COSMT00300(해외) [자체 시뮬] | B·김준형 | side=BUY/SELL(body)·접수=즉시 QUEUED(비동기)·국내먼저(D4) #151 |
 | 소수점투자 | 온주 매수/매도(호가 기반) | POST | `/api/trading/orders/whole` | CSPAT00601(국내)·COSAT00301(해외) [자체 시뮬] | B·김준형 | ✅ |
 | 소수점투자 | 주문 취소(소수점 QUEUED·온주 PENDING 공용) | DELETE | `/api/trading/orders/{orderId}` | CSPAT00801(국내)·COSAT00311(해외) [자체 시뮬] | B·김준형 | ✅ |
 | 소수점투자 | 거래내역 조회(매수·매도·달성) | GET | `/api/trading/orders` |  | B·김준형 | ✅ |
