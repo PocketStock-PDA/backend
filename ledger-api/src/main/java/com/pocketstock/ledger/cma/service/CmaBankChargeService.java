@@ -77,7 +77,10 @@ public class CmaBankChargeService implements CmaChargePort {
             // ① CMA 원화풀 입금 — DEPOSIT/MANUAL, ref는 충전 재원 계좌(추적용).
             BigDecimal cmaAfter = ledgerWriter.applyEntry(userId, cma.getId(), KRW,
                     TX_DEPOSIT, SOURCE_MANUAL, chargeAmount, REF_BANK_ACCOUNT, source, key);
-            // ② 은행계좌에서 차감(core-api, DB A) — 교차 DB라 원장 후 호출(실패 시 호출자 트랜잭션 롤백).
+            // ② 은행계좌에서 차감(core-api, DB A) — 교차 DB라 원장 후 호출(차감 실패 시 호출자 트랜잭션 롤백 → 무반영).
+            //    잔돈 수집과 동일 패턴: 차감을 트랜잭션 안에 둬 "CMA만 입금되고 은행은 그대로"(자금 복제)를 막는다.
+            //    남는 미세 창("차감 성공 직후 DB B 커밋 실패" → 은행만 차감)은 시뮬레이션 전제로 의식적 비채택
+            //    (확률 극저·reseed 복구). 정석은 outbox/보상이나 데모 규모엔 과함 — CMA_DEVELOPMENT.md §11 의식적 비채택.
             assetFeignClient.deductAccountBalances(userId, List.of(new SourceDeduction(source, chargeAmount)));
             return new ChargeResult(chargeAmount, cmaAfter);
         } catch (DuplicateKeyException e) {
