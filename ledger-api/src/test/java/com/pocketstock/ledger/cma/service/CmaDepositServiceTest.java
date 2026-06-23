@@ -106,10 +106,7 @@ class CmaDepositServiceTest {
     @Test
     @DisplayName("멱등 재요청: 같은 키 충전이 이미 있으면 txn-auth·충전 없이 기존 거래값으로 결과 반환")
     void deposit_idempotentReplay() {
-        CmaTransaction existing = new CmaTransaction();
-        existing.setUserId(USER_ID);
-        existing.setAmount(new BigDecimal("20000"));
-        existing.setBalanceAfter(new BigDecimal("50000"));
+        CmaTransaction existing = depositTx("20000", "50000");
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
         when(transactionMapper.findByIdempotencyKey("key-1")).thenReturn(existing);
 
@@ -119,6 +116,36 @@ class CmaDepositServiceTest {
         assertThat(res.cmaBalanceAfter()).isEqualByComparingTo("50000");
         verify(txnAuthGuard, never()).requireTxnAuth(anyLong());
         verify(chargePort, never()).charge(anyLong(), anyLong(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("멱등키 오용: 같은 키가 다른 용도(COLLECT) 거래에 쓰였으면 충전 응답으로 오인하지 않고 409")
+    void deposit_keyReusedByOtherOperation() {
+        CmaTransaction collect = new CmaTransaction();
+        collect.setUserId(USER_ID);
+        collect.setTxType("COLLECT");
+        collect.setSourceType("ACCOUNT");
+        collect.setCurrency("KRW");
+        collect.setAmount(new BigDecimal("5000"));
+        collect.setBalanceAfter(new BigDecimal("410490"));
+        when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
+        when(transactionMapper.findByIdempotencyKey("key-1")).thenReturn(collect);
+
+        assertThatThrownBy(() -> service.deposit(USER_ID, request("50000")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.IDEMPOTENCY_CONFLICT);
+        verify(chargePort, never()).charge(anyLong(), anyLong(), any(), anyString());
+    }
+
+    private CmaTransaction depositTx(String amount, String balanceAfter) {
+        CmaTransaction tx = new CmaTransaction();
+        tx.setUserId(USER_ID);
+        tx.setTxType("DEPOSIT");
+        tx.setSourceType("MANUAL");
+        tx.setCurrency("KRW");
+        tx.setAmount(new BigDecimal(amount));
+        tx.setBalanceAfter(new BigDecimal(balanceAfter));
+        return tx;
     }
 
     @Test

@@ -109,6 +109,9 @@ class CmaBankChargeServiceTest {
     void charge_idempotentReplay() {
         CmaTransaction existing = new CmaTransaction();
         existing.setUserId(USER_ID);
+        existing.setTxType("DEPOSIT");
+        existing.setSourceType("MANUAL");
+        existing.setCurrency("KRW");
         existing.setAmount(new BigDecimal("20000"));
         existing.setBalanceAfter(new BigDecimal("50000"));
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
@@ -118,6 +121,27 @@ class CmaBankChargeServiceTest {
 
         assertThat(res.chargedAmount()).isEqualByComparingTo("20000");
         assertThat(res.cmaBalanceAfter()).isEqualByComparingTo("50000");
+        verify(ledgerWriter, never()).applyEntry(anyLong(), anyLong(), anyString(), anyString(),
+                anyString(), any(), anyString(), any(), anyString());
+        verify(feign, never()).deductAccountBalances(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("멱등키 오용: 같은 키가 다른 용도(COLLECT) 거래에 쓰였으면 충전 결과로 오인하지 않고 409")
+    void charge_keyReusedByOtherOperation() {
+        CmaTransaction collect = new CmaTransaction();
+        collect.setUserId(USER_ID);
+        collect.setTxType("COLLECT");
+        collect.setSourceType("ACCOUNT");
+        collect.setCurrency("KRW");
+        collect.setAmount(new BigDecimal("5000"));
+        collect.setBalanceAfter(new BigDecimal("410490"));
+        when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
+        when(transactionMapper.findByIdempotencyKey("key-1")).thenReturn(collect);
+
+        assertThatThrownBy(() -> service.charge(USER_ID, SRC_ACC_ID, new BigDecimal("20000"), "key-1"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.IDEMPOTENCY_CONFLICT);
         verify(ledgerWriter, never()).applyEntry(anyLong(), anyLong(), anyString(), anyString(),
                 anyString(), any(), anyString(), any(), anyString());
         verify(feign, never()).deductAccountBalances(anyLong(), any());

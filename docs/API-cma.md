@@ -335,6 +335,7 @@ CMA 계좌내역 (입금·출금·이자) 조회<br> Query: txType (COLLECT | DE
 - **거래 인증 필수(txn-auth)**: 사전 거래 세션이 없으면 `401`(거래 인증 필요). 본문에 비밀번호를 담지 않는다.
 - **멱등**: `idempotencyKey`(필수)로 따닥 탭·재전송 시 중복 충전이 방지된다. 단 `sufficient=true`(이체 없음)는 원장에 남지 않으므로 재요청 시 그때의 잔액으로 다시 판단한다.
 - 출처 은행계좌가 본인 소유·미해지여야 하며(아니면 `400`), 부족분보다 잔액이 작으면 `400`(잔액 부족)으로 거부한다.
+- `409 Conflict`: 거의 동시에 같은 `idempotencyKey`로 두 건이 들어온 경합, 또는 그 키가 이미 다른 사용자/다른 용도 거래에 사용된 경우. 같은 요청을 잠시 후 재시도하거나 새 멱등키로 보낸다.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized / 404 Not Found / 409 Conflict

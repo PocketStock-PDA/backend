@@ -60,6 +60,7 @@ public class CmaBankChargeService implements CmaChargePort {
         CmaTransaction existing = transactionMapper.findByIdempotencyKey(key);
         if (existing != null) {
             requireOwner(existing, userId);
+            requireSameOperation(existing);   // 같은 키가 다른 용도 거래면 충전 결과로 오인 금지
             return new ChargeResult(existing.getAmount(), existing.getBalanceAfter());
         }
 
@@ -125,6 +126,18 @@ public class CmaBankChargeService implements CmaChargePort {
     private void requireOwner(CmaTransaction tx, Long userId) {
         if (!userId.equals(tx.getUserId())) {
             throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 사용된 멱등키입니다.");
+        }
+    }
+
+    /**
+     * 멱등 replay 대상이 정말 같은 의미의 충전(DEPOSIT/MANUAL/KRW)인지 확인 — 같은 키가 다른 용도
+     * 거래(예: 수집 COLLECT)에 쓰인 경우 그 행을 충전 결과로 오인해 돌려주지 않도록 거부한다.
+     */
+    private void requireSameOperation(CmaTransaction tx) {
+        if (!TX_DEPOSIT.equals(tx.getTxType())
+                || !SOURCE_MANUAL.equals(tx.getSourceType())
+                || !KRW.equals(tx.getCurrency())) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT, "이미 다른 용도로 사용된 멱등키입니다.");
         }
     }
 }
