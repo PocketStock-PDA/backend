@@ -78,6 +78,7 @@ public class ExchangeSettleService {
         FxQuote q = quoteCalc.quote(FxDirection.KRW_TO_USD, krw, mid);
         BigDecimal buyRate = q.appliedRate();
         BigDecimal usd = q.receiveAmount();
+        requireReceivable(usd);   // 수령액 0(절사) 환전 거부 — /validate 우회 직접 호출 방어
 
         try {
             FxTransaction tx = record(userId, KRW, krw, USD, usd, buyRate, TRIGGER_MANUAL, null, key);
@@ -112,6 +113,7 @@ public class ExchangeSettleService {
         FxQuote q = quoteCalc.quote(FxDirection.USD_TO_KRW, usd, mid);
         BigDecimal sellRate = q.appliedRate();
         BigDecimal krw = q.receiveAmount();
+        requireReceivable(krw);   // 수령액 0(절사) 환전 거부 — /validate 우회 직접 호출 방어
 
         try {
             FxTransaction tx = record(userId, USD, usd, KRW, krw, sellRate, TRIGGER_MANUAL, null, key);
@@ -211,5 +213,12 @@ public class ExchangeSettleService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "환전 금액은 0보다 커야 합니다.");
         }
         return amount;
+    }
+
+    /** 절사 후 수령액이 0이면 거부 — 너무 작은 금액은 받는 통화 최소단위(1센트/1원) 미만이라 환전 의미가 없다. */
+    private void requireReceivable(BigDecimal receiveAmount) {
+        if (receiveAmount.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "환전 금액이 너무 작아 받을 금액이 없습니다.");
+        }
     }
 }
