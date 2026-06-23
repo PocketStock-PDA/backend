@@ -91,6 +91,15 @@
         ORDER BY id DESC
     </select>
 
+    <!-- 미체결 주문 — 온주 PENDING(지정가 대기) + 소수점 QUEUED(차수 대기). 종목 무관 전체, 최신순. -->
+    <select id="findActiveByUserId" resultMap="order">
+        SELECT <include refid="cols"/>
+        FROM orders
+        WHERE user_id = #{userId}
+          AND status IN ('PENDING', 'QUEUED')
+        ORDER BY id DESC
+    </select>
+
     <!-- 차수 집행 대상 — 그 차수의 QUEUED 소수점 주문 전건(#153). -->
     <select id="findQueuedByRound" resultMap="order">
         SELECT <include refid="cols"/>

@@ -661,12 +661,12 @@
 
 ### GET `/api/trading/orders/pending`
 
-미체결 주문 조회
+미체결 주문 조회 — **종목 무관 전체**(온주 `PENDING`=지정가 대기 + 소수점 `QUEUED`=차수 대기), 최신순. 거래내역(`GET /orders`)과 동일 형태(`OrderHistoryResponse`)에서 미체결만 필터한 것.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
 
-**Response Body**
+**Response Body** (`status`=PENDING(온주)/QUEUED(소수점) · `quantity`는 소수 가능)
 
 ```json
 {
@@ -674,17 +674,18 @@
   "code": "SUCCESS",
   "message": "미체결 주문 조회 성공",
   "data": [
-  {
-  "orderId": "ORD-20250615-003",
-  "stockCode": "005930",
-  "stockName": "삼성전자",
-  "orderSide": "BUY",
-  "price": 73500,
-  "quantity": 1,
-  "createdAt": "2025-06-15T10:28:00"
-  }
- ]
- }
+    {
+      "id": 1042,
+      "stockCode": "005930",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "quantity": 1,
+      "price": 73500,
+      "status": "PENDING",
+      "createdAt": "2026-06-15T10:28:00"
+    }
+  ]
+}
 ```
 
 ---

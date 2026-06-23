@@ -45,6 +45,12 @@ public class OrderController {
         return ApiResponse.ok("거래내역 조회 성공", wholeOrderService.getOrderHistory(userId));
     }
 
+    /** 미체결 주문 조회 — 온주 PENDING + 소수점 QUEUED, 종목 무관 전체(최신순). */
+    @GetMapping("/orders/pending")
+    public ApiResponse<List<OrderHistoryResponse>> getPendingOrders(@CurrentUserId Long userId) {
+        return ApiResponse.ok("미체결 주문 조회 성공", wholeOrderService.getPendingOrders(userId));
+    }
+
     /** 주문 취소 — 소수점 QUEUED / 온주 PENDING만 취소(종결 상태는 409). */
     @DeleteMapping("/orders/{orderId}")
     public ApiResponse<OrderCancelResponse> cancel(@CurrentUserId Long userId,

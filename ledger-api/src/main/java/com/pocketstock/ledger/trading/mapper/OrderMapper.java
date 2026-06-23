@@ -37,6 +37,9 @@ public interface OrderMapper {
     /** 유저 거래내역(최신순) */
     List<Order> findByUserId(@Param("userId") Long userId);
 
+    /** 유저 미체결 주문(최신순) — 온주 PENDING(지정가 대기) + 소수점 QUEUED(차수 대기). 종목 무관 전체. */
+    List<Order> findActiveByUserId(@Param("userId") Long userId);
+
     /** 차수의 QUEUED 소수점 주문 전건 — 배치 집행 대상(#153). */
     List<Order> findQueuedByRound(@Param("roundId") Long roundId);
 

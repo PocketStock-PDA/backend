@@ -280,6 +280,18 @@ public class WholeOrderService {
                 .toList();
     }
 
+    /** 미체결 주문(최신순) — 온주 PENDING + 소수점 QUEUED, 종목 무관 전체. */
+    @Transactional(readOnly = true)
+    public List<OrderHistoryResponse> getPendingOrders(Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return orderMapper.findActiveByUserId(userId).stream()
+                .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
+                        o.getOrderType(), o.getOrderQuantity(), o.getPrice(), o.getStatus().name(), o.getCreatedAt()))
+                .toList();
+    }
+
     /** 멱등 재요청 응답 — 기존 주문을 그대로 반환. balanceAfter는 현재 예수금(재체결 없음). */
     private WholeOrderResponse toResponse(Order o) {
         BigDecimal total = o.getPrice().multiply(o.getOrderQuantity());
