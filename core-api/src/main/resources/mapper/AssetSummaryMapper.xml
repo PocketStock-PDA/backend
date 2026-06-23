@@ -5,7 +5,8 @@
 
     <!-- 연동 은행 계좌를 자산 유형별로 집계.
          account_type → 표시 카테고리 매핑:
-           SAVINGS / DEPOSIT          → 예금·적금
+           SAVINGS                    → 적금
+           DEPOSIT                    → 예금
            PENSION                    → 연금
            REAL_ESTATE                → 부동산
            DEMAND / 그 외              → 기타
@@ -13,9 +14,10 @@
     <select id="findBankAssetsByCategory" resultType="com.pocketstock.core.asset.dto.AssetCategoryRow">
         SELECT
             CASE
-                WHEN account_type IN ('SAVINGS', 'DEPOSIT') THEN '예금·적금'
-                WHEN account_type = 'PENSION'               THEN '연금'
-                WHEN account_type = 'REAL_ESTATE'           THEN '부동산'
+                WHEN account_type = 'SAVINGS'    THEN '적금'
+                WHEN account_type = 'DEPOSIT'    THEN '예금'
+                WHEN account_type = 'PENSION'    THEN '연금'
+                WHEN account_type = 'REAL_ESTATE' THEN '부동산'
                 ELSE '기타'
             END AS category,
             SUM(balance) AS amount
