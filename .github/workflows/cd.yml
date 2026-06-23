@@ -1,0 +1,86 @@
+name: CD (build → ECR → deploy)
+
+# 흐름: OIDC로 AWS 단기자격 → 두 이미지 git-SHA로 ECR push →
+#       배포 동안만 EC2 보안그룹 22 개방(러너 IP) → SSH로 deploy-release.sh 실행 → 22 닫기.
+# 트리거(현재): chore/cicd/demo push + 수동 dispatch. 검증되면 dev push로 승격.
+on:
+  push:
+    branches: [chore/cicd/demo]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-deploy
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # OIDC 토큰 발급
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push images (git-SHA tag)
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker build -f deploy/docker/Dockerfile.core-api   -t "$REGISTRY/pocketstock/core-api:$SHA" .
+          docker build -f deploy/docker/Dockerfile.ledger-api -t "$REGISTRY/pocketstock/ledger-api:$SHA" .
+          docker push "$REGISTRY/pocketstock/core-api:$SHA"
+          docker push "$REGISTRY/pocketstock/ledger-api:$SHA"
+
+      # 배포 동안만 22 개방 (평소엔 내 IP만 허용 유지)
+      - name: Open SSH (runner IP → EC2 SG 22)
+        id: sgopen
+        run: |
+          set -euo pipefail
+          RUNNER_IP="$(curl -s https://checkip.amazonaws.com)"
+          echo "runner_ip=$RUNNER_IP" >> "$GITHUB_OUTPUT"
+          aws ec2 authorize-security-group-ingress \
+            --group-id "${{ vars.EC2_SG_ID }}" \
+            --protocol tcp --port 22 --cidr "${RUNNER_IP}/32"
+
+      - name: Deploy over SSH
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          SHA: ${{ github.sha }}
+          REGION: ${{ vars.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy "${EC2_USER}@${EC2_HOST}" \
+            "set -e
+             cd ~/app
+             git fetch origin
+             git checkout --detach ${SHA}
+             git reset --hard ${SHA}
+             chmod +x deploy/scripts/deploy-release.sh
+             AWS_REGION=${REGION} deploy/scripts/deploy-release.sh ${SHA}"
+
+      # 성공/실패와 무관하게 22 다시 닫기
+      - name: Close SSH (revoke SG 22)
+        if: always() && steps.sgopen.outputs.runner_ip != ''
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "${{ vars.EC2_SG_ID }}" \
+            --protocol tcp --port 22 --cidr "${{ steps.sgopen.outputs.runner_ip }}/32" || true
