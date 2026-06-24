@@ -1,0 +1,50 @@
+name: CI
+
+# 품질 게이트: 깨진 코드가 dev에 합쳐지기 전에 실패시킨다. (배포는 cd.yml)
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev, chore/cicd/demo]
+
+# 같은 ref의 이전 실행은 취소
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# 최소 권한: 빌드/테스트만 하므로 읽기만
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      # 액션은 공급망 공격 방지를 위해 커밋 SHA로 핀(주석은 버전 참고용)
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false   # checkout 후 토큰을 .git에 남기지 않음
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      # 단위 테스트 (실제 LS/KIS 연동 IT는 LS_IT 미설정이라 자동 스킵)
+      - name: Test
+        run: ./gradlew --no-daemon clean test
+
+      # 실행 artifact 생성 확인
+      - name: Build bootJar (core-api, ledger-api)
+        run: ./gradlew --no-daemon :core-api:bootJar :ledger-api:bootJar
+
+      # Dockerfile 빌드 검증 (push 하지 않음 — push는 cd.yml에서만)
+      - name: Docker build core-api (verify only)
+        run: docker build -f deploy/docker/Dockerfile.core-api -t pocketstock/core-api:ci .
+
+      - name: Docker build ledger-api (verify only)
+        run: docker build -f deploy/docker/Dockerfile.ledger-api -t pocketstock/ledger-api:ci .

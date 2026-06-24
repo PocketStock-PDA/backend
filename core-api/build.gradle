@@ -25,3 +25,6 @@ dependencies {
     // 웹푸시(VAPID) 발송 — BouncyCastle 트랜지티브 포함
     implementation 'nl.martijndwars:web-push:5.1.1'
 }
+
+// plain jar 비활성 → bootJar 하나만 남겨 Dockerfile의 COPY *.jar 모호성 제거
+jar { enabled = false }
