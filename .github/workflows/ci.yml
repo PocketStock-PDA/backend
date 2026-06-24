@@ -34,15 +34,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
-      # 단위 테스트 (실제 LS/KIS 연동 IT는 LS_IT 미설정이라 자동 스킵)
-      - name: Test
-        run: ./gradlew --no-daemon clean test
-
-      # 실행 artifact 생성 확인
-      - name: Build bootJar (core-api, ledger-api)
-        run: ./gradlew --no-daemon :core-api:bootJar :ledger-api:bootJar
+      # 단위 테스트 + 실행 jar 빌드를 한 번에 (실제 LS/KIS 연동 IT는 LS_IT 미설정이라 자동 스킵)
+      # clean 으로 build/libs 를 비워 두면 Dockerfile 의 COPY *.jar 가 bootJar 하나만 매칭(잔여 jar 모호성 제거).
+      # 컴파일은 여기서 한 번만 하고, 의존성/빌드 캐시는 setup-gradle(~/.gradle)에서 복원되어 clean 비용은 거의 없다.
+      - name: Test & build bootJar (core-api, ledger-api)
+        run: ./gradlew --no-daemon clean test :core-api:bootJar :ledger-api:bootJar
 
       # Dockerfile 빌드 검증 (push 하지 않음 — push는 cd.yml에서만)
+      # 위에서 만든 jar 를 COPY 만 하므로 컨테이너 안에서 재컴파일하지 않는다.
       - name: Docker build core-api (verify only)
         run: docker build -f deploy/docker/Dockerfile.core-api -t pocketstock/core-api:ci .
 
