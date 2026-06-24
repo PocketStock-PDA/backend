@@ -1,20 +1,18 @@
-# ledger-api 이미지 — 멀티스테이지(빌드용 JDK / 실행용 JRE 분리)
-# 빌드 컨텍스트 = 레포 루트 (compose의 context: ../..)
-
-# ---- 1) 빌드 단계: 소스로 bootJar 생성 ----
-FROM eclipse-temurin:17-jdk AS build
-WORKDIR /src
-COPY . .
-RUN chmod +x ./gradlew && ./gradlew :ledger-api:bootJar --no-daemon -x test
-
-# ---- 2) 실행 단계: 가벼운 JRE + 비루트 유저 ----
+# ledger-api 런타임 이미지 — 컨테이너 안에서 재컴파일하지 않는다.
+# CI/CD 가 Gradle 로 미리 만든 :ledger-api:bootJar 산출물을 그대로 패키징한다.
+#   빌드 컨텍스트 = 레포 루트, 사전에 ./gradlew :ledger-api:bootJar 로 jar 가 존재해야 함.
+#   (build/ 는 .dockerignore 로 제외되지만 실행 jar 만 예외로 포함된다.)
 FROM eclipse-temurin:17-jre
 WORKDIR /app
+
+# 미리 빌드한 jar 경로 (plain jar 비활성이라 *.jar 는 bootJar 하나로 유일)
+ARG JAR_FILE=ledger-api/build/libs/*.jar
+
 # curl: compose healthcheck / 배포 스크립트의 /actuator/health 판정용 (앱 포트는 호스트에 미노출이라 컨테이너 내부에서 확인)
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd -r -u 1001 appuser
-COPY --from=build /src/ledger-api/build/libs/*.jar app.jar
+COPY ${JAR_FILE} app.jar
 USER appuser
 EXPOSE 8082
 ENTRYPOINT ["java","-jar","app.jar"]

@@ -2,6 +2,9 @@
 .git
 .gradle
 **/build
+# 단, CI/CD 가 미리 빌드한 실행 jar 는 이미지에 COPY 해야 하므로 예외로 포함 (BuildKit 재포함)
+!core-api/build/libs/*.jar
+!ledger-api/build/libs/*.jar
 **/application-local.yml
 **/application-secret.yml
 .env
