@@ -8,10 +8,10 @@
 | 담당 | 영역 | API 수 |
 |---|---|---|
 | **A·우정인** | 회원·인증 · 증권계좌 개설 · 알림 · 퍼즐/보상 | 30 |
-| **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 | 27 |
+| **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 | 33 |
 | **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 35 |
 | **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 리밸런싱 | 24 |
-| | **합계** | **116** |
+| | **합계** | **122** |
 
 ## 📌 범례
 
@@ -119,9 +119,15 @@
 | 소수점투자 | 온주 전환내역 조회 | GET | `/api/trading/whole-shares` |  | B·김준형 | ✅ #157 |
 | 정기적립식 | 자동모으기 설정 등록(주기/조건) | POST | `/api/trading/auto-invest` |  | B·김준형 |  |
 | 정기적립식 | 자동모으기 설정 수정 | PUT | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
-| 정기적립식 | 자동모으기 일시중지/재개/해제 | PATCH | `/api/trading/auto-invest/{id}/status` |  | B·김준형 |  |
-| 정기적립식 | 자동모으기 종목 추가 | POST | `/api/trading/auto-invest/stocks` |  | B·김준형 |  |
+| 정기적립식 | 자동모으기 일시중지/재개(PAUSE/RESUME) | PATCH | `/api/trading/auto-invest/{id}/status` |  | B·김준형 |  |
+| 정기적립식 | 자동모으기 해제(완전 삭제, 트리거·회차로그 CASCADE) | DELETE | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
+| 정기적립식 | 자동모으기 종목 추가(독립형이라 `POST /auto-invest`와 중복 → 추후 여러 종목 일괄등록 용도면 부활) | POST | `/api/trading/auto-invest/stocks` |  | B·김준형 | 잠정폐지 |
 | 정기적립식 | 자동모으기 종합 설정 조회 | GET | `/api/trading/auto-invest` |  | B·김준형 |  |
+| 정기적립식 | 자동모으기 단건 상세 조회(설정+누적 적립횟수·금액·다음 실행일) | GET | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
+| 정기적립식 | 종목별 모으기 실행 내역(회차별 체결·부족충전 발동) 조회 | GET | `/api/trading/auto-invest/{id}/executions` |  | B·김준형 |  |
+| 정기적립식 | 수익률 트리거 등록(물타기 ADD_ON_LOSS·익절 TAKE_PROFIT, 옵션 부가기능) | POST | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 |  |
+| 정기적립식 | 수익률 트리거 목록 조회 | GET | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 |  |
+| 정기적립식 | 수익률 트리거 해제 | DELETE | `/api/trading/auto-invest/{id}/triggers/{triggerId}` |  | B·김준형 |  |
 | 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | B·김준형 |  |
 | 웰컴보상 | 웰컴보상 후보 종목 조회(국내 거래대금 1·2위 + 해외 1·2위) | GET | `/api/trading/rewards/welcome/candidates` |  | B·김준형 | ✅ |
 | 웰컴보상 | 웰컴보상 종목 선택·지급(1,000원어치 소수점) | POST | `/api/trading/rewards/welcome` |  | B·김준형 | ✅ |
