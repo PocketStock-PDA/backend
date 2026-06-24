@@ -83,4 +83,7 @@ public interface HoldingMapper {
 
     /** 전체 유저 보유 종목 distinct stockCode (배치용) */
     List<String> findAllDistinctStockCodes();
+
+    /** 전체 유저 보유종목(수량>0) — 일별 평가 스냅샷 배치(BATCH-002)용. */
+    List<Holding> findAllActive();
 }
