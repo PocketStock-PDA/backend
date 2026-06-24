@@ -41,6 +41,7 @@
         FROM auto_invest_executions
         WHERE auto_invest_stock_id = #{autoInvestStockId}
           AND exec_date = #{execDate}
+          AND trigger_source = 'PERIODIC'
     </select>
 
     <select id="findByStock" resultMap="execution">

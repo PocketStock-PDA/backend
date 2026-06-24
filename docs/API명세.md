@@ -126,9 +126,9 @@
 | 정기적립식 | 자동모으기 종합 설정 조회 | GET | `/api/trading/auto-invest` |  | B·김준형 | ✅ |
 | 정기적립식 | 자동모으기 단건 상세 조회 | GET | `/api/trading/auto-invest/{id}` |  | B·김준형 | ✅ |
 | 정기적립식 | 종목별 모으기 실행 내역(회차별 체결/실패) 조회 | GET | `/api/trading/auto-invest/{id}/executions` |  | B·김준형 | ✅ #195 |
-| 정기적립식 | 수익률 트리거 등록(물타기 ADD_ON_LOSS·익절 TAKE_PROFIT, 옵션 부가기능) | POST | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 |  |
-| 정기적립식 | 수익률 트리거 목록 조회 | GET | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 |  |
-| 정기적립식 | 수익률 트리거 해제 | DELETE | `/api/trading/auto-invest/{id}/triggers/{triggerId}` |  | B·김준형 |  |
+| 정기적립식 | 수익률 트리거 등록/수정(물타기 BUY·익절 SELL, 종목당 종류별 1·옵션) | POST | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 | ✅ #194 |
+| 정기적립식 | 수익률 트리거 목록 조회 | GET | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 | ✅ #194 |
+| 정기적립식 | 수익률 트리거 해제 | DELETE | `/api/trading/auto-invest/{id}/triggers/{triggerId}` |  | B·김준형 | ✅ #194 |
 | 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | B·김준형 |  |
 | 웰컴보상 | 웰컴보상 후보 종목 조회(국내 거래대금 1·2위 + 해외 1·2위) | GET | `/api/trading/rewards/welcome/candidates` |  | B·김준형 | ✅ |
 | 웰컴보상 | 웰컴보상 종목 선택·지급(1,000원어치 소수점) | POST | `/api/trading/rewards/welcome` |  | B·김준형 | ✅ |

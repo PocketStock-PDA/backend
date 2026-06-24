@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.AutoInvestTriggerMapper">
+
+    <resultMap id="trigger" type="com.pocketstock.ledger.trading.domain.AutoInvestTrigger">
+        <id     property="id"                column="id"/>
+        <result property="autoInvestStockId" column="auto_invest_stock_id"/>
+        <result property="triggerKind"       column="trigger_kind"/>
+        <result property="conditionRate"     column="condition_rate"/>
+        <result property="actionType"        column="action_type"/>
+        <result property="actionAmount"      column="action_amount"/>
+        <result property="actionQuantity"    column="action_quantity"/>
+        <result property="actionRatio"       column="action_ratio"/>
+        <result property="isActive"          column="is_active"/>
+        <result property="isArmed"           column="is_armed"/>
+        <result property="lastFiredAt"       column="last_fired_at"/>
+        <result property="createdAt"         column="created_at"/>
+        <result property="updatedAt"         column="updated_at"/>
+        <!-- 평가 join 전용 -->
+        <result property="userId"            column="user_id"/>
+        <result property="stockCode"         column="stock_code"/>
+        <result property="market"            column="market"/>
+        <result property="accountId"         column="account_id"/>
+        <result property="currency"          column="currency"/>
+    </resultMap>
+
+    <insert id="upsert" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestTrigger">
+        INSERT INTO auto_invest_triggers
+            (auto_invest_stock_id, trigger_kind, condition_rate, action_type,
+             action_amount, action_quantity, action_ratio, is_active, is_armed)
+        VALUES
+            (#{autoInvestStockId}, #{triggerKind}, #{conditionRate}, #{actionType},
+             #{actionAmount}, #{actionQuantity}, #{actionRatio}, TRUE, TRUE)
+        ON DUPLICATE KEY UPDATE
+            condition_rate = VALUES(condition_rate),
+            action_type = VALUES(action_type),
+            action_amount = VALUES(action_amount),
+            action_quantity = VALUES(action_quantity),
+            action_ratio = VALUES(action_ratio),
+            is_active = TRUE,
+            is_armed = TRUE
+    </insert>
+
+    <select id="findByStockId" resultMap="trigger">
+        SELECT id, auto_invest_stock_id, trigger_kind, condition_rate, action_type,
+               action_amount, action_quantity, action_ratio, is_active, is_armed,
+               last_fired_at, created_at, updated_at
+        FROM auto_invest_triggers
+        WHERE auto_invest_stock_id = #{autoInvestStockId}
+        ORDER BY trigger_kind
+    </select>
+
+    <delete id="deleteByIdAndStockId">
+        DELETE FROM auto_invest_triggers
+        WHERE id = #{id} AND auto_invest_stock_id = #{autoInvestStockId}
+    </delete>
+
+    <select id="findActiveByMarket" resultMap="trigger">
+        SELECT t.id, t.auto_invest_stock_id, t.trigger_kind, t.condition_rate, t.action_type,
+               t.action_amount, t.action_quantity, t.action_ratio, t.is_active, t.is_armed,
+               t.last_fired_at, t.created_at, t.updated_at,
+               s.user_id, s.stock_code, s.market, s.account_id, s.currency
+        FROM auto_invest_triggers t
+        JOIN auto_invest_stocks s ON s.id = t.auto_invest_stock_id
+        JOIN auto_invest_settings g ON g.user_id = s.user_id
+        WHERE t.is_active = TRUE
+          AND s.is_active = TRUE
+          AND g.is_enabled = TRUE
+          AND g.is_paused = FALSE
+          AND s.market = #{market}
+        ORDER BY t.id
+    </select>
+
+    <update id="markFired">
+        UPDATE auto_invest_triggers
+        SET is_armed = FALSE, last_fired_at = #{firedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="rearm">
+        UPDATE auto_invest_triggers
+        SET is_armed = TRUE
+        WHERE id = #{id}
+    </update>
+
+</mapper>

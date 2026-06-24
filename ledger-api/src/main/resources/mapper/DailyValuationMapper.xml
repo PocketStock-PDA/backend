@@ -33,6 +33,15 @@
             currency = VALUES(currency)
     </insert>
 
+    <select id="findLatestByUserAndStock" resultMap="valuation">
+        SELECT id, user_id, stock_code, eval_date, quantity, close_price,
+               eval_amount, profit_amount, profit_rate, currency, created_at
+        FROM daily_valuations
+        WHERE user_id = #{userId} AND stock_code = #{stockCode}
+        ORDER BY eval_date DESC
+        LIMIT 1
+    </select>
+
     <select id="findByUserAndStock" resultMap="valuation">
         SELECT id, user_id, stock_code, eval_date, quantity, close_price,
                eval_amount, profit_amount, profit_rate, currency, created_at
