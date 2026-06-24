@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,9 +32,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CmaQueryService {
 
+    // 수집 가능 잔돈의 원화 소스 표시명. 외화(FX) 소스명은 실제 계좌명(account_name)을 그대로 쓴다.
     private static final Map<String, String> SOURCE_NAMES = Map.of(
             "ACCOUNT", "신한은행",
-            "CARD",    "SOL트래블",
             "POINT",   "마이신한포인트"
     );
     // "수집한 잔돈" 영역은 카드(CARD)만 노출 — 계좌 끝전/포인트 전환은 응답에서 제외(확정).
@@ -75,25 +76,31 @@ public class CmaQueryService {
         BigDecimal cardCollected = transactionMapper.sumCardCollectedThisMonth(userId);
         List<CmaHomeResponse.CollectSource> collectedSources =
                 (cardCollected != null && cardCollected.signum() > 0)
-                        ? List.of(new CmaHomeResponse.CollectSource("CARD", COLLECTED_CARD_NAME, cardCollected))
+                        ? List.of(new CmaHomeResponse.CollectSource("CARD", COLLECTED_CARD_NAME, cardCollected, KRW))
                         : List.of();
 
         List<CollectionSetting> settings = settingMapper.findByUserId(userId);
 
+        // "수집 가능 잔돈" — 원화 소스(계좌 끝전·포인트)와 외화 소스(FX)를 통화별로 분리한다.
+        // 끝전(ACCOUNT)은 원화 전용 개념이라 외화는 끼지 않고, 외화 입출금 지갑은 전부 FX로 노출한다.
         BigDecimal accountAmount = calcAccountAmount(userId, settings);
-        BigDecimal cardAmount    = calcCardAmount(userId, settings);
         BigDecimal pointAmount   = calcPointAmount(userId, settings);
-        BigDecimal totalCollectable = accountAmount.add(cardAmount).add(pointAmount);
+        List<CmaHomeResponse.CollectSource> fxSources = calcFxSources(userId);
 
-        List<CmaHomeResponse.CollectSource> collectSources = List.of(
-                new CmaHomeResponse.CollectSource("ACCOUNT", SOURCE_NAMES.get("ACCOUNT"), accountAmount),
-                new CmaHomeResponse.CollectSource("CARD",    SOURCE_NAMES.get("CARD"),    cardAmount),
-                new CmaHomeResponse.CollectSource("POINT",   SOURCE_NAMES.get("POINT"),   pointAmount)
-        );
+        BigDecimal totalCollectable = accountAmount.add(pointAmount);   // KRW 소스 합
+        BigDecimal totalCollectableUsd = fxSources.stream()            // USD 소스 합(통화가 달라 KRW와 분리)
+                .map(CmaHomeResponse.CollectSource::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 화면 노출 순서: 포인트 → SOL트래블 외화예금(FX) → 신한은행(끝전)
+        List<CmaHomeResponse.CollectSource> collectSources = new ArrayList<>();
+        collectSources.add(new CmaHomeResponse.CollectSource("POINT", SOURCE_NAMES.get("POINT"), pointAmount, KRW));
+        collectSources.addAll(fxSources);
+        collectSources.add(new CmaHomeResponse.CollectSource("ACCOUNT", SOURCE_NAMES.get("ACCOUNT"), accountAmount, KRW));
 
         return new CmaHomeResponse(
                 cmaBalance, interestRate, todayInterest,
-                collectedSources, collectSources, totalCollectable
+                collectedSources, collectSources, totalCollectable, totalCollectableUsd
         );
     }
 
@@ -192,6 +199,8 @@ public class CmaQueryService {
                 ));
 
         return accounts.stream()
+                // 끝전은 원화 전용 — 외화 계좌가 ACCOUNT 소스로 설정돼도 제외한다(외화는 FX로 수집).
+                .filter(a -> KRW.equals(a.currency()))
                 .map(a -> {
                     BigDecimal threshold = thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD);
                     return a.balance().remainder(threshold);
@@ -199,12 +208,15 @@ public class CmaQueryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal calcCardAmount(Long userId, List<CollectionSetting> settings) {
-        // 다중 카드 합산 — 수집 실행(CmaCollectService.collectFromCard)과 동일하게 활성 CARD 전부 더한다.
-        return settings.stream()
-                .filter(s -> "CARD".equals(s.getSourceType()) && Boolean.TRUE.equals(s.getIsEnabled()))
-                .map(s -> assetFeignClient.getCardRoundup(userId, s.getSourceRefId()).totalRoundupAmount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    /**
+     * 외화(USD) 잔돈 소스 — USD 입출금 지갑을 계좌 단위로 그대로 노출한다(합산해 한 라벨로 묶지 않는다).
+     * 줄 이름은 실제 계좌명(account_name)을 쓰고, 금액은 그 계좌의 USD 잔액이다(currency=USD).
+     * 현재 모집단은 SOL트래블 외화예금 한 계좌. 다은행 외화지갑 분리 표시는 후속(고도화).
+     */
+    private List<CmaHomeResponse.CollectSource> calcFxSources(Long userId) {
+        return assetFeignClient.getUsdWallets(userId).stream()
+                .map(w -> new CmaHomeResponse.CollectSource("FX", w.accountName(), w.balance(), USD))
+                .toList();
     }
 
     private BigDecimal calcPointAmount(Long userId, List<CollectionSetting> settings) {

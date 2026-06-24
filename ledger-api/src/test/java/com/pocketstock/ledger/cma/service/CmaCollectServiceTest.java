@@ -7,6 +7,7 @@ import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
 import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.client.dto.SourceDeduction;
+import com.pocketstock.ledger.client.dto.UsdWalletSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.response.CollectResult;
@@ -209,7 +210,7 @@ class CmaCollectServiceTest {
     void collectFromFx_singleWallet() {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
         when(feign.getUsdWallets(USER_ID))
-                .thenReturn(List.of(new LinkedAccountSummary(7L, "FX_WALLET", new BigDecimal("120.50"), "USD")));
+                .thenReturn(List.of(new UsdWalletSummary(7L, "SOL트래블 외화예금", new BigDecimal("120.50"), "USD")));
         // 통화는 USD 풀, ref_type은 출처 테이블(LINKED_BANK_ACCOUNT) — 환전(FX_TX)과 구분된다
         when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("USD"), eq("COLLECT"), eq("FX"),
                 eq(new BigDecimal("120.50")), eq("LINKED_BANK_ACCOUNT"), eq(7L), eq("key-fx")))
@@ -228,8 +229,8 @@ class CmaCollectServiceTest {
     void collectFromFx_multipleWallets() {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
         when(feign.getUsdWallets(USER_ID)).thenReturn(List.of(
-                new LinkedAccountSummary(7L, "FX_WALLET", new BigDecimal("120.50"), "USD"),
-                new LinkedAccountSummary(8L, "FX_WALLET", new BigDecimal("30.00"), "USD")));
+                new UsdWalletSummary(7L, "SOL트래블 외화예금", new BigDecimal("120.50"), "USD"),
+                new UsdWalletSummary(8L, "하나 외화통장", new BigDecimal("30.00"), "USD")));
         when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("USD"), eq("COLLECT"), eq("FX"),
                 eq(new BigDecimal("150.50")), eq("LINKED_BANK_ACCOUNT"), isNull(), eq("key-fx")))
                 .thenReturn(new BigDecimal("150.50"));
@@ -247,7 +248,7 @@ class CmaCollectServiceTest {
     void collectFromFx_nothingCollectible() {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
         when(feign.getUsdWallets(USER_ID))
-                .thenReturn(List.of(new LinkedAccountSummary(7L, "FX_WALLET", BigDecimal.ZERO, "USD")));
+                .thenReturn(List.of(new UsdWalletSummary(7L, "SOL트래블 외화예금", BigDecimal.ZERO, "USD")));
 
         assertThatThrownBy(() -> service(null).collectFromFx(USER_ID, "key-fx"))
                 .isInstanceOf(BusinessException.class)
