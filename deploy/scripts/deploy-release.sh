@@ -63,6 +63,12 @@ release_tag() {
   log "이미지 pull (tag=$tag)"
   dc pull core-api ledger-api
 
+  # 의존성 redis 먼저 기동(cold start 대비; 이미 떠 있으면 무변경).
+  # core/ledger는 --no-deps로 교체해 매 배포마다 redis를 재시작하지 않음.
+  log "redis 기동(필요 시)"
+  dc up -d redis
+  wait_healthy redis || return 1
+
   log "core-api 교체"
   dc up -d --no-deps --force-recreate core-api
   wait_healthy core-api || return 1
@@ -71,8 +77,8 @@ release_tag() {
   dc up -d --no-deps --force-recreate ledger-api
   wait_healthy ledger-api || return 1
 
-  # nginx/redis는 이미 떠 있으면 유지, 없으면 기동
-  dc up -d redis nginx
+  # 게이트웨이는 두 앱이 healthy된 뒤 기동(이미 떠 있으면 유지)
+  dc up -d nginx
   return 0
 }
 
