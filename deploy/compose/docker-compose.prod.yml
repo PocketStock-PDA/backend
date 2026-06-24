@@ -74,11 +74,31 @@ services:
     image: nginx:1.27-alpine
     ports:
       - "80:80"
+      - "443:443"   # HTTPS 전환 전엔 443 리스너 없음(연결 거부) → 무해. api-ssl.conf 활성화 시 사용.
     volumes:
-      - ../nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # 단일 파일이 아니라 conf.d 디렉터리째 마운트 → api-ssl.conf.disabled rename 만으로 443 활성(compose 재수정 불요)
+      - ../nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot-www:/var/www/certbot:ro      # ACME 챌린지 서빙(읽기). certbot 이 같은 볼륨에 토큰 기록.
+      - certbot-conf:/etc/letsencrypt:ro      # 발급된 인증서 읽기. 발급 전엔 빈 볼륨(참조하는 server 없어 무해).
     depends_on:
       core-api:
         condition: service_healthy
       ledger-api:
         condition: service_healthy
     restart: unless-stopped
+
+  # 인증서 발급/갱신 전용 — profiles 로 격리되어 평소 `up -d` 엔 안 뜸(deploy-release.sh 영향 없음).
+  # 발급: docker compose -p pocketstock -f docker-compose.prod.yml --env-file .env \
+  #         run --rm certbot certonly --webroot -w /var/www/certbot \
+  #         -d api.<도메인> --email <메일> --agree-tos --no-eff-email
+  # 갱신: ... run --rm certbot renew   (이후 nginx -s reload)
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["certbot"]
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+
+volumes:
+  certbot-www:
+  certbot-conf:

@@ -1,0 +1,40 @@
+# =====================================================================
+#  HTTPS(443) 서버 블록 — 도메인 확정 후 활성화 (현재는 .disabled 라 nginx 가 로드 안 함)
+# ---------------------------------------------------------------------
+#  ⚠ 인증서 파일이 없는 상태에서 이 파일을 *.conf 로 활성화하면
+#     ssl_certificate 로드 실패로 nginx 프로세스 전체가 부팅 못 함(80 게이트웨이까지 동반 다운).
+#     → 반드시 발급(아래 2번) 이후에 활성화(3번) 할 것.
+#
+#  활성화 절차 (api 서브도메인 확정 후, EC2 deploy/compose 에서):
+#   1) 이 파일의 __API_DOMAIN__ 3곳을 실제 도메인으로 치환 (예: api.example.com)
+#   2) 인증서 발급(webroot):
+#        docker compose -p pocketstock -f docker-compose.prod.yml --env-file .env \
+#          run --rm certbot certonly --webroot -w /var/www/certbot \
+#          -d api.example.com --email you@mail.com --agree-tos --no-eff-email
+#      → /etc/letsencrypt/live/api.example.com/{fullchain,privkey}.pem 생성 확인
+#   3) 파일명에서 .disabled 제거 → api-ssl.conf  (nginx 가 *.conf 로 로드)
+#   4) default.conf 80 블록의 include 한 줄을 80→443 리다이렉트로 교체 (ACME location 은 유지):
+#        location / { return 301 https://$host$request_uri; }
+#   5) 검증·리로드:
+#        docker compose -p pocketstock ... exec nginx nginx -t && \
+#        docker compose -p pocketstock ... exec nginx nginx -s reload
+#   * 갱신(90일): run --rm certbot renew  이후 nginx -s reload
+# =====================================================================
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name __API_DOMAIN__;
+
+    ssl_certificate     /etc/letsencrypt/live/__API_DOMAIN__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__API_DOMAIN__/privkey.pem;
+
+    # 권장 보안 기본값
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS(HTTPS 강제) — HTTPS 전환이 안정화된 뒤 켜기 권장(켜면 브라우저가 max-age 동안 http 차단)
+    # add_header Strict-Transport-Security "max-age=31536000" always;
+
+    # 라우팅은 80 과 동일한 정의를 공유 (X-Forwarded-Proto 는 여기선 https 로 들어감)
+    include /etc/nginx/conf.d/_proxy-locations.inc;
+}
