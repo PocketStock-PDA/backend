@@ -211,9 +211,13 @@ public class WholeOrderMatchingEngine {
                 toDec(ob.bidPrices()), toDec(ob.bidVolumes()));
     }
 
-    /** PENDING 진입(커밋 후) — 인덱스 등록 + 그 종목 첫 PENDING이면 호가 구독 ON. */
+    /**
+     * PENDING 진입(커밋 후) — 인덱스 등록 + 그 종목 첫 PENDING이면 호가 구독 ON.
+     * {@code synchronized}: {@link #reindexAndArm()}의 clear→재적재 사이에 이 put이 끼어 새 PENDING이
+     * 지워지는 레이스를 차단(둘 다 this 모니터로 직렬화). 이벤트는 AFTER_COMMIT이라 DB 락은 이미 해제됨.
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onPendingCreated(PendingOrderCreatedEvent e) {
+    public synchronized void onPendingCreated(PendingOrderCreatedEvent e) {
         if (!SUPPORTED_EXCHANGES.contains(e.exchange())) {
             return;   // 지원하지 않는 거래소(소수점 등)는 데몬 대상 아님
         }
@@ -225,9 +229,12 @@ public class WholeOrderMatchingEngine {
         }
     }
 
-    /** PENDING 종료(취소 커밋 후) — 인덱스 제거 + 그 종목 PENDING 0건이면 호가 구독 OFF. */
+    /**
+     * PENDING 종료(취소 커밋 후) — 인덱스 제거 + 그 종목 PENDING 0건이면 호가 구독 OFF.
+     * {@code synchronized}: {@link #reindexAndArm()}와 직렬화(onPendingCreated와 동일 사유 — 재적재 레이스 차단).
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onPendingClosed(PendingOrderClosedEvent e) {
+    public synchronized void onPendingClosed(PendingOrderClosedEvent e) {
         if (remove(e.stockCode(), e.orderId())) {
             releaseQuote(e.stockCode(), e.exchange());
         }
