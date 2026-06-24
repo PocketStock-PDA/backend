@@ -1,2 +1,2 @@
 id,username,password_hash,name,phone,ci,birth_date,gender,device_id,status,created_at,updated_at,deleted_at
-1,hyejin90,$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lM5i,임혜진,010-9876-5432,,1990-07-22,FEMALE,,ACTIVE,2026-01-15 10:00:00,2026-01-15 10:00:00,
+1,test1234,$2b$10$4j4DV4JDv0pB4bil3GWR7.oqA/aRVrxB58cWm..rw7xRq1zK7Ibba,임혜진,010-9876-5432,,1990-07-22,FEMALE,,ACTIVE,2026-01-15 10:00:00,2026-01-15 10:00:00,

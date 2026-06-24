@@ -47,8 +47,13 @@ INSERT INTO institution_master (id,category,company_code,company_name,logo_url,i
 (33,'POINT','LPOINT','엘포인트(L.POINT)',NULL,TRUE,33,'2026-01-01 00:00:00','2026-01-01 00:00:00'),
 (34,'POINT','CJONE','CJ ONE',NULL,TRUE,34,'2026-01-01 00:00:00','2026-01-01 00:00:00');
 
+-- 공용 테스트 계정: 아이디 test1234 / 비밀번호 Qwer1234! (팀 공용 로그인)
 INSERT INTO users (id,username,password_hash,name,phone,ci,birth_date,gender,device_id,status,created_at,updated_at,deleted_at) VALUES
-(1,'hyejin90','$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lM5i','임혜진','010-9876-5432',NULL,'1990-07-22','FEMALE',NULL,'ACTIVE','2026-01-15 10:00:00','2026-01-15 10:00:00',NULL);
+(1,'test1234','$2b$10$4j4DV4JDv0pB4bil3GWR7.oqA/aRVrxB58cWm..rw7xRq1zK7Ibba','임혜진','010-9876-5432',NULL,'1990-07-22','FEMALE',NULL,'ACTIVE','2026-01-15 10:00:00','2026-01-15 10:00:00',NULL);
+
+-- 공용 계좌 비밀번호(거래 인증 TXN_AUTH, 4자리 1234) — 환전·매매 시 게이트 통과용
+INSERT INTO account_passwords (id,user_id,password_hash,is_locked,created_at,updated_at) VALUES
+(1,1,'$2b$10$.iUrLbDBYaZI84VPLFmtSOeYY6JPE5glHXdZf6DlB9VNWERv3COte',FALSE,'2026-01-15 10:00:00','2026-01-15 10:00:00');
 
 INSERT INTO linked_institutions (id,user_id,institution_master_id,link_status,linked_at,last_synced_at,created_at,updated_at) VALUES
 (1,1,1,'LINKED','2026-01-15 10:10:00','2026-06-19 08:00:00','2026-01-15 10:10:00','2026-06-19 08:00:00'),
