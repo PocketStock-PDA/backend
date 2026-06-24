@@ -36,7 +36,7 @@ public class CardRecommendationService {
         Map.entry("교육", List.of("학원", "인터넷서점", "교육업종")),
         Map.entry("주거·수도·광열", List.of("아파트관리비", "공과금", "관리비", "주거")),
         Map.entry("가정용품·가사서비스", List.of("생활 가맹점", "생활서비스", "생활 부문", "일상생활비")),
-        Map.entry("주류·담배", List.of()),
+        Map.entry("주류·담배", List.of("주류", "술", "와인", "맥주", "담배")),
         Map.entry("기타상품·서비스", List.of("전 가맹점", "전가맹점", "국내 이용", "생활 가맹점"))
     );
 
