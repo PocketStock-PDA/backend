@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.AutoInvestExecutionMapper">
+
+    <resultMap id="execution" type="com.pocketstock.ledger.trading.domain.AutoInvestExecution">
+        <id     property="id"                column="id"/>
+        <result property="autoInvestStockId" column="auto_invest_stock_id"/>
+        <result property="roundNo"           column="round_no"/>
+        <result property="triggerSource"     column="trigger_source"/>
+        <result property="side"              column="side"/>
+        <result property="execDate"          column="exec_date"/>
+        <result property="status"            column="status"/>
+        <result property="failReason"        column="fail_reason"/>
+        <result property="orderId"           column="order_id"/>
+        <result property="execAmount"        column="exec_amount"/>
+        <result property="execQuantity"      column="exec_quantity"/>
+        <result property="currency"          column="currency"/>
+        <result property="createdAt"         column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestExecution"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO auto_invest_executions
+            (auto_invest_stock_id, round_no, trigger_source, side, exec_date,
+             status, fail_reason, order_id, exec_amount, exec_quantity, currency)
+        VALUES
+            (#{autoInvestStockId}, #{roundNo}, #{triggerSource}, #{side}, #{execDate},
+             #{status}, #{failReason}, #{orderId}, #{execAmount}, #{execQuantity}, #{currency})
+    </insert>
+
+    <select id="findMaxRoundNo" resultType="java.lang.Integer">
+        SELECT MAX(round_no)
+        FROM auto_invest_executions
+        WHERE auto_invest_stock_id = #{autoInvestStockId}
+    </select>
+
+    <select id="findByStock" resultMap="execution">
+        SELECT id, auto_invest_stock_id, round_no, trigger_source, side, exec_date,
+               status, fail_reason, order_id, exec_amount, exec_quantity, currency, created_at
+        FROM auto_invest_executions
+        WHERE auto_invest_stock_id = #{autoInvestStockId}
+        ORDER BY round_no DESC
+    </select>
+
+</mapper>

@@ -72,4 +72,23 @@
         WHERE id = #{id} AND user_id = #{userId}
     </delete>
 
+    <select id="findActiveDue" resultMap="stock">
+        SELECT a.id, a.user_id, a.account_id, a.stock_code, a.market, a.period, a.period_day,
+               a.amount_type, a.buy_amount, a.buy_quantity, a.currency, a.is_active,
+               a.created_at, a.updated_at, s.stock_name
+        FROM auto_invest_stocks a
+        JOIN auto_invest_settings g ON g.user_id = a.user_id
+        LEFT JOIN tradable_stocks s ON s.stock_code = a.stock_code
+        WHERE a.market = #{market}
+          AND a.is_active = TRUE
+          AND g.is_enabled = TRUE
+          AND g.is_paused = FALSE
+          AND (
+                a.period = 'DAILY'
+             OR (a.period = 'WEEKLY' AND a.period_day = #{weekday})
+             OR (a.period = 'MONTHLY' AND a.period_day = #{dayOfMonth})
+          )
+        ORDER BY a.id
+    </select>
+
 </mapper>
