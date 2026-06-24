@@ -1,6 +1,7 @@
 package com.pocketstock.core.internal.asset.mapper;
 
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
+import com.pocketstock.core.internal.asset.dto.UsdWalletSummary;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -16,8 +17,8 @@ public interface InternalAssetMapper {
             @Param("ids") List<Long> ids
     );
 
-    // 외화(USD) 지갑 목록 — 잔돈 수집의 FX 소스(전액 입금 대상). id+잔액 반환(수집 후 잔액 차감에 사용)
-    List<LinkedAccountSummary> findUsdWallets(@Param("userId") Long userId);
+    // 외화(USD) 입출금 지갑 목록 — 잔돈 수집의 FX 소스(전액 입금 대상). id+이름+잔액 반환(이름은 홈 노출용)
+    List<UsdWalletSummary> findUsdWallets(@Param("userId") Long userId);
 
     // id, amount 두 컬럼만 반환 — 서비스에서 라운드업 계산
     List<Map<String, Object>> findUncollectedCardTxs(

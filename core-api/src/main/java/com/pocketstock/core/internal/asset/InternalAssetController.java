@@ -4,6 +4,7 @@ import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
 import com.pocketstock.core.internal.asset.dto.PointSummary;
 import com.pocketstock.core.internal.asset.dto.SourceDeduction;
+import com.pocketstock.core.internal.asset.dto.UsdWalletSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -29,7 +30,7 @@ public class InternalAssetController {
     }
 
     @GetMapping("/fx-wallets")
-    public List<LinkedAccountSummary> getUsdWallets(@RequestParam Long userId) {
+    public List<UsdWalletSummary> getUsdWallets(@RequestParam Long userId) {
         return service.getUsdWallets(userId);
     }
 

@@ -15,14 +15,17 @@
           </foreach>
     </select>
 
-    <!-- 외화(USD) 지갑 목록 — 잔돈 수집의 FX 소스(전액 입금 대상). scan(sumUsdWalletBalance)과 동일 모집단
-         (미해지·비휴면 USD 지갑). id+잔액을 반환해 수집 후 deductAccountBalance로 원천을 닫는다. -->
+    <!-- 외화(USD) 입출금 지갑 목록 — 잔돈 수집의 FX 소스(전액 입금 대상). scan(sumUsdWalletBalance)과 동일 모집단.
+         account_type='DEMAND'(입출금식 외화지갑)만 포함 — 외화 정기예금/적금(DEPOSIT·SAVINGS)은 잔돈이 아니라 제외.
+         id+이름+잔액을 반환해 홈에 계좌 단위로 노출하고, 수집 후 deductAccountBalance로 원천을 닫는다.
+         컬럼 순서는 UsdWalletSummary 레코드 구성요소(id, accountName, balance, currency)와 일치시킨다. -->
     <select id="findUsdWallets"
-            resultType="com.pocketstock.core.internal.asset.dto.LinkedAccountSummary">
-        SELECT id, account_type, balance, currency
+            resultType="com.pocketstock.core.internal.asset.dto.UsdWalletSummary">
+        SELECT id, account_name, balance, currency
         FROM linked_bank_accounts
         WHERE user_id = #{userId}
           AND currency = 'USD'
+          AND account_type = 'DEMAND'
           AND is_dormant = FALSE
           AND closed_at IS NULL
     </select>
