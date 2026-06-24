@@ -27,4 +27,11 @@ public interface BudgetSavingsMapper {
             @Param("userId") Long userId,
             @Param("period") String period
     );
+
+    /** 절약금 모으기 동의 ON/OFF — 마이페이지 토글용(행 없으면 생성). */
+    void setCollectAgreed(
+            @Param("userId") Long userId,
+            @Param("period") String period,
+            @Param("agreed") boolean agreed
+    );
 }

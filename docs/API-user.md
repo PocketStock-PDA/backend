@@ -569,3 +569,70 @@ PIN/패턴 설정
   "data": null
  }
 ```
+
+---
+
+## 마이페이지
+
+### GET `/api/users/me/mypage`
+
+마이페이지 집계 조회 (프로필·CMA잔액·퍼즐판 평가·연동계좌·자동모으기 토글).<br>
+email은 회원 데이터에 컬럼이 없어 응답에서 제외. `username`은 이름 아래 표시용 로그인 아이디.<br>
+금액은 KRW 정수. CMA 미개설 시 `cmaBalance: 0`.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "마이페이지 조회 성공",
+  "data": {
+  "name": "김준형",
+  "username": "user1234",
+  "cmaBalance": 37840,
+  "puzzleValuation": 71516,
+  "linkedAccounts": [
+    { "id": "shinhan-bank", "name": "신한은행", "type": "BANK", "linked": true },
+    { "id": "shinhan-card", "name": "신한카드", "type": "CARD", "linked": true },
+    { "id": "shinhan-point", "name": "마이신한포인트", "type": "PAY", "linked": true }
+  ],
+  "settings": { "cardChangeCollect": true, "monthlySavingCollect": true }
+ }
+ }
+```
+
+> `linkedAccounts[].type`은 기관 카테고리 매핑값: `BANK`/`CARD`/`SECURITIES`, 포인트는 `PAY`.<br>
+> `puzzleValuation`은 ledger 실시간 집계(보유 × 현재가, 해외는 USD×환율 KRW 환산) — 포트폴리오 화면과 동일 소스.
+
+---
+
+### PATCH `/api/users/me/mypage/settings`
+
+자동 모으기 토글 부분 변경. 변경분만 전송(생략=변경 안 함), 둘 다 생략하면 400.<br>
+`cardChangeCollect`는 ledger 적립설정(sourceType=CARD)에 동기화, `monthlySavingCollect`는 현재월 절약금 동의에 반영.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+**Request Body**
+
+```json
+{
+  "cardChangeCollect": false
+ }
+```
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "저장되었습니다.",
+  "data": { "cardChangeCollect": false, "monthlySavingCollect": true }
+ }
+```
