@@ -4,6 +4,7 @@ import com.pocketstock.ledger.client.CalendarFeignClient;
 import com.pocketstock.ledger.client.dto.StockEventUpsertRequest;
 import com.pocketstock.ledger.dart.OpenDartClient;
 import com.pocketstock.ledger.dart.OpenDartDisclosureResponse;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,9 +34,13 @@ public class EarningsBatchService {
     private final HoldingMapper holdingMapper;
     private final OpenDartClient openDartClient;
     private final CalendarFeignClient calendarFeignClient;
+    private final LedgerActivation activation;
 
     @Scheduled(cron = "0 0 3 * * MON", zone = "Asia/Seoul")
     public void syncEarningsEvents() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 활성 색이 배치 실행(upsert 멱등이나 단일활성 일관성).
+        }
         List<String> stockCodes = holdingMapper.findAllDistinctStockCodes();
         if (stockCodes.isEmpty()) {
             log.info("[실적배치] 보유 종목 없음 — skip");

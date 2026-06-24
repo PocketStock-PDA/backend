@@ -2,6 +2,7 @@ package com.pocketstock.ledger.ls;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import com.pocketstock.ledger.realtime.RealtimeReconnectedEvent;
 import com.pocketstock.ledger.realtime.RealtimeUpstream;
 import jakarta.annotation.PreDestroy;
@@ -42,6 +43,7 @@ public class LsRealtimeClient implements RealtimeUpstream {
     private final LsTokenProvider tokenProvider;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final LedgerActivation activation;
 
     /** tr_cd → 도메인 핸들러. */
     private final Map<String, LsRealtimeListener> listeners;
@@ -56,11 +58,13 @@ public class LsRealtimeClient implements RealtimeUpstream {
 
     public LsRealtimeClient(LsApiProperties props, LsTokenProvider tokenProvider,
                             ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher,
+                            LedgerActivation activation,
                             List<LsRealtimeListener> listenerBeans) {
         this.props = props;
         this.tokenProvider = tokenProvider;
         this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
+        this.activation = activation;
         this.listeners = listenerBeans.stream()
                 .collect(Collectors.toMap(LsRealtimeListener::trCd, l -> l));
     }
@@ -73,11 +77,28 @@ public class LsRealtimeClient implements RealtimeUpstream {
     /** 종목 실시간 등록(구독자 0→1일 때만 호출됨). */
     @Override
     public synchronized void register(String trCd, String trKey) {
+        boolean added = activeKeys.add(key(trCd, trKey));   // 의도 항상 기록(rearm 복구용)
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 세션 안 엶(LS 등록 한도 N배 회피). rearm 때 일괄 등록.
+        }
         connectIfNeeded();
-        if (activeKeys.add(key(trCd, trKey))) {
+        if (added) {
             send(TR_TYPE_REGISTER, trCd, trKey);
             log.info("LS 실시간 등록 tr_cd={} tr_key={}", trCd, trKey);
         }
+    }
+
+    /** Blue-Green 활성 인계 — 비활성 동안 보류한 등록 종목을 일괄 연결·재등록(rearm). */
+    public synchronized void rearm() {
+        if (activeKeys.isEmpty()) {
+            return;
+        }
+        connectIfNeeded();
+        activeKeys.forEach(k -> {
+            String[] p = k.split("\\|", 2);
+            send(TR_TYPE_REGISTER, p[0], p[1]);
+        });
+        log.info("LS 실시간 rearm — {}건 재등록", activeKeys.size());
     }
 
     /** 종목 실시간 해제(구독자 1→0일 때만 호출됨). */

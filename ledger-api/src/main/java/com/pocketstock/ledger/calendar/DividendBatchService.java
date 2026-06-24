@@ -4,6 +4,7 @@ import com.pocketstock.ledger.client.CalendarFeignClient;
 import com.pocketstock.ledger.client.dto.StockEventUpsertRequest;
 import com.pocketstock.ledger.kis.KisDividendClient;
 import com.pocketstock.ledger.kis.KisDividendResponse;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,9 +32,13 @@ public class DividendBatchService {
 
     private final KisDividendClient kisDividendClient;
     private final CalendarFeignClient calendarFeignClient;
+    private final LedgerActivation activation;
 
     @Scheduled(cron = "0 0 2 1 1 *", zone = "Asia/Seoul")
     public void syncDividendEvents() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 활성 색이 배치 실행(upsert 멱등이나 단일활성 일관성).
+        }
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         LocalDate oneYearLater = today.plusYears(1);
 

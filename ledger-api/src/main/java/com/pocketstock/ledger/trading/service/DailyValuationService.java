@@ -6,6 +6,7 @@ import com.pocketstock.ledger.trading.domain.DailyValuation;
 import com.pocketstock.ledger.trading.domain.Holding;
 import com.pocketstock.ledger.trading.dto.DailyValuationResponse;
 import com.pocketstock.ledger.trading.dto.StockPriceResponse;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import com.pocketstock.ledger.trading.mapper.DailyValuationMapper;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import lombok.RequiredArgsConstructor;
@@ -44,10 +45,14 @@ public class DailyValuationService {
     private final HoldingMapper holdingMapper;
     private final DailyValuationMapper dailyValuationMapper;
     private final StockPriceService stockPriceService;
+    private final LedgerActivation activation;
 
     /** 일별 평가 스냅샷 적재 — 매일 07:00 KST(미 장마감 후·국내 개장 전). */
     @Scheduled(cron = "0 0 7 * * *", zone = "Asia/Seoul")
     public void snapshot() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 활성 색이 스냅샷 적재(upsert 멱등이나 단일활성 일관성).
+        }
         run();
     }
 

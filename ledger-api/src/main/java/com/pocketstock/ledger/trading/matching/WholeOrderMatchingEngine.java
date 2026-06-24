@@ -4,6 +4,7 @@ import com.pocketstock.ledger.config.RealtimeSubscriptionManager;
 import com.pocketstock.ledger.kis.KisAskingPriceResponse;
 import com.pocketstock.ledger.kis.KisMarketClient;
 import com.pocketstock.ledger.kis.KisRealtimeClient;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import com.pocketstock.ledger.ls.LsRealtimeClient;
 import com.pocketstock.ledger.realtime.RealtimeReconnectedEvent;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
@@ -66,16 +67,32 @@ public class WholeOrderMatchingEngine {
     private final KisMarketClient kisMarketClient;
     private final LsRealtimeClient lsRealtimeClient;
     private final KisRealtimeClient kisRealtimeClient;
+    private final LedgerActivation activation;
 
     /** stockCode → (orderId → PENDING 스냅샷). 매칭용 캐시(SSOT=DB). */
     private final Map<String, Map<Long, Pending>> index = new ConcurrentHashMap<>();
 
     /** 부팅 복구 — DB의 국내·해외 PENDING 전건을 인덱스에 재적재하고 종목별 호가 구독을 켠다. */
     @EventListener(ApplicationReadyEvent.class)
-    public void reloadPending() {
+    public void onApplicationReady() {
+        reindexAndArm();
+    }
+
+    /**
+     * PENDING 인덱스를 DB(SSOT)로부터 재적재하고, 활성 색이면 종목별 호가 구독 ON + 부팅 스냅샷 보정까지 무장.
+     * 부팅 시 1회, Blue-Green rearm 시 재호출 — rearm 때는 옛 색(다른 인스턴스)에 들어온 PENDING도
+     * DB 기준으로 다시 담아 "새 색 인덱스에 없어 영영 미매칭되는 고아 PENDING"을 막는다.
+     * 비활성 색은 인덱스만 채우고 구독·스냅샷은 보류(LS/KIS 세션 안 엶) → rearm 때 무장.
+     */
+    public synchronized void reindexAndArm() {
         List<Order> pendings = orderMapper.findPendingByExchanges(SUPPORTED_EXCHANGES);
+        index.clear();
         for (Order o : pendings) {
             put(o.getStockCode(), toPending(o));
+        }
+        if (!activation.isActive()) {
+            log.info("온주 지정가 매칭 — PENDING {}건 인덱스 적재(비활성 색 — 구독·스냅샷 보류)", pendings.size());
+            return;
         }
         // 종목별 1회만 구독(같은 종목 PENDING은 거래소가 동일) — 인덱스의 아무 PENDING에서 거래소 파생.
         index.forEach((stockCode, orders) -> {
@@ -125,6 +142,9 @@ public class WholeOrderMatchingEngine {
      */
     @Scheduled(initialDelay = 15_000, fixedDelay = 15_000)
     public void keepPendingSubscriptionsAlive() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 상류 세션 재연결/재무장 안 함(LS/KIS 세션 안 엶)
+        }
         boolean hasDomestic = false;
         List<String> foreignStocks = new ArrayList<>();
         for (Map.Entry<String, Map<Long, Pending>> entry : index.entrySet()) {
@@ -221,6 +241,9 @@ public class WholeOrderMatchingEngine {
      */
     @EventListener
     public void onTick(QuoteTick t) {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 매칭 실행 안 함(중복 체결 방지). 활성 색이 체결.
+        }
         Map<Long, Pending> orders = index.get(t.stockCode());
         if (orders == null) {
             return;
@@ -267,6 +290,9 @@ public class WholeOrderMatchingEngine {
     // ---- 구독 dispatch(국내 LS UH1 / 해외 KIS HDFSASP0) ----
 
     private void acquireQuote(String stockCode, String exchange) {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 구독 보류(refCount 미증가). rearm 시 reindexAndArm 이 일괄 acquire.
+        }
         if (OVERSEAS_EXCHANGES.contains(exchange)) {
             subscriptionManager.acquireForeignQuote(stockCode);
         } else {

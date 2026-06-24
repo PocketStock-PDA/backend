@@ -4,6 +4,7 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.ledger.trading.domain.AutoInvestStock;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
 import com.pocketstock.ledger.trading.dto.SplitOrderResponse;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import com.pocketstock.ledger.trading.mapper.AutoInvestExecutionMapper;
 import com.pocketstock.ledger.trading.mapper.AutoInvestStockMapper;
 import lombok.RequiredArgsConstructor;
@@ -40,16 +41,23 @@ public class AutoInvestScheduler {
     private final FractionalOrderService fractionalOrderService;
     private final AutoInvestExecutionRecorder recorder;
     private final AutoInvestTriggerEvaluator triggerEvaluator;
+    private final LedgerActivation activation;
 
     /** 국내 정기매수 — 매일 09:10 KST(개장 직후, 항상 장중). */
     @Scheduled(cron = "0 10 9 * * *", zone = "Asia/Seoul")
     public void runDomestic() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 활성 색이 집행(멱등키로도 중복 차단되나 단일활성 일관성).
+        }
         run("DOMESTIC");
     }
 
     /** 해외 정기매수 — 매일 22:40 KST(서머타임 개장후10분 / 겨울 개장전=동결가). */
     @Scheduled(cron = "0 40 22 * * *", zone = "Asia/Seoul")
     public void runOverseas() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 활성 색이 집행(멱등키로도 중복 차단되나 단일활성 일관성).
+        }
         run("OVERSEAS");
     }
 
