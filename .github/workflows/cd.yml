@@ -28,6 +28,21 @@ jobs:
         with:
           persist-credentials: false   # checkout 후 토큰을 .git에 남기지 않음
 
+      # 이미지는 컨테이너 안에서 재컴파일하지 않고, 여기서 만든 jar 를 그대로 패키징한다.
+      - name: Set up JDK 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      # 테스트는 CI(dev PR/머지)에서 이미 통과 — CD 는 실행 jar 만 빌드.
+      # clean 으로 build/libs 를 비워 Dockerfile 의 COPY *.jar 가 bootJar 하나만 매칭하게 한다.
+      - name: Build bootJar (core-api, ledger-api)
+        run: ./gradlew --no-daemon clean :core-api:bootJar :ledger-api:bootJar
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
@@ -38,6 +53,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
 
+      # 위에서 빌드한 jar 를 COPY 만 한다 (컨테이너 안 재컴파일·의존성 재다운로드 없음)
       - name: Build & push images (git-SHA tag)
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
