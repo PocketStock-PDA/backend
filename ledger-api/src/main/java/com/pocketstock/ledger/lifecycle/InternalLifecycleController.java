@@ -6,6 +6,8 @@ import com.pocketstock.ledger.ls.LsRealtimeClient;
 import com.pocketstock.ledger.trading.matching.WholeOrderMatchingEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,18 +48,20 @@ public class InternalLifecycleController {
      * ② CUR 상시구독 재개 ③ 보류했던 LS/KIS 등록 일괄 재전송.
      */
     @PostMapping("/rearm")
-    public Map<String, Object> rearm() {
+    public ResponseEntity<Map<String, Object>> rearm() {
         activation.refreshNow();
         if (!activation.isActive()) {
+            // 409 로 surface — 배포 스크립트가 curl -fsS 로 호출하므로 200이면 스킵을 성공으로 오인한다.
             log.warn("[Blue-Green] rearm 요청됐으나 active-color 가 이 색({})이 아님 — 스킵", activation.myColor());
-            return Map.of("color", activation.myColor(), "active", false,
-                    "msg", "active-color mismatch — rearm skipped");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "color", activation.myColor(), "active", false,
+                    "msg", "active-color mismatch — rearm skipped"));
         }
         matchingEngine.reindexAndArm();
         currencyRatePinner.pin();
         lsRealtimeClient.rearm();
         kisRealtimeClient.rearm();
         log.info("[Blue-Green] color={} rearm 완료 — 백그라운드 활성", activation.myColor());
-        return Map.of("color", activation.myColor(), "active", true);
+        return ResponseEntity.ok(Map.of("color", activation.myColor(), "active", true));
     }
 }

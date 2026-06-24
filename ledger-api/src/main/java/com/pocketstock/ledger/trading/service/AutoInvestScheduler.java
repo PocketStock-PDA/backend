@@ -46,23 +46,24 @@ public class AutoInvestScheduler {
     /** 국내 정기매수 — 매일 09:10 KST(개장 직후, 항상 장중). */
     @Scheduled(cron = "0 10 9 * * *", zone = "Asia/Seoul")
     public void runDomestic() {
-        if (!activation.isActive()) {
-            return;   // 비활성 색 — 활성 색이 집행(멱등키로도 중복 차단되나 단일활성 일관성).
-        }
         run("DOMESTIC");
     }
 
     /** 해외 정기매수 — 매일 22:40 KST(서머타임 개장후10분 / 겨울 개장전=동결가). */
     @Scheduled(cron = "0 40 22 * * *", zone = "Asia/Seoul")
     public void runOverseas() {
-        if (!activation.isActive()) {
-            return;   // 비활성 색 — 활성 색이 집행(멱등키로도 중복 차단되나 단일활성 일관성).
-        }
         run("OVERSEAS");
     }
 
-    /** 시장별 도래 종목 집행 — 한 종목 실패가 배치를 멈추지 않게 종목 단위로 격리. (dev 수동 트리거 공용) */
+    /**
+     * 시장별 도래 종목 집행 — 한 종목 실패가 배치를 멈추지 않게 종목 단위로 격리.
+     * cron·dev 수동 트리거(DevController) 공용 진입점이라 단일활성 게이트를 여기서 한 번에 적용한다
+     * (멱등키로도 중복 차단되나, 비활성 색이 dev 트리거로 집행하는 경로까지 막는다).
+     */
     public void run(String market) {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 활성 색이 집행.
+        }
         LocalDate today = LocalDate.now(KST);
         int weekday = today.getDayOfWeek().getValue();   // 1=월 ~ 7=일
         int dayOfMonth = today.getDayOfMonth();

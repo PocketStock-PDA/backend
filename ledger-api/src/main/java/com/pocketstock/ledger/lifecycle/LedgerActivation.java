@@ -37,6 +37,8 @@ public class LedgerActivation {
     private volatile boolean draining = false;
     /** active-color 캐시(핫패스 Redis 회피). 주기 갱신 + rearm/quiesce 시 즉시 동기화. */
     private volatile String cachedActiveColor;
+    /** 직전 active-color 읽기가 실패했는지 — 색 지정 인스턴스의 fail-closed 판정용(키 부재와 구분). */
+    private volatile boolean lastReadFailed = false;
 
     public LedgerActivation(StringRedisTemplate redis,
                             @Value("${DEPLOY_COLOR:}") String deployColor) {
@@ -50,12 +52,15 @@ public class LedgerActivation {
         if (draining) {
             return false;   // quiesce 중 — 새 백그라운드 작업 차단
         }
+        if (myColor.isBlank()) {
+            return true;    // 색 미설정(로컬/단일 실행) → active(단일 인스턴스 행동 보존)
+        }
+        if (lastReadFailed) {
+            return false;   // 색 지정 인스턴스 + active-color 읽기 실패 → fail-closed(단일활성 위반·중복 원장 방지)
+        }
         String active = cachedActiveColor;
         if (active == null || active.isBlank()) {
-            return true;    // 키 부재 → 기본 active(단일 인스턴스 행동 보존)
-        }
-        if (myColor.isBlank()) {
-            return true;    // 색 미설정(로컬/단일 실행) → active
+            return true;    // 키 진짜 부재(읽기는 성공) → active(부트스트랩 전 등)
         }
         return myColor.equals(active);
     }
@@ -86,10 +91,13 @@ public class LedgerActivation {
 
     private String readActiveColor() {
         try {
-            return redis.opsForValue().get(ACTIVE_COLOR_KEY);
+            String v = redis.opsForValue().get(ACTIVE_COLOR_KEY);
+            lastReadFailed = false;
+            return v;
         } catch (Exception e) {
-            // Redis 일시 장애 — 캐시 유지(다음 주기 재시도). 부팅 시 예외면 null(기본 active).
-            log.warn("[Blue-Green] active-color 조회 실패 — 캐시 유지: {}", e.getMessage());
+            // Redis 일시 장애 — 캐시 유지(다음 주기 재시도)하되 읽기 실패를 기록해 색 지정 인스턴스는 fail-closed.
+            lastReadFailed = true;
+            log.warn("[Blue-Green] active-color 조회 실패 — 캐시 유지(색 지정 인스턴스는 비활성 처리): {}", e.getMessage());
             return cachedActiveColor;
         }
     }
