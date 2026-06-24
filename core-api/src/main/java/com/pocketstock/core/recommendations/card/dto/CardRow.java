@@ -11,4 +11,6 @@ public class CardRow {
     private String cardType;
     private String provider;
     private BigDecimal annualFeeDomestic;
+    private String imageUrl;
+    private String applyUrl;
 }

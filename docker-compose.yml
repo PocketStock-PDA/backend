@@ -7,6 +7,7 @@ services:
   mysql-a:
     image: mysql:8.0
     container_name: pocketstock-mysql-a
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --skip-character-set-client-handshake
     ports:
       - "3306:3306"
     environment:
@@ -14,6 +15,7 @@ services:
     volumes:
       - ./scripts/mysql-a-init.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./scripts/stock-master/cards_seed.sql:/docker-entrypoint-initdb.d/02-cards-seed.sql
+      - ./scripts/stock-master/card_benefits_seed.sql:/docker-entrypoint-initdb.d/02a-card-benefits-seed.sql
       - ./scripts/stock-master/dividend_stocks_seed.sql:/docker-entrypoint-initdb.d/02b-dividend-seed.sql
       - ./scripts/mysql-a-persona-seed.sql:/docker-entrypoint-initdb.d/03-persona-seed.sql
       - ./scripts/mysql-a-persona-seed-extra.sql:/docker-entrypoint-initdb.d/04-persona-extra.sql
@@ -23,6 +25,7 @@ services:
   mysql-b:
     image: mysql:8.0
     container_name: pocketstock-mysql-b
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --skip-character-set-client-handshake
     ports:
       - "3307:3306"
     environment:
