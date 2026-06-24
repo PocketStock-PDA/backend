@@ -14,24 +14,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * KIS 거래대금 순위 REST 호출 — 가입보상 후보 종목 선정용.
- * 시세 전용 {@link KisMarketClient}와 달리 순위 API는 쿼리 파라미터가 TR마다 달라
- * (국내 FID_*, 해외 KEYB/EXCD/…), 임의 파라미터 Map을 받는 별도 클라이언트로 둔다.
- * 토큰·appkey/appsecret 헤더·401 재발급 재시도·장애 502 변환 패턴은 KisMarketClient와 동일.
+ * KIS 해외 거래대금 순위 REST 호출 — 가입보상 후보(해외) 종목 선정용.
+ * 시세 전용 {@link KisMarketClient}와 달리 순위 API는 쿼리 파라미터가 달라(KEYB/EXCD/…)
+ * 별도 클라이언트로 둔다. 토큰·appkey/appsecret 헤더·401 재발급·장애 502 변환은 KisMarketClient와 동일.
  *
- * <p>국내·해외 순위 모두 모의투자 미지원 → 실전 토큰 필요.
+ * <p>해외 순위는 모의투자 미지원 → 실전 토큰 필요.
+ * <p>국내 거래대금 순위는 LS t1463({@link com.pocketstock.ledger.ls.LsRankingClient})로 일원화.
  */
 @Slf4j
 @Component
 public class KisRankingClient {
 
-    /** 국내주식 거래량순위(국내주식-047). FID_BLNG_CLS_CODE=3 으로 거래금액순 정렬. */
-    private static final String DOMESTIC_RANK_PATH = "/uapi/domestic-stock/v1/quotations/volume-rank";
-    private static final String TR_DOMESTIC_RANK = "FHPST01710000";
-
     /** 해외주식 거래대금순위(해외주식-044). */
     private static final String OVERSEAS_RANK_PATH = "/uapi/overseas-stock/v1/ranking/trade-pbmn";
     private static final String TR_OVERSEAS_RANK = "HHDFS76320010";
+
+    /** 해외주식 시가총액순위(해외주식-047). */
+    private static final String OVERSEAS_MKTCAP_PATH = "/uapi/overseas-stock/v1/ranking/market-cap";
+    private static final String TR_OVERSEAS_MKTCAP = "HHDFS76350100";
 
     private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
     private static final String CUST_TYPE_INDIVIDUAL = "P";
@@ -48,30 +48,6 @@ public class KisRankingClient {
     }
 
     /**
-     * 국내 거래대금 상위 종목(거래금액순). KRX 전체 대상, 가격·거래량 필터 없음.
-     * 최대 30건 반환(다음 조회 불가).
-     */
-    public List<KisDomesticRankResponse.Item> getDomesticTradeAmountRank() {
-        Map<String, String> q = Map.ofEntries(
-                Map.entry("FID_COND_MRKT_DIV_CODE", "J"),   // J:KRX
-                Map.entry("FID_COND_SCR_DIV_CODE", "20171"),
-                Map.entry("FID_INPUT_ISCD", "0000"),        // 0000: 전체
-                Map.entry("FID_DIV_CLS_CODE", "0"),         // 0: 전체(보통주+우선주)
-                Map.entry("FID_BLNG_CLS_CODE", "3"),        // 3: 거래금액순
-                Map.entry("FID_TRGT_CLS_CODE", "111111111"),
-                Map.entry("FID_TRGT_EXLS_CLS_CODE", "0000000000"),
-                Map.entry("FID_INPUT_PRICE_1", ""),         // 가격 필터 없음(전체)
-                Map.entry("FID_INPUT_PRICE_2", ""),
-                Map.entry("FID_VOL_CNT", "")                // 거래량 필터 없음(전체)
-        );
-        KisDomesticRankResponse res = callGet(DOMESTIC_RANK_PATH, TR_DOMESTIC_RANK, q,
-                KisDomesticRankResponse.class);
-        verify(res, (res == null) ? null : res.output(),
-                (res == null) ? null : res.rtCd(), (res == null) ? null : res.msg1(), "국내");
-        return res.output();
-    }
-
-    /**
      * 해외 거래대금 상위 종목. excd=거래소(NAS/NYS/AMS …), 당일·전체 거래량·가격 무필터.
      */
     public List<KisOverseasRankResponse.Item> getOverseasTradeAmountRank(String excd) {
@@ -85,6 +61,26 @@ public class KisRankingClient {
                 Map.entry("PRC2", "")
         );
         KisOverseasRankResponse res = callGet(OVERSEAS_RANK_PATH, TR_OVERSEAS_RANK, q,
+                KisOverseasRankResponse.class);
+        verify(res, (res == null) ? null : res.output2(),
+                (res == null) ? null : res.rtCd(), (res == null) ? null : res.msg1(), excd);
+        return res.output2();
+    }
+
+    /**
+     * 해외 시가총액 상위 종목. excd=거래소(NAS/NYS …), 전체 거래량 대상.
+     * 시가총액 값은 tomv. 거래대금순위와 같은 output2 스키마(KisOverseasRankResponse) 공용.
+     */
+    public List<KisOverseasRankResponse.Item> getOverseasMarketCapRank(String excd) {
+        // CURR_GB(통화구분)는 KIS 문서(엑셀)에 누락됐으나 필수 — 0=현지통화(USD) 기준 시총.
+        Map<String, String> q = Map.ofEntries(
+                Map.entry("KEYB", ""),
+                Map.entry("AUTH", ""),
+                Map.entry("EXCD", excd),
+                Map.entry("VOL_RANG", "0"),  // 0: 전체
+                Map.entry("CURR_GB", "0")    // 0: 현지통화 기준(원화환산이면 1)
+        );
+        KisOverseasRankResponse res = callGet(OVERSEAS_MKTCAP_PATH, TR_OVERSEAS_MKTCAP, q,
                 KisOverseasRankResponse.class);
         verify(res, (res == null) ? null : res.output2(),
                 (res == null) ? null : res.rtCd(), (res == null) ? null : res.msg1(), excd);
@@ -126,11 +122,15 @@ public class KisRankingClient {
     }
 
     private void verify(Object res, List<?> out, String rtCd, String msg1, String target) {
-        if (res == null || out == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "거래대금 순위 조회 실패: KIS 응답 없음 (" + target + ")");
+        if (res == null) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "해외 순위 조회 실패: KIS 응답 없음 (" + target + ")");
         }
+        // rt_cd 오류를 먼저 surface — 실제 KIS msg1을 "응답 없음"으로 덮지 않도록.
         if (rtCd != null && !SUCCESS_CODE.equals(rtCd)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "KIS 오류(" + rtCd + "): " + msg1);
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "KIS 오류(" + rtCd + "): " + msg1 + " (" + target + ")");
+        }
+        if (out == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "해외 순위 결과 없음 (" + target + "): " + msg1);
         }
     }
 
