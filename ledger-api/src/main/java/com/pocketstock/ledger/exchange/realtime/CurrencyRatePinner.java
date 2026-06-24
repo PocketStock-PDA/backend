@@ -1,6 +1,7 @@
 package com.pocketstock.ledger.exchange.realtime;
 
 import com.pocketstock.ledger.exchange.CurrencyRateProvider;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import com.pocketstock.ledger.ls.LsRealtimeClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class CurrencyRatePinner {
 
     private final LsRealtimeClient lsClient;
     private final CurrencyRateProvider rateProvider;
+    private final LedgerActivation activation;
 
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
@@ -44,7 +46,11 @@ public class CurrencyRatePinner {
         pin();
     }
 
-    private void pin() {
+    /** CUR 상시구독(활성 색만). Blue-Green rearm 시 컨트롤러가 직접 호출하므로 public. */
+    public void pin() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — CUR 구독 보류(rearm 때 재개)
+        }
         try {
             lsClient.register(TR_CD, TR_KEY);
         } catch (Exception e) {
