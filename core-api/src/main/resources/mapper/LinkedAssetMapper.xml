@@ -61,6 +61,7 @@
           AND lba.currency = 'USD'
           AND lba.account_type = 'DEMAND'
           AND lba.is_dormant = FALSE
+          AND lba.closed_at IS NULL
     </select>
 
 </mapper>

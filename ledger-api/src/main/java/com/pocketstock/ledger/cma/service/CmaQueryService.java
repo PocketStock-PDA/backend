@@ -214,7 +214,9 @@ public class CmaQueryService {
      * 현재 모집단은 SOL트래블 외화예금 한 계좌. 다은행 외화지갑 분리 표시는 후속(고도화).
      */
     private List<CmaHomeResponse.CollectSource> calcFxSources(Long userId) {
+        // 실제 수집(collectFromFx)과 동일하게 잔액 있는(>0) 지갑만 노출 — 빈 지갑이 "수집 가능"에 뜨지 않게 한다.
         return assetFeignClient.getUsdWallets(userId).stream()
+                .filter(w -> w.balance() != null && w.balance().signum() > 0)
                 .map(w -> new CmaHomeResponse.CollectSource("FX", w.accountName(), w.balance(), USD))
                 .toList();
     }
