@@ -27,6 +27,12 @@
             (#{userId}, #{isEnabled}, #{isPaused}, #{keepCollectingOnPause})
     </insert>
 
+    <update id="enable">
+        UPDATE auto_invest_settings
+        SET is_enabled = TRUE
+        WHERE user_id = #{userId}
+    </update>
+
     <update id="update" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestSetting">
         UPDATE auto_invest_settings
         SET is_enabled = #{isEnabled},

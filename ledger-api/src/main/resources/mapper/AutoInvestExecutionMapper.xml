@@ -17,6 +17,7 @@
         <result property="execQuantity"      column="exec_quantity"/>
         <result property="currency"          column="currency"/>
         <result property="createdAt"         column="created_at"/>
+        <result property="orderStatus"       column="order_status"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestExecution"
@@ -35,12 +36,21 @@
         WHERE auto_invest_stock_id = #{autoInvestStockId}
     </select>
 
-    <select id="findByStock" resultMap="execution">
-        SELECT id, auto_invest_stock_id, round_no, trigger_source, side, exec_date,
-               status, fail_reason, order_id, exec_amount, exec_quantity, currency, created_at
+    <select id="countByStockAndDate" resultType="int">
+        SELECT COUNT(*)
         FROM auto_invest_executions
         WHERE auto_invest_stock_id = #{autoInvestStockId}
-        ORDER BY round_no DESC
+          AND exec_date = #{execDate}
+    </select>
+
+    <select id="findByStock" resultMap="execution">
+        SELECT e.id, e.auto_invest_stock_id, e.round_no, e.trigger_source, e.side, e.exec_date,
+               e.status, e.fail_reason, e.order_id, e.exec_amount, e.exec_quantity, e.currency, e.created_at,
+               o.status AS order_status
+        FROM auto_invest_executions e
+        LEFT JOIN orders o ON o.id = e.order_id
+        WHERE e.auto_invest_stock_id = #{autoInvestStockId}
+        ORDER BY e.round_no DESC
     </select>
 
 </mapper>

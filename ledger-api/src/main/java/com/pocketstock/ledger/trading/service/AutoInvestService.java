@@ -6,9 +6,11 @@ import com.pocketstock.ledger.trading.domain.AutoInvestSetting;
 import com.pocketstock.ledger.trading.domain.AutoInvestStock;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
+import com.pocketstock.ledger.trading.dto.AutoInvestExecutionResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestOverviewResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestRequest;
 import com.pocketstock.ledger.trading.dto.AutoInvestResponse;
+import com.pocketstock.ledger.trading.mapper.AutoInvestExecutionMapper;
 import com.pocketstock.ledger.trading.mapper.AutoInvestSettingMapper;
 import com.pocketstock.ledger.trading.mapper.AutoInvestStockMapper;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
@@ -44,6 +46,7 @@ public class AutoInvestService {
 
     private final AutoInvestSettingMapper settingMapper;
     private final AutoInvestStockMapper stockMapper;
+    private final AutoInvestExecutionMapper executionMapper;
     private final StockMapper stockMasterMapper;
     private final SecuritiesAccountMapper accountMapper;
 
@@ -110,6 +113,18 @@ public class AutoInvestService {
         return AutoInvestResponse.from(s);
     }
 
+    /** 종목별 모으기 회차 내역(회차 desc) — 소유 검증 후 반환. */
+    @Transactional(readOnly = true)
+    public List<AutoInvestExecutionResponse> getExecutions(Long userId, Long id) {
+        requireUser(userId);
+        if (stockMapper.findByIdAndUserId(id, userId) == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "자동모으기 설정을 찾을 수 없습니다.");
+        }
+        return executionMapper.findByStock(id).stream()
+                .map(AutoInvestExecutionResponse::from)
+                .toList();
+    }
+
     /** 설정 수정(주기·금액). 종목/계좌/통화는 불변. */
     @Transactional
     public AutoInvestResponse update(Long userId, Long id, AutoInvestRequest req) {
@@ -160,10 +175,13 @@ public class AutoInvestService {
 
     // ---- 내부 ----
 
+    /** 종목 등록 시 마스터 스위치 ON 보장 — 없으면 기본 설정 생성, 있으면(시드/이전 OFF 포함) is_enabled=TRUE로 켠다. */
     private void ensureSettings(Long userId) {
         if (settingMapper.findByUserId(userId) == null) {
             settingMapper.insert(AutoInvestSetting.builder()
                     .userId(userId).isEnabled(true).isPaused(false).keepCollectingOnPause(true).build());
+        } else {
+            settingMapper.enable(userId);   // 기존 행이 OFF(시드 FALSE 등)여도 등록=시작 의사 → 켠다(is_paused 불변)
         }
     }
 

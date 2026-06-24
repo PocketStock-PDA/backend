@@ -34,4 +34,5 @@ public class AutoInvestExecution {
     private BigDecimal execQuantity; // 체결 수량
     private String currency;
     private LocalDateTime createdAt;
+    private String orderStatus;    // 조회 join 전용 — 추적 주문(order_id)의 현재 상태(라이브 status 파생용)
 }

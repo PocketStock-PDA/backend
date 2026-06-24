@@ -1,12 +1,15 @@
 package com.pocketstock.ledger.trading.controller;
 
 import com.pocketstock.common.response.ApiResponse;
+import com.pocketstock.ledger.trading.dto.AutoInvestExecutionResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestOverviewResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestRequest;
 import com.pocketstock.ledger.trading.dto.AutoInvestResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestStatusRequest;
 import com.pocketstock.ledger.trading.service.AutoInvestService;
 import com.pocketstock.user.security.CurrentUserId;
+
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,6 +49,13 @@ public class AutoInvestController {
     @GetMapping("/{id}")
     public ApiResponse<AutoInvestResponse> detail(@CurrentUserId Long userId, @PathVariable Long id) {
         return ApiResponse.ok("자동모으기 상세 조회 성공", autoInvestService.getOne(userId, id));
+    }
+
+    /** 종목별 모으기 내역(회차별 체결/실패). */
+    @GetMapping("/{id}/executions")
+    public ApiResponse<List<AutoInvestExecutionResponse>> executions(@CurrentUserId Long userId,
+                                                                     @PathVariable Long id) {
+        return ApiResponse.ok("모으기 내역 조회 성공", autoInvestService.getExecutions(userId, id));
     }
 
     /** 설정 수정(주기·금액). */

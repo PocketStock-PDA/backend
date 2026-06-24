@@ -37,8 +37,9 @@ public class AutoInvestScheduler {
     private static final String SOURCE_AUTO = "AUTO";
     private static final String TRIGGER_PERIODIC = "PERIODIC";
     private static final String SIDE_BUY = "BUY";
-    private static final String STATUS_FILLED = "FILLED";
-    private static final String STATUS_FAILED = "FAILED";
+    private static final String STATUS_FILLED = "FILLED";   // 온주 즉시 전량체결
+    private static final String STATUS_QUEUED = "QUEUED";   // 소수부 차수 대기(접수됨, 체결은 차수 집행기)
+    private static final String STATUS_FAILED = "FAILED";   // 접수 실패(잔액부족 등)
 
     private final AutoInvestStockMapper stockMapper;
     private final AutoInvestExecutionMapper executionMapper;
@@ -56,8 +57,8 @@ public class AutoInvestScheduler {
         run("OVERSEAS");
     }
 
-    /** 시장별 도래 종목 집행 — 한 종목 실패가 배치를 멈추지 않게 종목 단위로 격리. */
-    void run(String market) {
+    /** 시장별 도래 종목 집행 — 한 종목 실패가 배치를 멈추지 않게 종목 단위로 격리. (dev 수동 트리거 공용) */
+    public void run(String market) {
         LocalDate today = LocalDate.now(KST);
         int weekday = today.getDayOfWeek().getValue();   // 1=월 ~ 7=일
         int dayOfMonth = today.getDayOfMonth();
@@ -75,6 +76,10 @@ public class AutoInvestScheduler {
 
     /** 종목 1건 매수 + 회차 로그. place()는 자체 트랜잭션, 로그는 별도 — 실패해도 회차로 남긴다. */
     private void executeOne(AutoInvestStock stock, LocalDate today) {
+        // 멱등: 오늘 이미 집행한 종목은 건너뛴다(같은 날 재집행 = 중복 회차 금지). 주문도 client_order_id로 멱등.
+        if (executionMapper.countByStockAndDate(stock.getId(), today) > 0) {
+            return;
+        }
         int roundNo = nextRoundNo(stock.getId());
         String clientOrderId = "AUTO_" + stock.getId() + "_" + today.format(ORDER_DATE);
         FractionalOrderRequest req = new FractionalOrderRequest(
@@ -82,7 +87,7 @@ public class AutoInvestScheduler {
                 stock.getBuyAmount(), stock.getBuyQuantity());
         try {
             SplitOrderResponse resp = fractionalOrderService.place(stock.getUserId(), req, SOURCE_AUTO);
-            recordFilled(stock, roundNo, today, resp);
+            recordAccepted(stock, roundNo, today, resp);
         } catch (BusinessException e) {
             // 잔액부족 등 비즈니스 실패 = 접수 실패. 주문은 안 생김(AUTO는 REJECTED 미기록) → 회차에 FAILED로.
             recordFailed(stock, roundNo, today, e.getMessage());
@@ -94,18 +99,24 @@ public class AutoInvestScheduler {
         return max == null ? 1 : max + 1;
     }
 
-    private void recordFilled(AutoInvestStock stock, int roundNo, LocalDate today, SplitOrderResponse resp) {
+    /**
+     * 접수 결과 기록 — 소수부는 1분 차수 집행기가 ~1분 뒤 체결/거부하므로 이 시점엔 QUEUED(FILLED로 단정 안 함).
+     * 온주 즉시 전량(소수부 없음)만 FILLED. 금액·수량은 접수 기준 추정. ※ 차수 체결 후 FILLED/REJECTED 갱신은 후속.
+     */
+    private void recordAccepted(AutoInvestStock stock, int roundNo, LocalDate today, SplitOrderResponse resp) {
+        String status = resp.fractionalOrderId() != null ? STATUS_QUEUED : STATUS_FILLED;
         BigDecimal qty = nz(resp.wholeQty() == null ? null : BigDecimal.valueOf(resp.wholeQty()))
                 .add(nz(resp.fractionalEstQty()));
         BigDecimal amount = nz(resp.wholeAmount()).add(nz(resp.fractionalHeld()));
-        Long orderId = resp.wholeOrderId() != null ? resp.wholeOrderId() : resp.fractionalOrderId();
+        // 차수에서 나중에 체결/거부되는 소수부(:F)를 우선 추적 — 조회 시 이 주문 상태로 회차 status를 라이브 반영.
+        Long orderId = resp.fractionalOrderId() != null ? resp.fractionalOrderId() : resp.wholeOrderId();
         saveExecution(AutoInvestExecution.builder()
                 .autoInvestStockId(stock.getId())
                 .roundNo(roundNo)
                 .triggerSource(TRIGGER_PERIODIC)
                 .side(SIDE_BUY)
                 .execDate(today)
-                .status(STATUS_FILLED)
+                .status(status)
                 .orderId(orderId)
                 .execAmount(amount)
                 .execQuantity(qty)

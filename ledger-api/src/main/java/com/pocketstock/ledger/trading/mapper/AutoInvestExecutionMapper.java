@@ -4,6 +4,7 @@ import com.pocketstock.ledger.trading.domain.AutoInvestExecution;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Mapper
@@ -14,6 +15,10 @@ public interface AutoInvestExecutionMapper {
 
     /** 종목의 현재 최대 회차(없으면 null) — 다음 회차 = max+1. */
     Integer findMaxRoundNo(@Param("autoInvestStockId") Long autoInvestStockId);
+
+    /** 오늘(해당 실행일) 이미 집행 회차가 있는지 — 같은 날 재집행 중복 방지(멱등). */
+    int countByStockAndDate(@Param("autoInvestStockId") Long autoInvestStockId,
+                            @Param("execDate") LocalDate execDate);
 
     /** 종목별 모으기 내역(회차 desc) — #195 조회 API용. */
     List<AutoInvestExecution> findByStock(@Param("autoInvestStockId") Long autoInvestStockId);

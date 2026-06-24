@@ -117,14 +117,14 @@
 | 소수점투자 | 보유종목·잔고(평가·수익률) 조회 | GET | `/api/trading/holdings` |  | B·김준형 | ✅ |
 | 소수점투자 | 온주 전환 실행(소수→온주, 사용자 버튼) | POST | `/api/trading/whole-shares` |  | B·김준형 | ✅ 소수 정수부를 온주(직접소유)로 굳힘 #157 |
 | 소수점투자 | 온주 전환내역 조회 | GET | `/api/trading/whole-shares` |  | B·김준형 | ✅ #157 |
-| 정기적립식 | 자동모으기 설정 등록(주기/조건) | POST | `/api/trading/auto-invest` |  | B·김준형 |  |
-| 정기적립식 | 자동모으기 설정 수정 | PUT | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
-| 정기적립식 | 자동모으기 일시중지/재개(PAUSE/RESUME) | PATCH | `/api/trading/auto-invest/{id}/status` |  | B·김준형 |  |
-| 정기적립식 | 자동모으기 해제(완전 삭제, 트리거·회차로그 CASCADE) | DELETE | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
+| 정기적립식 | 자동모으기 설정 등록(주기 base) | POST | `/api/trading/auto-invest` |  | B·김준형 | ✅ |
+| 정기적립식 | 자동모으기 설정 수정 | PUT | `/api/trading/auto-invest/{id}` |  | B·김준형 | ✅ |
+| 정기적립식 | 자동모으기 일시중지/재개(PAUSE/RESUME) | PATCH | `/api/trading/auto-invest/{id}/status` |  | B·김준형 | ✅ |
+| 정기적립식 | 자동모으기 해제(완전 삭제, 트리거·회차로그 CASCADE) | DELETE | `/api/trading/auto-invest/{id}` |  | B·김준형 | ✅ |
 | 정기적립식 | 자동모으기 종목 추가(독립형이라 `POST /auto-invest`와 중복 → 추후 여러 종목 일괄등록 용도면 부활) | POST | `/api/trading/auto-invest/stocks` |  | B·김준형 | 잠정폐지 |
-| 정기적립식 | 자동모으기 종합 설정 조회 | GET | `/api/trading/auto-invest` |  | B·김준형 |  |
-| 정기적립식 | 자동모으기 단건 상세 조회(설정+누적 적립횟수·금액·다음 실행일) | GET | `/api/trading/auto-invest/{id}` |  | B·김준형 |  |
-| 정기적립식 | 종목별 모으기 실행 내역(회차별 체결·부족충전 발동) 조회 | GET | `/api/trading/auto-invest/{id}/executions` |  | B·김준형 |  |
+| 정기적립식 | 자동모으기 종합 설정 조회 | GET | `/api/trading/auto-invest` |  | B·김준형 | ✅ |
+| 정기적립식 | 자동모으기 단건 상세 조회 | GET | `/api/trading/auto-invest/{id}` |  | B·김준형 | ✅ |
+| 정기적립식 | 종목별 모으기 실행 내역(회차별 체결/실패) 조회 | GET | `/api/trading/auto-invest/{id}/executions` |  | B·김준형 | ✅ #195 |
 | 정기적립식 | 수익률 트리거 등록(물타기 ADD_ON_LOSS·익절 TAKE_PROFIT, 옵션 부가기능) | POST | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 |  |
 | 정기적립식 | 수익률 트리거 목록 조회 | GET | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 |  |
 | 정기적립식 | 수익률 트리거 해제 | DELETE | `/api/trading/auto-invest/{id}/triggers/{triggerId}` |  | B·김준형 |  |
