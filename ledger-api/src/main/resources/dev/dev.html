@@ -43,6 +43,7 @@
   <button data-tab="account" onclick="showTab('account')">계좌·보상</button>
   <button data-tab="realtime" onclick="showTab('realtime')">실시간(WS)</button>
   <button data-tab="fx" onclick="showTab('fx')">환율·환전</button>
+  <button data-tab="autoinvest" onclick="showTab('autoinvest')">자동모으기</button>
 </div>
 
 <section id="tab-flow" class="tab active">
@@ -313,6 +314,54 @@
   <div class="muted">캐시(LS CUR)에 환율이 쌓인 뒤(콜드스타트 시 502) 체결. CMA 풀은 <b>실물 cma_balances</b>(#56 실 어댑터, 스텁 제거 #57)
     — `/api/cma/account` 개설 + `/api/cma/collect`로 원화 적립 후 환전. 체결 성공 시 11번 이력에 행이 쌓임.
     원화→달러 환전분은 CMA USD풀에 적립되고, `/api/cma/transfer {market:OVERSEAS}`로 해외 위탁 USD 예수금까지 충전된다.</div>
+</fieldset>
+</section>
+
+<section id="tab-autoinvest" class="tab">
+<fieldset>
+  <legend>14) 자동모으기 등록 (정기적립 · 주기 base · #193)</legend>
+  종목 <input id="aiCode" value="005930" size="8"/>
+  주기 <select id="aiPeriod" onchange="aiToggle()">
+    <option value="DAILY">매일</option>
+    <option value="WEEKLY">주1회</option>
+    <option value="MONTHLY">월1회</option>
+  </select>
+  요일/날짜 <input id="aiDay" value="1" size="3" disabled/>
+  방식 <select id="aiAmountType" onchange="aiToggle()">
+    <option value="AMOUNT">금액</option>
+    <option value="QUANTITY">수량</option>
+  </select>
+  금액 <input id="aiAmount" value="10000" size="9"/>원
+  수량 <input id="aiQty" value="0.5" size="6" disabled/>주
+  <button onclick="aiRegister()">등록</button>
+  <span id="aiState" class="muted"></span>
+  <div class="muted">주기: 매일=요일/날짜 무시 · 주1회=요일(월~금 1~5) · 월1회=날짜(1~31). 방식: 금액 또는 수량.
+    종목 거래소→시장·통화·계좌 자동 해석. (user_id, stock_code) UNIQUE — 같은 종목 재등록 시 409.</div>
+  <hr/>
+  <button onclick="aiLoad()">종합 조회(목록)</button>
+  <button onclick="aiRun('DOMESTIC')">지금 집행(국내·dev)</button>
+  <button onclick="aiRun('OVERSEAS')">지금 집행(해외·dev)</button>
+  <div id="aiView"></div>
+  <pre id="aiRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">집행 = 스케줄러 수동 트리거(/dev/auto-invest-run, cron 9:10/22:40 대체). 결과는 <b>거래</b> 탭 보유종목/거래내역에서 확인.
+    매수 자금: 예수금 부족→CMA풀→예수금, CMA풀도 부족하면 [자동충전 ON] 은행→CMA. CMA풀 충전은 <b>자금흐름</b> 탭에서.
+    부족분 자동충전 OFF·은행부족이면 접수실패(회차 FAILED). 회차 내역은 아래 14-1, 트리거(물타기/익절)는 후속(#194).</div>
+</fieldset>
+
+<fieldset>
+  <legend>14-1) 종목별 관리 — 상세·수정·중지/재개·해제</legend>
+  설정ID <input id="aiId" value="" size="5"/>
+  <button onclick="aiDetail()">상세</button>
+  <button onclick="aiUpdate()">수정(PUT · 위 등록폼 값으로)</button>
+  <button onclick="aiStatus('PAUSE')">일시중지</button>
+  <button onclick="aiStatus('RESUME')">재개</button>
+  <button onclick="aiRemove()">해제(삭제)</button>
+  <button onclick="aiExecutions()">회차 내역(모으기 내역)</button>
+  <span id="aiManageState" class="muted"></span>
+  <div id="aiExecView"></div>
+  <pre id="aiManageRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">일시중지=is_active OFF(스케줄러 제외) / 재개=ON / 해제=완전 삭제(트리거·회차로그 CASCADE).
+    회차 내역 = 와이어 "모으기 내역" — 체결(FILLED)·실패(FAILED 주문가능금액 부족)를 회차별로.</div>
 </fieldset>
 </section>
 
@@ -1068,8 +1117,134 @@ async function loadWholeShares() {
     + `${rows || '<tr><td colspan="4" class="muted">내역 없음</td></tr>'}</table>`;
 }
 
+// ---- 14) 자동모으기 (auto-invest #193) ----
+function aiToggle() {
+  const p = document.getElementById('aiPeriod').value;
+  const at = document.getElementById('aiAmountType').value;
+  document.getElementById('aiDay').disabled = (p === 'DAILY');
+  document.getElementById('aiAmount').disabled = at !== 'AMOUNT';
+  document.getElementById('aiQty').disabled = at !== 'QUANTITY';
+}
+
+function aiBody() {
+  const p = document.getElementById('aiPeriod').value;
+  const at = document.getElementById('aiAmountType').value;
+  return {
+    stockCode: document.getElementById('aiCode').value.trim(),
+    period: p,
+    periodDay: p === 'DAILY' ? null : Number(document.getElementById('aiDay').value),
+    amountType: at,
+    buyAmount: at === 'AMOUNT' ? Number(document.getElementById('aiAmount').value) : null,
+    buyQuantity: at === 'QUANTITY' ? Number(document.getElementById('aiQty').value) : null
+  };
+}
+
+async function aiRegister() {
+  const h = await authHeaders();
+  const res = await fetch('/api/trading/auto-invest', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(aiBody())
+  });
+  const b = await res.json();
+  document.getElementById('aiRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('aiState').textContent = b.success ? ('등록 #' + b.data.id) : ('실패: ' + b.message);
+  if (b.success) { document.getElementById('aiId').value = b.data.id; aiLoad(); }
+}
+
+async function aiLoad() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/auto-invest', { headers: h })).json();
+  document.getElementById('aiRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('aiView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const d = b.data;
+  const rows = (d.stocks || []).map(x =>
+    `<tr><td>${x.id}</td><td>${x.stockCode}</td><td>${x.stockName || ''}</td>`
+    + `<td>${x.period}${x.periodDay ? '/' + x.periodDay : ''}</td><td>${x.amountType}</td>`
+    + `<td>${x.amountType === 'AMOUNT' ? won(x.buyAmount) + ' ' + x.currency : Number(x.buyQuantity) + '주'}</td>`
+    + `<td>${x.isActive ? 'ON' : '중지'}</td></tr>`).join('');
+  v.innerHTML = `<div class="muted">전역: enabled=${d.enabled} · paused=${d.paused} · keepOnPause=${d.keepCollectingOnPause}</div>`
+    + `<table><tr><th>ID</th><th>종목</th><th>이름</th><th>주기</th><th>방식</th><th>금액/수량</th><th>상태</th></tr>`
+    + `${rows || '<tr><td colspan="7" class="muted">등록 없음</td></tr>'}</table>`;
+}
+
+async function aiRun(market) {
+  const b = await (await fetch('/dev/auto-invest-run?market=' + market)).json();
+  document.getElementById('aiRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('aiState').textContent = b.success ? b.message : ('실패: ' + b.message);
+}
+
+async function aiDetail() {
+  const h = await authHeaders();
+  const id = document.getElementById('aiId').value.trim();
+  const b = await (await fetch('/api/trading/auto-invest/' + id, { headers: h })).json();
+  document.getElementById('aiManageRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('aiManageState').textContent = b.success ? '조회 OK' : ('실패: ' + b.message);
+}
+
+async function aiUpdate() {
+  const h = await authHeaders();
+  const id = document.getElementById('aiId').value.trim();
+  const res = await fetch('/api/trading/auto-invest/' + id, {
+    method: 'PUT', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(aiBody())
+  });
+  const b = await res.json();
+  document.getElementById('aiManageRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('aiManageState').textContent = b.success ? '수정 OK' : ('실패: ' + b.message);
+  if (b.success) aiLoad();
+}
+
+async function aiStatus(action) {
+  const h = await authHeaders();
+  const id = document.getElementById('aiId').value.trim();
+  const res = await fetch('/api/trading/auto-invest/' + id + '/status', {
+    method: 'PATCH', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
+  });
+  const b = await res.json();
+  document.getElementById('aiManageRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('aiManageState').textContent = b.success ? (action + ' OK') : ('실패: ' + b.message);
+  if (b.success) aiLoad();
+}
+
+async function aiRemove() {
+  const h = await authHeaders();
+  const id = document.getElementById('aiId').value.trim();
+  const res = await fetch('/api/trading/auto-invest/' + id, { method: 'DELETE', headers: h });
+  const b = await res.json();
+  document.getElementById('aiManageRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('aiManageState').textContent = b.success ? '해제 OK' : ('실패: ' + b.message);
+  if (b.success) aiLoad();
+}
+
+async function aiExecutions() {
+  const h = await authHeaders();
+  const id = document.getElementById('aiId').value.trim();
+  const b = await (await fetch('/api/trading/auto-invest/' + id + '/executions', { headers: h })).json();
+  document.getElementById('aiManageRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('aiExecView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x => {
+    let result;
+    if (x.status === 'FILLED') {
+      result = `${won(x.execAmount)} ${x.currency} / ${Number(x.execQuantity)}주`;
+    } else if (x.status === 'QUEUED') {
+      result = `<span class="muted">접수(차수 대기) · ${won(x.execAmount)} ${x.currency} / ${Number(x.execQuantity)}주</span>`;
+    } else if (x.status === 'REJECTED') {
+      result = `<span class="down">체결 거부(차수) · 자금 원복</span>`;
+    } else if (x.status === 'CANCELLED') {
+      result = `<span class="muted">취소</span>`;
+    } else {
+      result = `<span class="down">접수 실패 · ${x.failReason || ''}</span>`;
+    }
+    return `<tr><td>${x.roundNo}회차</td><td>${x.execDate}</td><td>${x.triggerSource}</td><td>${x.side}</td>`
+      + `<td>${x.status}</td><td>${result}</td></tr>`;
+  }).join('');
+  v.innerHTML = `<table><tr><th>회차</th><th>날짜</th><th>출처</th><th>side</th><th>상태</th><th>결과</th></tr>`
+    + `${rows || '<tr><td colspan="6" class="muted">회차 내역 없음</td></tr>'}</table>`;
+}
+
 setTokenState();
 fracToggle();
+aiToggle();
 refreshFlow();   // 자금흐름 탭 기본 활성 — 진입 시 보드 즉시 렌더(토큰 자동 발급)
 </script>
 </body>
