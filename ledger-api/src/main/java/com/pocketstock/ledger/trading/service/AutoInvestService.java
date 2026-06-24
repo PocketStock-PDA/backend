@@ -4,15 +4,19 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.trading.domain.AutoInvestSetting;
 import com.pocketstock.ledger.trading.domain.AutoInvestStock;
+import com.pocketstock.ledger.trading.domain.AutoInvestTrigger;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.dto.AutoInvestExecutionResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestOverviewResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestRequest;
 import com.pocketstock.ledger.trading.dto.AutoInvestResponse;
+import com.pocketstock.ledger.trading.dto.AutoInvestTriggerRequest;
+import com.pocketstock.ledger.trading.dto.AutoInvestTriggerResponse;
 import com.pocketstock.ledger.trading.mapper.AutoInvestExecutionMapper;
 import com.pocketstock.ledger.trading.mapper.AutoInvestSettingMapper;
 import com.pocketstock.ledger.trading.mapper.AutoInvestStockMapper;
+import com.pocketstock.ledger.trading.mapper.AutoInvestTriggerMapper;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
 import lombok.RequiredArgsConstructor;
@@ -44,9 +48,13 @@ public class AutoInvestService {
     private static final BigDecimal MIN_ORDER_USD = new BigDecimal("0.01");
     private static final Set<String> PERIODS = Set.of("DAILY", "WEEKLY", "MONTHLY");
 
+    private static final Set<String> BUY_ACTIONS = Set.of("AMOUNT", "QUANTITY");
+    private static final Set<String> SELL_ACTIONS = Set.of("RATIO", "QUANTITY", "ALL");
+
     private final AutoInvestSettingMapper settingMapper;
     private final AutoInvestStockMapper stockMapper;
     private final AutoInvestExecutionMapper executionMapper;
+    private final AutoInvestTriggerMapper triggerMapper;
     private final StockMapper stockMasterMapper;
     private final SecuritiesAccountMapper accountMapper;
 
@@ -170,6 +178,114 @@ public class AutoInvestService {
         requireUser(userId);
         if (stockMapper.deleteByIdAndUserId(id, userId) == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "자동모으기 설정을 찾을 수 없습니다.");
+        }
+    }
+
+    // ---- 트리거(물타기/익절) ----
+
+    /** 트리거 등록/수정 — 종목 소유 검증 후 upsert(종목당 매수1·매도1, 재등록 시 is_armed 리셋). */
+    @Transactional
+    public AutoInvestTriggerResponse registerTrigger(Long userId, Long stockId, AutoInvestTriggerRequest req) {
+        requireUser(userId);
+        AutoInvestStock stock = stockMapper.findByIdAndUserId(stockId, userId);
+        if (stock == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "자동모으기 설정을 찾을 수 없습니다.");
+        }
+        AutoInvestTrigger trigger = validateTrigger(req, stock.getCurrency());
+        trigger.setAutoInvestStockId(stockId);
+        triggerMapper.upsert(trigger);
+        return triggerMapper.findByStockId(stockId).stream()
+                .filter(t -> t.getTriggerKind().equals(trigger.getTriggerKind()))
+                .findFirst().map(AutoInvestTriggerResponse::from)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_ERROR, "트리거 저장 확인 실패"));
+    }
+
+    /** 종목 트리거 목록(매수/매도). */
+    @Transactional(readOnly = true)
+    public List<AutoInvestTriggerResponse> getTriggers(Long userId, Long stockId) {
+        requireUser(userId);
+        if (stockMapper.findByIdAndUserId(stockId, userId) == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "자동모으기 설정을 찾을 수 없습니다.");
+        }
+        return triggerMapper.findByStockId(stockId).stream()
+                .map(AutoInvestTriggerResponse::from)
+                .toList();
+    }
+
+    /** 트리거 해제. */
+    @Transactional
+    public void removeTrigger(Long userId, Long stockId, Long triggerId) {
+        requireUser(userId);
+        if (stockMapper.findByIdAndUserId(stockId, userId) == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "자동모으기 설정을 찾을 수 없습니다.");
+        }
+        if (triggerMapper.deleteByIdAndStockId(triggerId, stockId) == 0) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "트리거를 찾을 수 없습니다.");
+        }
+    }
+
+    /** 트리거 검증 + 엔티티 구성. BUY(물타기)=수익률 음수·AMOUNT/QUANTITY / SELL(익절)=수익률 양수·RATIO/QUANTITY/ALL. */
+    private AutoInvestTrigger validateTrigger(AutoInvestTriggerRequest req, String currency) {
+        String kind = normalize(req.triggerKind());
+        BigDecimal rate = req.conditionRate();
+        if (rate == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "발동 수익률(conditionRate)을 입력해주세요.");
+        }
+        String action = normalize(req.actionType());
+        AutoInvestTrigger.AutoInvestTriggerBuilder b = AutoInvestTrigger.builder()
+                .triggerKind(kind).conditionRate(rate).actionType(action);
+
+        if ("BUY".equals(kind)) {
+            if (rate.signum() >= 0) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "물타기(BUY) 발동 수익률은 음수여야 합니다(예 -7).");
+            }
+            if (!BUY_ACTIONS.contains(action)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "물타기 action은 AMOUNT 또는 QUANTITY입니다.");
+            }
+            if ("AMOUNT".equals(action)) {
+                requirePositiveInput(req.actionAmount(), "추가매수 금액");
+                requireMinOrder(req.actionAmount(), currency);
+                b.actionAmount(req.actionAmount());
+            } else {
+                requirePositiveInput(req.actionQuantity(), "추가매수 수량");
+                b.actionQuantity(req.actionQuantity());
+            }
+        } else if ("SELL".equals(kind)) {
+            if (rate.signum() <= 0) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "익절(SELL) 발동 수익률은 양수여야 합니다(예 +15).");
+            }
+            if (!SELL_ACTIONS.contains(action)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "익절 action은 RATIO·QUANTITY·ALL 중 하나입니다.");
+            }
+            if ("RATIO".equals(action)) {
+                BigDecimal ratio = req.actionRatio();
+                if (ratio == null || ratio.signum() <= 0 || ratio.compareTo(BigDecimal.valueOf(100)) > 0) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT, "매도 비율(actionRatio)은 0 초과 100 이하입니다.");
+                }
+                b.actionRatio(ratio);
+            } else if ("QUANTITY".equals(action)) {
+                requirePositiveInput(req.actionQuantity(), "매도 수량");
+                b.actionQuantity(req.actionQuantity());
+            }
+            // ALL: 추가 입력 없음(보유 전량)
+        } else {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "triggerKind는 BUY 또는 SELL이어야 합니다.");
+        }
+        return b.build();
+    }
+
+    private void requirePositiveInput(BigDecimal v, String label) {
+        if (v == null || v.signum() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, label + "을(를) 입력해주세요.");
+        }
+    }
+
+    private void requireMinOrder(BigDecimal amount, String currency) {
+        boolean domestic = CURRENCY_KRW.equals(currency);
+        BigDecimal min = domestic ? MIN_ORDER_KRW : MIN_ORDER_USD;
+        if (amount.compareTo(min) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "최소 매수금액은 " + (domestic ? "1,000원" : "$0.01") + "입니다.");
         }
     }
 

@@ -6,6 +6,8 @@ import com.pocketstock.ledger.trading.dto.AutoInvestOverviewResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestRequest;
 import com.pocketstock.ledger.trading.dto.AutoInvestResponse;
 import com.pocketstock.ledger.trading.dto.AutoInvestStatusRequest;
+import com.pocketstock.ledger.trading.dto.AutoInvestTriggerRequest;
+import com.pocketstock.ledger.trading.dto.AutoInvestTriggerResponse;
 import com.pocketstock.ledger.trading.service.AutoInvestService;
 import com.pocketstock.user.security.CurrentUserId;
 
@@ -56,6 +58,27 @@ public class AutoInvestController {
     public ApiResponse<List<AutoInvestExecutionResponse>> executions(@CurrentUserId Long userId,
                                                                      @PathVariable Long id) {
         return ApiResponse.ok("모으기 내역 조회 성공", autoInvestService.getExecutions(userId, id));
+    }
+
+    /** 수익률 트리거 등록/수정(물타기 BUY·익절 SELL, 종목당 종류별 1). */
+    @PostMapping("/{id}/triggers")
+    public ApiResponse<AutoInvestTriggerResponse> registerTrigger(@CurrentUserId Long userId, @PathVariable Long id,
+                                                                  @RequestBody AutoInvestTriggerRequest request) {
+        return ApiResponse.ok("트리거 등록 성공", autoInvestService.registerTrigger(userId, id, request));
+    }
+
+    /** 수익률 트리거 목록(매수/매도). */
+    @GetMapping("/{id}/triggers")
+    public ApiResponse<List<AutoInvestTriggerResponse>> triggers(@CurrentUserId Long userId, @PathVariable Long id) {
+        return ApiResponse.ok("트리거 조회 성공", autoInvestService.getTriggers(userId, id));
+    }
+
+    /** 수익률 트리거 해제. */
+    @DeleteMapping("/{id}/triggers/{triggerId}")
+    public ApiResponse<Void> removeTrigger(@CurrentUserId Long userId, @PathVariable Long id,
+                                           @PathVariable Long triggerId) {
+        autoInvestService.removeTrigger(userId, id, triggerId);
+        return ApiResponse.ok("트리거 해제 성공", null);
     }
 
     /** 설정 수정(주기·금액). */

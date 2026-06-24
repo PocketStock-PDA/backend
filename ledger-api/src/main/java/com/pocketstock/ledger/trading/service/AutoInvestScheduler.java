@@ -1,7 +1,6 @@
 package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.common.exception.BusinessException;
-import com.pocketstock.ledger.trading.domain.AutoInvestExecution;
 import com.pocketstock.ledger.trading.domain.AutoInvestStock;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
 import com.pocketstock.ledger.trading.dto.SplitOrderResponse;
@@ -9,11 +8,9 @@ import com.pocketstock.ledger.trading.mapper.AutoInvestExecutionMapper;
 import com.pocketstock.ledger.trading.mapper.AutoInvestStockMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -37,13 +34,12 @@ public class AutoInvestScheduler {
     private static final String SOURCE_AUTO = "AUTO";
     private static final String TRIGGER_PERIODIC = "PERIODIC";
     private static final String SIDE_BUY = "BUY";
-    private static final String STATUS_FILLED = "FILLED";   // 온주 즉시 전량체결
-    private static final String STATUS_QUEUED = "QUEUED";   // 소수부 차수 대기(접수됨, 체결은 차수 집행기)
-    private static final String STATUS_FAILED = "FAILED";   // 접수 실패(잔액부족 등)
 
     private final AutoInvestStockMapper stockMapper;
     private final AutoInvestExecutionMapper executionMapper;
     private final FractionalOrderService fractionalOrderService;
+    private final AutoInvestExecutionRecorder recorder;
+    private final AutoInvestTriggerEvaluator triggerEvaluator;
 
     /** 국내 정기매수 — 매일 09:10 KST(개장 직후, 항상 장중). */
     @Scheduled(cron = "0 10 9 * * *", zone = "Asia/Seoul")
@@ -72,6 +68,8 @@ public class AutoInvestScheduler {
                 log.error("[자동모으기] 종목 {} 집행 실패(stockId={})", stock.getStockCode(), stock.getId(), e);
             }
         }
+        // 정기매수 후 트리거(물타기/익절) 평가 — 같은 시각 daily_valuations 종가 수익률로 발동(#194).
+        triggerEvaluator.evaluate(market);
     }
 
     /** 종목 1건 매수 + 회차 로그. place()는 자체 트랜잭션, 로그는 별도 — 실패해도 회차로 남긴다. */
@@ -80,74 +78,17 @@ public class AutoInvestScheduler {
         if (executionMapper.countByStockAndDate(stock.getId(), today) > 0) {
             return;
         }
-        int roundNo = nextRoundNo(stock.getId());
+        int roundNo = recorder.nextRoundNo(stock.getId());
         String clientOrderId = "AUTO_" + stock.getId() + "_" + today.format(ORDER_DATE);
         FractionalOrderRequest req = new FractionalOrderRequest(
                 clientOrderId, stock.getStockCode(), SIDE_BUY, stock.getAmountType(),
                 stock.getBuyAmount(), stock.getBuyQuantity());
         try {
             SplitOrderResponse resp = fractionalOrderService.place(stock.getUserId(), req, SOURCE_AUTO);
-            recordAccepted(stock, roundNo, today, resp);
+            recorder.recordAccepted(stock.getId(), roundNo, today, TRIGGER_PERIODIC, SIDE_BUY, stock.getCurrency(), resp);
         } catch (BusinessException e) {
             // 잔액부족 등 비즈니스 실패 = 접수 실패. 주문은 안 생김(AUTO는 REJECTED 미기록) → 회차에 FAILED로.
-            recordFailed(stock, roundNo, today, e.getMessage());
+            recorder.recordFailed(stock.getId(), roundNo, today, TRIGGER_PERIODIC, SIDE_BUY, stock.getCurrency(), e.getMessage());
         }
-    }
-
-    private int nextRoundNo(Long autoInvestStockId) {
-        Integer max = executionMapper.findMaxRoundNo(autoInvestStockId);
-        return max == null ? 1 : max + 1;
-    }
-
-    /**
-     * 접수 결과 기록 — 소수부는 1분 차수 집행기가 ~1분 뒤 체결/거부하므로 이 시점엔 QUEUED(FILLED로 단정 안 함).
-     * 온주 즉시 전량(소수부 없음)만 FILLED. 금액·수량은 접수 기준 추정. ※ 차수 체결 후 FILLED/REJECTED 갱신은 후속.
-     */
-    private void recordAccepted(AutoInvestStock stock, int roundNo, LocalDate today, SplitOrderResponse resp) {
-        String status = resp.fractionalOrderId() != null ? STATUS_QUEUED : STATUS_FILLED;
-        BigDecimal qty = nz(resp.wholeQty() == null ? null : BigDecimal.valueOf(resp.wholeQty()))
-                .add(nz(resp.fractionalEstQty()));
-        BigDecimal amount = nz(resp.wholeAmount()).add(nz(resp.fractionalHeld()));
-        // 차수에서 나중에 체결/거부되는 소수부(:F)를 우선 추적 — 조회 시 이 주문 상태로 회차 status를 라이브 반영.
-        Long orderId = resp.fractionalOrderId() != null ? resp.fractionalOrderId() : resp.wholeOrderId();
-        saveExecution(AutoInvestExecution.builder()
-                .autoInvestStockId(stock.getId())
-                .roundNo(roundNo)
-                .triggerSource(TRIGGER_PERIODIC)
-                .side(SIDE_BUY)
-                .execDate(today)
-                .status(status)
-                .orderId(orderId)
-                .execAmount(amount)
-                .execQuantity(qty)
-                .currency(stock.getCurrency())
-                .build());
-    }
-
-    private void recordFailed(AutoInvestStock stock, int roundNo, LocalDate today, String reason) {
-        saveExecution(AutoInvestExecution.builder()
-                .autoInvestStockId(stock.getId())
-                .roundNo(roundNo)
-                .triggerSource(TRIGGER_PERIODIC)
-                .side(SIDE_BUY)
-                .execDate(today)
-                .status(STATUS_FAILED)
-                .failReason(reason == null ? "" : (reason.length() > 50 ? reason.substring(0, 50) : reason))
-                .currency(stock.getCurrency())
-                .build());
-    }
-
-    /** 회차 로그 적재 — (stock, round_no) UNIQUE라 멀티인스턴스 중복이면 한쪽만 성공(나머지 무시). */
-    private void saveExecution(AutoInvestExecution execution) {
-        try {
-            executionMapper.insert(execution);
-        } catch (DuplicateKeyException e) {
-            log.debug("[자동모으기] 회차 로그 중복(다른 인스턴스가 집행) — stockId={} round={}",
-                    execution.getAutoInvestStockId(), execution.getRoundNo());
-        }
-    }
-
-    private static BigDecimal nz(BigDecimal v) {
-        return v == null ? BigDecimal.ZERO : v;
     }
 }

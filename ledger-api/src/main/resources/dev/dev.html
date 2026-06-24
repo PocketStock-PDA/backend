@@ -364,6 +364,40 @@
   <div class="muted">일시중지=is_active OFF(스케줄러 제외) / 재개=ON / 해제=완전 삭제(트리거·회차로그 CASCADE).
     회차 내역 = 와이어 "모으기 내역" — 체결(FILLED)·실패(FAILED 주문가능금액 부족)를 회차별로.</div>
 </fieldset>
+
+<fieldset>
+  <legend>14-2) 수익률 트리거 — 물타기(BUY)·익절(SELL) · 옵션 (#194)</legend>
+  설정ID <input id="trgStockId" value="" size="5"/>
+  종류 <select id="trgKind" onchange="trgToggle()">
+    <option value="BUY">물타기(BUY)</option>
+    <option value="SELL">익절(SELL)</option>
+  </select>
+  수익률 <input id="trgRate" value="-7" size="5"/>%
+  방식 <select id="trgAction" onchange="trgToggle()">
+    <option value="AMOUNT">금액(AMOUNT)</option>
+    <option value="QUANTITY">수량(QUANTITY)</option>
+    <option value="RATIO">비율(RATIO·매도)</option>
+    <option value="ALL">전량(ALL·매도)</option>
+  </select>
+  금액 <input id="trgAmount" value="10000" size="9"/>
+  수량 <input id="trgQty" value="0.1" size="7" disabled/>
+  비율 <input id="trgRatio" value="50" size="4" disabled/>%
+  <button onclick="trgRegister()">등록/수정</button>
+  <button onclick="trgList()">목록</button>
+  <button onclick="trgRemove()">해제</button>
+  <span id="trgState" class="muted"></span>
+  <div id="trgView"></div>
+  <pre id="trgRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">물타기=수익률 ≤ −X%(음수)면 추가매수(AMOUNT/QUANTITY) · 익절=수익률 ≥ +X%(양수)면 매도(RATIO/QUANTITY/ALL).
+    종목당 BUY 1·SELL 1(재등록 시 갱신·재무장). 평가 = 일배치 종가 수익률(daily_valuations #125) · 에지 재발동(is_armed).
+    <b>해제</b>는 목록의 트리거ID 필요 → 먼저 "목록" 눌러 ID 확인 후 trgRemove의 prompt에 입력.</div>
+  <hr/>
+  <button onclick="trgEvalRun('DOMESTIC')">트리거 평가(국내·dev)</button>
+  <button onclick="trgEvalRun('OVERSEAS')">트리거 평가(해외·dev)</button>
+  <span id="trgEvalState" class="muted"></span>
+  <div class="muted">/dev/auto-invest-trigger-run — 정기매수 없이 트리거만 평가. <b>먼저 평가추이 탭에서 BATCH-002 적재</b>(종가 수익률)해야 판정됨.
+    결과는 거래 탭 보유종목/거래내역, 회차내역(DIP_BUY/TAKE_PROFIT)에서 확인.</div>
+</fieldset>
 </section>
 
 <section id="tab-valuation" class="tab">
@@ -1287,9 +1321,82 @@ async function valuationTrend() {
     + `${rows || '<tr><td colspan="7" class="muted">추이 없음 — 먼저 BATCH-002 적재</td></tr>'}</table>`;
 }
 
+// ---- 14-2) 수익률 트리거 (물타기/익절 #194) ----
+function trgToggle() {
+  const kind = document.getElementById('trgKind').value;
+  const act = document.getElementById('trgAction');
+  // 매수는 AMOUNT/QUANTITY만, 매도는 RATIO/QUANTITY/ALL만 — 종류 바뀌면 호환값으로 보정
+  if (kind === 'BUY' && (act.value === 'RATIO' || act.value === 'ALL')) act.value = 'AMOUNT';
+  if (kind === 'SELL' && act.value === 'AMOUNT') act.value = 'RATIO';
+  document.getElementById('trgAmount').disabled = act.value !== 'AMOUNT';
+  document.getElementById('trgQty').disabled = act.value !== 'QUANTITY';
+  document.getElementById('trgRatio').disabled = act.value !== 'RATIO';
+}
+
+function trgBody() {
+  const act = document.getElementById('trgAction').value;
+  return {
+    triggerKind: document.getElementById('trgKind').value,
+    conditionRate: Number(document.getElementById('trgRate').value),
+    actionType: act,
+    actionAmount: act === 'AMOUNT' ? Number(document.getElementById('trgAmount').value) : null,
+    actionQuantity: act === 'QUANTITY' ? Number(document.getElementById('trgQty').value) : null,
+    actionRatio: act === 'RATIO' ? Number(document.getElementById('trgRatio').value) : null
+  };
+}
+
+async function trgRegister() {
+  const h = await authHeaders();
+  const id = document.getElementById('trgStockId').value.trim();
+  const res = await fetch('/api/trading/auto-invest/' + id + '/triggers', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(trgBody())
+  });
+  const b = await res.json();
+  document.getElementById('trgRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('trgState').textContent = b.success ? ('저장 #' + b.data.id) : ('실패: ' + b.message);
+  if (b.success) trgList();
+}
+
+async function trgList() {
+  const h = await authHeaders();
+  const id = document.getElementById('trgStockId').value.trim();
+  const b = await (await fetch('/api/trading/auto-invest/' + id + '/triggers', { headers: h })).json();
+  document.getElementById('trgRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('trgView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x => {
+    const act = x.actionType === 'AMOUNT' ? won(x.actionAmount) + '원'
+      : x.actionType === 'QUANTITY' ? Number(x.actionQuantity) + '주'
+      : x.actionType === 'RATIO' ? Number(x.actionRatio) + '%' : '전량';
+    return `<tr><td>${x.id}</td><td>${x.triggerKind}</td><td>${Number(x.conditionRate)}%</td>`
+      + `<td>${x.actionType} ${act}</td><td>${x.isActive ? 'ON' : 'OFF'}</td>`
+      + `<td>${x.isArmed ? 'armed' : 'fired'}</td><td>${x.lastFiredAt || ''}</td></tr>`;
+  }).join('');
+  v.innerHTML = `<table><tr><th>ID</th><th>종류</th><th>발동수익률</th><th>액션</th><th>활성</th><th>armed</th><th>마지막발동</th></tr>`
+    + `${rows || '<tr><td colspan="7" class="muted">트리거 없음</td></tr>'}</table>`;
+}
+
+async function trgRemove() {
+  const h = await authHeaders();
+  const id = document.getElementById('trgStockId').value.trim();
+  const triggerId = prompt('해제할 트리거ID (목록의 ID)');
+  if (!triggerId) return;
+  const res = await fetch('/api/trading/auto-invest/' + id + '/triggers/' + triggerId, { method: 'DELETE', headers: h });
+  const b = await res.json();
+  document.getElementById('trgRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('trgState').textContent = b.success ? '해제 OK' : ('실패: ' + b.message);
+  if (b.success) trgList();
+}
+
+async function trgEvalRun(market) {
+  const b = await (await fetch('/dev/auto-invest-trigger-run?market=' + market)).json();
+  document.getElementById('trgEvalState').textContent = b.success ? b.message : ('실패: ' + b.message);
+}
+
 setTokenState();
 fracToggle();
 aiToggle();
+trgToggle();
 refreshFlow();   // 자금흐름 탭 기본 활성 — 진입 시 보드 즉시 렌더(토큰 자동 발급)
 </script>
 </body>

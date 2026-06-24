@@ -18,4 +18,8 @@ public interface DailyValuationMapper {
                                             @Param("stockCode") String stockCode,
                                             @Param("from") LocalDate from,
                                             @Param("to") LocalDate to);
+
+    /** 최신 일별 평가 1건(eval_date desc) — 트리거 종가 수익률 평가용(#194). 없으면 null. */
+    DailyValuation findLatestByUserAndStock(@Param("userId") Long userId,
+                                            @Param("stockCode") String stockCode);
 }

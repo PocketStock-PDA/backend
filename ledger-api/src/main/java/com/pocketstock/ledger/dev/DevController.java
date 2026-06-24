@@ -14,6 +14,7 @@ import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.service.AutoInvestScheduler;
+import com.pocketstock.ledger.trading.service.AutoInvestTriggerEvaluator;
 import com.pocketstock.ledger.trading.service.DailyValuationService;
 import com.pocketstock.ledger.trading.service.DepositService;
 import com.pocketstock.ledger.trading.service.SecuritiesAccountService;
@@ -56,6 +57,7 @@ public class DevController {
     private final DividendBatchService dividendBatchService;
     private final EarningsBatchService earningsBatchService;
     private final AutoInvestScheduler autoInvestScheduler;
+    private final AutoInvestTriggerEvaluator autoInvestTriggerEvaluator;
     private final DailyValuationService dailyValuationService;
     private final StringRedisTemplate redis;
     private final CmaAccountService cmaAccountService;
@@ -167,6 +169,18 @@ public class DevController {
         log.info("[DEV] 자동모으기 수동 집행 트리거 — {}", market);
         autoInvestScheduler.run(market.toUpperCase());
         return ApiResponse.ok(market + " 자동모으기 집행 완료", null);
+    }
+
+    /**
+     * 자동모으기 수익률 트리거(물타기/익절)만 수동 평가 — 정기매수 없이 트리거만 테스트.
+     * (실제 cron 흐름은 정기매수 후 자동 평가 — 위 /dev/auto-invest-run이 둘 다 포함.)
+     * 선행: daily_valuations 적재(/dev/daily-valuation-run)가 있어야 종가 수익률로 판정 가능.
+     */
+    @GetMapping("/dev/auto-invest-trigger-run")
+    public ApiResponse<String> triggerAutoInvestTrigger(@RequestParam(defaultValue = "DOMESTIC") String market) {
+        log.info("[DEV] 자동모으기 트리거 평가 수동 트리거 — {}", market);
+        autoInvestTriggerEvaluator.evaluate(market.toUpperCase());
+        return ApiResponse.ok(market + " 트리거 평가 완료", null);
     }
 
     /** 일별 평가 스냅샷 배치(BATCH-002) 수동 트리거 — cron(07시) 안 기다리고 즉시 적재. */
