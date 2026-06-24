@@ -375,7 +375,7 @@ CREATE TABLE IF NOT EXISTS auto_invest_executions (
   trigger_source VARCHAR(20) NOT NULL,    -- PERIODIC(정기) / DIP_BUY(물타기) / TAKE_PROFIT(익절)
   side VARCHAR(4) NOT NULL,               -- BUY / SELL
   exec_date DATE NOT NULL,                -- 회차 실행일(표시: 오늘/어제/날짜)
-  status VARCHAR(20) NOT NULL,            -- FILLED(체결) / FAILED(접수 실패)
+  status VARCHAR(20) NOT NULL,            -- 접수 스냅샷: QUEUED(소수 차수대기)/FILLED(온주 즉시)/FAILED(접수실패). 조회 시 order_id→orders 조인해 라이브 파생(REJECTED 등)
   fail_reason VARCHAR(50) NULL,           -- FAILED 사유: INSUFFICIENT_FUNDS(주문가능금액 부족) 등
   order_id BIGINT NULL,                   -- 성공 시 생성된 주문 → orders(체결 역추적). 실패는 NULL
   exec_amount DECIMAL(18,4) NULL,         -- 체결 금액(성공, 예 $0.7514 / 1,156원)
