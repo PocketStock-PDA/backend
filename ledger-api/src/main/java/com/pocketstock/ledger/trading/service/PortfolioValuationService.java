@@ -35,7 +35,8 @@ public class PortfolioValuationService {
             return BigDecimal.ZERO;
         }
 
-        BigDecimal usdKrwRate = null;   // 해외 보유가 있을 때만 1회 조회
+        BigDecimal usdKrwRate = null;   // 해외 보유가 있을 때만 1회 조회(캐시)
+        boolean fxUnavailable = false;  // 환율 조회 실패 시 더 조회하지 않고 해외 종목만 제외
         BigDecimal total = BigDecimal.ZERO;
 
         for (Holding h : holdings) {
@@ -52,8 +53,12 @@ public class PortfolioValuationService {
 
             BigDecimal valuation = qty.multiply(price);
             if (!domestic) {
+                if (usdKrwRate == null && !fxUnavailable) {
+                    usdKrwRate = fetchUsdKrwRateOrNull();
+                    fxUnavailable = (usdKrwRate == null);
+                }
                 if (usdKrwRate == null) {
-                    usdKrwRate = currencyRateProvider.current().exchangeRate();
+                    continue;   // 환율 조회 실패 시 해당 해외 종목만 제외(국내·다른 종목은 정상 합산)
                 }
                 valuation = valuation.multiply(usdKrwRate);
             }
@@ -61,6 +66,15 @@ public class PortfolioValuationService {
         }
 
         return total.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal fetchUsdKrwRateOrNull() {
+        try {
+            return currencyRateProvider.current().exchangeRate();
+        } catch (Exception e) {
+            log.warn("퍼즐 평가 환율(USD/KRW) 조회 실패 — 해외 보유 평가 제외: {}", e.getMessage());
+            return null;
+        }
     }
 
     private BigDecimal currentPriceOrNull(Long userId, String stockCode, boolean domestic) {

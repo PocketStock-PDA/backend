@@ -67,18 +67,24 @@ public class MyPageService {
         );
     }
 
-    @Transactional
+    /**
+     * 변경분만 부분 적용한다. 두 설정은 서로 다른 저장소(절약금=core DB A, 카드=ledger)라
+     * 원자적 일괄 적용은 불가능하며, 변경분을 순차 best-effort로 반영한다(부분 적용 허용).
+     * 외부(ledger) 호출을 DB 트랜잭션 안에 두지 않도록 메서드를 @Transactional로 감싸지 않고,
+     * 로컬 단일 upsert를 먼저 커밋해 이후 ledger 호출 실패가 로컬 변경을 되돌리지 않게 한다.
+     */
     public MyPageSettings updateSettings(Long userId, UpdateMyPageSettingsRequest request) {
         if (request.cardChangeCollect() == null && request.monthlySavingCollect() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
 
-        if (request.cardChangeCollect() != null) {
-            // 카드 잔돈 모으기 마스터 토글 → ledger collection_settings(CARD) 일괄 동기화
-            ledgerFeignClient.updateCollectionEnabled(userId, SOURCE_TYPE_CARD, request.cardChangeCollect());
-        }
+        // 1) 로컬 변경 먼저(단일 upsert, 자체 원자성)
         if (request.monthlySavingCollect() != null) {
             budgetSavingsMapper.setCollectAgreed(userId, currentPeriod(), request.monthlySavingCollect());
+        }
+        // 2) 외부 ledger 변경(카드 잔돈 모으기 마스터 토글 → collection_settings(CARD) 일괄 동기화)
+        if (request.cardChangeCollect() != null) {
+            ledgerFeignClient.updateCollectionEnabled(userId, SOURCE_TYPE_CARD, request.cardChangeCollect());
         }
 
         return readSettings(userId);
