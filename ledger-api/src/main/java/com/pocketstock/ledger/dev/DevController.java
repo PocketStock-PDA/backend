@@ -14,6 +14,7 @@ import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.service.AutoInvestScheduler;
+import com.pocketstock.ledger.trading.service.DailyValuationService;
 import com.pocketstock.ledger.trading.service.DepositService;
 import com.pocketstock.ledger.trading.service.SecuritiesAccountService;
 import com.pocketstock.user.security.TxnAuth;
@@ -55,6 +56,7 @@ public class DevController {
     private final DividendBatchService dividendBatchService;
     private final EarningsBatchService earningsBatchService;
     private final AutoInvestScheduler autoInvestScheduler;
+    private final DailyValuationService dailyValuationService;
     private final StringRedisTemplate redis;
     private final CmaAccountService cmaAccountService;
     private final CmaAccountMapper cmaAccountMapper;
@@ -165,5 +167,13 @@ public class DevController {
         log.info("[DEV] 자동모으기 수동 집행 트리거 — {}", market);
         autoInvestScheduler.run(market.toUpperCase());
         return ApiResponse.ok(market + " 자동모으기 집행 완료", null);
+    }
+
+    /** 일별 평가 스냅샷 배치(BATCH-002) 수동 트리거 — cron(07시) 안 기다리고 즉시 적재. */
+    @GetMapping("/dev/daily-valuation-run")
+    public ApiResponse<String> triggerDailyValuation() {
+        log.info("[DEV] 일별 평가 스냅샷(BATCH-002) 수동 트리거");
+        dailyValuationService.run();
+        return ApiResponse.ok("일별 평가 스냅샷 적재 완료", null);
     }
 }
