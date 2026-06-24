@@ -1,0 +1,14 @@
+# active-upstream.conf 의 형식 예시 (이 .example 은 문서용, nginx 는 .conf 만 로드해 무시).
+#
+# 실제 active-upstream.conf 는 git 에 올리지 않는다(.gitignore). 매 배포마다
+# git reset --hard 가 추적 파일을 덮어쓰는데, 활성 색 상태는 배포 스크립트가
+# 관리하는 런타임 상태라 추적 대상이 아니기 때문. deploy-release.sh 가 현재
+# 활성 색(blue/green)으로 이 파일을 생성/갱신한 뒤 `nginx -s reload` 한다.
+#
+# nginx 는 conf.d/*.conf 를 http 컨텍스트에 자동 include 하므로 여기 upstream 을
+# 정의하면 default.conf / api-ssl.conf 의 proxy_pass http://core-api 가 이를 가리킨다.
+#
+# ⚠ upstream 은 "현재 떠 있는 색"만 가리켜야 한다(없는 색 컨테이너명은 DNS 해석 실패 → reload 실패).
+
+upstream core-api   { server core-api-blue:8081; }
+upstream ledger-api { server ledger-api-blue:8082; }

@@ -16,6 +16,9 @@ out/
 **/application-local.yml
 **/application-secret.yml
 
+# 무중단 배포(Blue-Green) 런타임 상태 — deploy-release.sh 가 활성 색으로 생성(추적 금지)
+deploy/nginx/conf.d/active-upstream.conf
+
 # 로그
 *.log
 logs/

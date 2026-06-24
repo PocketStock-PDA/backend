@@ -1,68 +1,122 @@
-# 운영(데모) compose — EC2 1대: nginx 게이트웨이 + core/ledger + redis
+# 운영(데모) compose — EC2 1대: nginx 게이트웨이 + core/ledger(Blue-Green 2벌) + redis
 # 이미지는 EC2에서 빌드하지 않고 ECR에서 pull (CICD가 git-SHA 태그로 push).
 #   ECR_REGISTRY : .env 에서 주입 (예: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com)
 #   IMAGE_TAG    : 배포 스크립트가 릴리스 SHA로 주입 (deploy-release.sh 가 export)
 # DB는 외부 RDS(환경변수로 endpoint 주입). 시크릿/endpoint는 같은 폴더의 .env 에서 읽음.
-# 실행:  cd deploy/compose && IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml up -d
-#   (수동 빌드가 필요하면 docker-compose.prod.yml 대신 별도 build compose 사용)
+#
+# ── 무중단 배포(Blue-Green) ───────────────────────────────────────────────
+#   core/ledger 를 색 2벌(blue/green)로 정의. 평소엔 한 색만 up, 배포 때만 잠깐 2벌.
+#   deploy-release.sh 가 반대 색을 띄우고 health 통과 후 nginx upstream(active-upstream.conf)을
+#   새 색으로 reload 스위치 → 옛 색 정지. (REST 0초)
+#   - nginx upstream 은 active-upstream.conf(untracked, 스크립트 생성)가 "현재 색"을 가리킴.
+#   - core↔ledger Feign 은 nginx 가 아니라 Docker 네트워크로 직접 호출하므로,
+#     양쪽 색에 네트워크 alias(core-api / ledger-api)를 붙여 "떠 있는 색"으로 해석되게 한다.
+#     (두 색 모두 같은 RDS를 보고 /internal·REST 는 게이팅 대상 아님 → 어느 색이 받아도 정합)
+#   - ledger 백그라운드(실시간·매칭·스케줄러)는 단일 인스턴스 전제라 DEPLOY_COLOR + Redis
+#     active-color 로 "동시 1개만 활성"을 보장(LedgerActivation). 핸드오버는 스크립트가 조율.
+
+x-core-env: &core-env
+  SPRING_PROFILES_ACTIVE: prod
+  TZ: UTC
+  DB_URL: "jdbc:mysql://${RDS_CORE_ENDPOINT}:3306/pocketstock_main?serverTimezone=UTC&characterEncoding=UTF-8&sslMode=REQUIRED"
+  DB_USERNAME: ${CORE_DB_USERNAME}
+  DB_PASSWORD: ${CORE_DB_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  LEDGER_API_URL: http://ledger-api:8082   # 네트워크 alias → 떠 있는 ledger 색으로 해석
+  JWT_SECRET: ${JWT_SECRET}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+  VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@pocketstock.app}
+
+x-core-base: &core-base
+  image: ${ECR_REGISTRY}/pocketstock/core-api:${IMAGE_TAG}
+  depends_on:
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+    interval: 10s
+    timeout: 3s
+    retries: 12
+    start_period: 40s
+  restart: unless-stopped
+  stop_grace_period: 30s   # graceful shutdown(in-flight REST 드레인) 여유
+
+x-ledger-env: &ledger-env
+  SPRING_PROFILES_ACTIVE: prod
+  TZ: UTC
+  DB_URL: "jdbc:mysql://${RDS_LEDGER_ENDPOINT}:3306/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8&sslMode=REQUIRED"
+  DB_USERNAME: ${LEDGER_DB_USERNAME}
+  DB_PASSWORD: ${LEDGER_DB_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  CORE_API_URL: http://core-api:8081       # 네트워크 alias → 떠 있는 core 색으로 해석
+  JWT_SECRET: ${JWT_SECRET}
+  ACCOUNT_CIPHER_SECRET: ${ACCOUNT_CIPHER_SECRET}
+  LS_APP_KEY: ${LS_APP_KEY:-}
+  LS_APP_SECRET_KEY: ${LS_APP_SECRET_KEY:-}
+  KIS_APP_KEY: ${KIS_APP_KEY:-}
+  KIS_APP_SECRET: ${KIS_APP_SECRET:-}
+  DART_API_KEY: ${DART_API_KEY:-}
+
+x-ledger-base: &ledger-base
+  image: ${ECR_REGISTRY}/pocketstock/ledger-api:${IMAGE_TAG}
+  depends_on:
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+    interval: 10s
+    timeout: 3s
+    retries: 12
+    start_period: 40s
+  restart: unless-stopped
+  stop_grace_period: 30s   # graceful shutdown + 백그라운드 in-flight 틱 마무리 여유
 
 services:
-  core-api:
-    image: ${ECR_REGISTRY}/pocketstock/core-api:${IMAGE_TAG}
+  core-api-blue:
+    <<: *core-base
+    container_name: pocketstock-core-api-blue
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      TZ: UTC
-      DB_URL: "jdbc:mysql://${RDS_CORE_ENDPOINT}:3306/pocketstock_main?serverTimezone=UTC&characterEncoding=UTF-8&sslMode=REQUIRED"
-      DB_USERNAME: ${CORE_DB_USERNAME}
-      DB_PASSWORD: ${CORE_DB_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      LEDGER_API_URL: http://ledger-api:8082
-      JWT_SECRET: ${JWT_SECRET}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@pocketstock.app}
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
-      start_period: 40s
-    restart: unless-stopped
+      <<: *core-env
+      DEPLOY_COLOR: blue
+    networks:
+      default:
+        aliases: [core-api]
 
-  ledger-api:
-    image: ${ECR_REGISTRY}/pocketstock/ledger-api:${IMAGE_TAG}
+  core-api-green:
+    <<: *core-base
+    container_name: pocketstock-core-api-green
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      TZ: UTC
-      DB_URL: "jdbc:mysql://${RDS_LEDGER_ENDPOINT}:3306/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8&sslMode=REQUIRED"
-      DB_USERNAME: ${LEDGER_DB_USERNAME}
-      DB_PASSWORD: ${LEDGER_DB_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      CORE_API_URL: http://core-api:8081
-      JWT_SECRET: ${JWT_SECRET}
-      ACCOUNT_CIPHER_SECRET: ${ACCOUNT_CIPHER_SECRET}
-      LS_APP_KEY: ${LS_APP_KEY:-}
-      LS_APP_SECRET_KEY: ${LS_APP_SECRET_KEY:-}
-      KIS_APP_KEY: ${KIS_APP_KEY:-}
-      KIS_APP_SECRET: ${KIS_APP_SECRET:-}
-      DART_API_KEY: ${DART_API_KEY:-}
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
-      start_period: 40s
-    restart: unless-stopped
+      <<: *core-env
+      DEPLOY_COLOR: green
+    networks:
+      default:
+        aliases: [core-api]
+
+  ledger-api-blue:
+    <<: *ledger-base
+    container_name: pocketstock-ledger-api-blue
+    environment:
+      <<: *ledger-env
+      DEPLOY_COLOR: blue
+    networks:
+      default:
+        aliases: [ledger-api]
+
+  ledger-api-green:
+    <<: *ledger-base
+    container_name: pocketstock-ledger-api-green
+    environment:
+      <<: *ledger-env
+      DEPLOY_COLOR: green
+    networks:
+      default:
+        aliases: [ledger-api]
 
   redis:
     image: redis:7-alpine
+    container_name: pocketstock-redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -72,32 +126,28 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
+    container_name: pocketstock-nginx
     ports:
       - "80:80"
       - "443:443"   # HTTPS 전환 전엔 443 리스너 없음(연결 거부) → 무해. api-ssl.conf 활성화 시 사용.
     volumes:
-      # 단일 파일이 아니라 conf.d 디렉터리째 마운트 → api-ssl.conf.disabled rename 만으로 443 활성(compose 재수정 불요)
+      # conf.d 디렉터리째 마운트. upstream 은 active-upstream.conf(스크립트 생성)가 활성 색을 가리킴.
       - ../nginx/conf.d:/etc/nginx/conf.d:ro
-      - certbot-www:/var/www/certbot:ro      # ACME 챌린지 서빙(읽기). certbot 이 같은 볼륨에 토큰 기록.
-      - certbot-conf:/etc/letsencrypt:ro      # 발급된 인증서 읽기. 발급 전엔 빈 볼륨(참조하는 server 없어 무해).
-    depends_on:
-      core-api:
-        condition: service_healthy
-      ledger-api:
-        condition: service_healthy
+      - certbot-www:/var/www/certbot:ro
+      - certbot-conf:/etc/letsencrypt:ro
+    # depends_on 으로 특정 색에 묶지 않는다 — 배포 스크립트가 활성 색 health 후 nginx 를 reload.
     restart: unless-stopped
 
-  # 인증서 발급/갱신 전용 — profiles 로 격리되어 평소 `up -d` 엔 안 뜸(deploy-release.sh 영향 없음).
-  # 발급: docker compose -p pocketstock -f docker-compose.prod.yml --env-file .env \
-  #         run --rm certbot certonly --webroot -w /var/www/certbot \
-  #         -d api.<도메인> --email <메일> --agree-tos --no-eff-email
-  # 갱신: ... run --rm certbot renew   (이후 nginx -s reload)
+  # 인증서 발급/갱신 전용 — profiles 로 격리되어 평소 `up -d` 엔 안 뜸.
   certbot:
     image: certbot/certbot:latest
     profiles: ["certbot"]
     volumes:
       - certbot-www:/var/www/certbot
       - certbot-conf:/etc/letsencrypt
+
+networks:
+  default:
 
 volumes:
   certbot-www:
