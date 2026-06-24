@@ -45,4 +45,16 @@
             updated_at        = NOW()
     </insert>
 
+    <!-- 절약금 모으기 동의 ON/OFF — 마이페이지 토글. 행 없으면 0원으로 생성. -->
+    <insert id="setCollectAgreed">
+        INSERT INTO budget_savings
+            (user_id, period, target_amount, spent_amount, saved_amount,
+             is_collect_agreed, transfer_status, created_at, updated_at)
+        VALUES
+            (#{userId}, #{period}, 0, 0, 0, #{agreed}, 'PENDING', NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            is_collect_agreed = #{agreed},
+            updated_at        = NOW()
+    </insert>
+
 </mapper>

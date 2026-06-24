@@ -30,4 +30,13 @@
             updated_at = NOW()
     </insert>
 
+    <!-- 소스타입 전체(예: CARD 다중 카드) 활성 일괄 변경 — 마이페이지 마스터 토글. -->
+    <update id="updateEnabledBySourceType">
+        UPDATE collection_settings
+        SET is_enabled = #{enabled},
+            updated_at = NOW()
+        WHERE user_id     = #{userId}
+          AND source_type = #{sourceType}
+    </update>
+
 </mapper>

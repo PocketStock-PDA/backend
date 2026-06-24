@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.mypage.mapper.MyPageMapper">
+
+    <!-- 연동된 기관만(link_status=LINKED). 외부 식별자는 company_code(F-B). 정렬: sort_order. -->
+    <select id="findLinkedInstitutions" resultType="com.pocketstock.core.mypage.dto.LinkedInstitutionRow">
+        SELECT im.category     AS category,
+               im.company_code AS companyCode,
+               im.company_name AS companyName
+        FROM linked_institutions li
+        JOIN institution_master im
+          ON im.id = li.institution_master_id
+        WHERE li.user_id     = #{userId}
+          AND li.link_status = 'LINKED'
+          AND im.is_active   = TRUE
+        ORDER BY im.sort_order ASC
+    </select>
+
+</mapper>

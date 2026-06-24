@@ -3,6 +3,7 @@ package com.pocketstock.ledger.cma.controller;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.cma.dto.request.InternalCmaCreditRequest;
+import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaCreditResponse;
 import com.pocketstock.ledger.cma.dto.response.CollectionSettingView;
 import com.pocketstock.ledger.cma.mapper.CollectionSettingMapper;
@@ -11,6 +12,7 @@ import com.pocketstock.ledger.cma.service.CmaQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -59,5 +61,36 @@ public class InternalCmaController {
             }
             throw e;
         }
+    }
+
+    /**
+     * CMA의 KRW 지갑 잔액만 반환(외화 환산 제외) — 마이페이지 "포켓스톡 CMA 잔액(KRW)"용.
+     * krw-total과 달리 USD 환산을 더하지 않는다. 계좌 미개설 시 0.
+     */
+    @GetMapping("/krw-balance")
+    public BigDecimal getCmaKrwBalance(@RequestParam Long userId) {
+        try {
+            return cmaQueryService.getBalance(userId).accounts().stream()
+                    .filter(a -> "KRW".equals(a.currency()))
+                    .map(CmaBalanceResponse.BalanceItem::balance)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } catch (BusinessException e) {
+            if (ErrorCode.NOT_FOUND.equals(e.getErrorCode())) {
+                return BigDecimal.ZERO;
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * 적립 소스타입 활성 일괄 변경 — 마이페이지 카드 잔돈 모으기 마스터 토글(sourceType=CARD)용.
+     * 해당 타입 연동 행이 없으면 변경 0건(켤 대상이 없으면 무동작).
+     */
+    @PutMapping("/collection-settings/enabled")
+    public void updateCollectionEnabled(
+            @RequestParam Long userId,
+            @RequestParam String sourceType,
+            @RequestParam boolean enabled) {
+        collectionSettingMapper.updateEnabledBySourceType(userId, sourceType, enabled);
     }
 }

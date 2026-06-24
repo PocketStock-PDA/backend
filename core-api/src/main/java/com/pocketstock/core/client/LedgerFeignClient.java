@@ -7,6 +7,7 @@ import com.pocketstock.core.client.dto.UsdKrwRateView;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -37,4 +38,19 @@ public interface LedgerFeignClient {
     /** CMA 총 평가액(KRW 환산) — 자산 요약 집계용. 계좌 없으면 0 반환. */
     @GetMapping("/internal/cma/krw-total")
     java.math.BigDecimal getCmaTotalKrw(@RequestParam("userId") Long userId);
+
+    /** CMA의 KRW 지갑 잔액(외화 환산 제외) — 마이페이지 CMA 잔액용. 계좌 없으면 0 반환. */
+    @GetMapping("/internal/cma/krw-balance")
+    java.math.BigDecimal getCmaKrwBalance(@RequestParam("userId") Long userId);
+
+    /** 퍼즐판 실시간 평가금액(보유 × 현재가, KRW 환산) — 마이페이지 puzzleValuation용. 보유 없으면 0 반환. */
+    @GetMapping("/internal/trading/puzzle-valuation")
+    java.math.BigDecimal getPuzzleValuation(@RequestParam("userId") Long userId);
+
+    /** 적립 소스타입 활성 일괄 변경 — 마이페이지 카드 잔돈 모으기 마스터 토글(sourceType=CARD)용. */
+    @PutMapping("/internal/cma/collection-settings/enabled")
+    void updateCollectionEnabled(
+            @RequestParam("userId") Long userId,
+            @RequestParam("sourceType") String sourceType,
+            @RequestParam("enabled") boolean enabled);
 }
