@@ -7,6 +7,7 @@ import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
 import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.client.dto.SourceDeduction;
+import com.pocketstock.ledger.client.dto.UsdWalletSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.request.CollectionSettingRequest;
@@ -95,6 +96,10 @@ public class CmaCollectService {
         BigDecimal amount = BigDecimal.ZERO;
         List<SourceDeduction> deductions = new ArrayList<>();
         for (LinkedAccountSummary a : accounts) {
+            // 끝전은 원화 전용 개념 — 외화 계좌가 ACCOUNT 소스로 설정돼도 제외한다(외화는 FX로 수집).
+            if (!KRW.equals(a.currency())) {
+                continue;
+            }
             BigDecimal threshold = thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD);
             BigDecimal remainder = a.balance().remainder(threshold);
             if (remainder.signum() > 0) {
@@ -204,7 +209,7 @@ public class CmaCollectService {
         BigDecimal amount = BigDecimal.ZERO;
         List<Long> walletIds = new ArrayList<>();
         List<SourceDeduction> deductions = new ArrayList<>();
-        for (LinkedAccountSummary wallet : assetFeignClient.getUsdWallets(userId)) {
+        for (UsdWalletSummary wallet : assetFeignClient.getUsdWallets(userId)) {
             BigDecimal balance = wallet.balance();
             if (balance != null && balance.signum() > 0) {
                 amount = amount.add(balance);

@@ -139,7 +139,7 @@ public class AssetLinkService {
             wallet.setUserId(userId);
             wallet.setInstitutionId(institutionId);
             wallet.setAccountType("DEMAND");
-            wallet.setAccountName("SOL트래블 외화지갑");
+            wallet.setAccountName("SOL트래블 외화예금");
             wallet.setBalance(FX_USD_BALANCE);
             wallet.setCurrency("USD");
             mapper.insertBankAccount(wallet);

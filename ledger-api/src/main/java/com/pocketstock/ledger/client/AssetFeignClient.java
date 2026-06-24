@@ -4,6 +4,7 @@ import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
 import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.client.dto.SourceDeduction;
+import com.pocketstock.ledger.client.dto.UsdWalletSummary;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -20,7 +21,7 @@ public interface AssetFeignClient {
                                                   @RequestParam("enabledIds") List<Long> enabledIds);
 
     @GetMapping("/internal/assets/fx-wallets")
-    List<LinkedAccountSummary> getUsdWallets(@RequestParam("userId") Long userId);
+    List<UsdWalletSummary> getUsdWallets(@RequestParam("userId") Long userId);
 
     @GetMapping("/internal/assets/card-roundup")
     CardRoundupSummary getCardRoundup(@RequestParam("userId") Long userId,

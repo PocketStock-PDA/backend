@@ -6,6 +6,7 @@ import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
 import com.pocketstock.core.internal.asset.dto.PointSummary;
 import com.pocketstock.core.internal.asset.dto.SourceDeduction;
+import com.pocketstock.core.internal.asset.dto.UsdWalletSummary;
 import com.pocketstock.core.internal.asset.mapper.InternalAssetMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,9 +31,9 @@ public class InternalAssetService {
         return mapper.findLinkedAccountsByUserAndIds(userId, enabledIds);
     }
 
-    /** 외화(USD) 지갑 목록 — 잔돈 수집의 FX 소스. ledger-api가 전액을 CMA 달러 풀로 입금 후 차감 호출한다. */
+    /** 외화(USD) 입출금 지갑 목록 — 잔돈 수집의 FX 소스. ledger-api가 전액을 CMA 달러 풀로 입금 후 차감 호출한다. */
     @Transactional(readOnly = true)
-    public List<LinkedAccountSummary> getUsdWallets(Long userId) {
+    public List<UsdWalletSummary> getUsdWallets(Long userId) {
         return mapper.findUsdWallets(userId);
     }
 

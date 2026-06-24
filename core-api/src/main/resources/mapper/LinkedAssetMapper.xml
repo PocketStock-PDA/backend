@@ -51,14 +51,17 @@
           AND closed_at IS NULL
     </update>
 
-    <!-- 외화(USD) 지갑 잔액 합계 — 잔돈 스캔 FX 소스(SOL트래블 등 currency='USD' 지갑).
+    <!-- 외화(USD) 입출금 지갑 잔액 합계 — 잔돈 스캔 FX 소스(SOL트래블 외화예금 등 입출금식 USD 지갑).
+         account_type='DEMAND'만 포함 — 외화 정기예금/적금은 잔돈이 아니라 제외(findUsdWallets와 동일 모집단).
          휴면 계좌 제외(휴면은 별도 해지 흐름). COALESCE로 행 없을 때 0 반환. -->
     <select id="sumUsdWalletBalance" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(lba.balance), 0)
         FROM linked_bank_accounts lba
         WHERE lba.user_id = #{userId}
           AND lba.currency = 'USD'
+          AND lba.account_type = 'DEMAND'
           AND lba.is_dormant = FALSE
+          AND lba.closed_at IS NULL
     </select>
 
 </mapper>
