@@ -4,6 +4,8 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.kis.KisRankingClient;
+import com.pocketstock.ledger.ls.LsRankingClient;
+import com.pocketstock.ledger.ls.LsT1463Response;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.domain.WelcomeReward;
@@ -41,13 +43,20 @@ public class WelcomeRewardService {
     private static final String MARKET_OVERSEAS = "OVERSEAS";
     /** 시장별 후보 수(국내 2 + 해외 2 = 4). */
     private static final int PER_MARKET = 2;
+    /** 국내 순위 윈도우 — 상위 grantable 2종목을 찾기에 충분한 상위 N. */
+    private static final int DOMESTIC_RANK_WINDOW = 30;
+    /** 웰컴 후보·지급은 개별주만(순위 API와 동일 정책 — ETF 제외). */
+    private static final String SEC_TYPE_STOCK = "STOCK";
+    /** LS t1463 value(백만원) → 원 환산(해외 KIS는 원 단위라 표시 스케일 맞춤). */
+    private static final BigDecimal LS_VALUE_TO_KRW = BigDecimal.valueOf(1_000_000L);
     /** 웰컴 보상 예산(원). */
     private static final int BUDGET_KRW = 1_000;
     private static final int QTY_SCALE = 6;     // holdings.quantity DECIMAL(18,6)
     private static final int PRICE_SCALE = 4;   // holdings.avg_buy_price DECIMAL(18,4)
     private static final int FX_SCALE = 8;      // KRW→USD 중간 환산 정밀도
 
-    private final KisRankingClient rankingClient;
+    private final KisRankingClient rankingClient;          // 해외 거래대금 순위(KIS)
+    private final LsRankingClient lsRankingClient;          // 국내 거래대금 순위(LS t1463)
     private final StockMapper stockMapper;
     private final SecuritiesAccountMapper accountMapper;
     private final HoldingMapper holdingMapper;
@@ -61,17 +70,27 @@ public class WelcomeRewardService {
     public List<WelcomeRewardCandidateResponse> getCandidates(Long userId) {
         requireAuth(userId);
         List<WelcomeRewardCandidateResponse> result = new ArrayList<>();
-        result.addAll(pick(
-                rankingClient.getDomesticTradeAmountRank().stream()
-                        .map(i -> new RankedCode(i.stockCode(), i.tradeAmount(), i.rank()))
-                        .toList(),
-                MARKET_DOMESTIC));
+        // 국내: LS t1463(거래대금 desc·ETF 제외). 순위는 위치 기반(1부터).
+        result.addAll(pick(domesticRanked(), MARKET_DOMESTIC));
+        // 해외: KIS 거래대금 순위(NASDAQ).
         result.addAll(pick(
                 rankingClient.getOverseasTradeAmountRank(OVERSEAS_EXCD).stream()
                         .map(i -> new RankedCode(i.symb(), i.tradeAmount(), i.rank()))
                         .toList(),
                 MARKET_OVERSEAS));
         return result;
+    }
+
+    /** 국내 거래대금 순위(LS t1463)를 위치 기반 순위로 정규화. value(백만원)→원 환산해 해외와 스케일 일치. */
+    private List<RankedCode> domesticRanked() {
+        List<LsT1463Response.Item> rows = lsRankingClient.getDomesticTradeValueRanking(DOMESTIC_RANK_WINDOW);
+        List<RankedCode> out = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            LsT1463Response.Item it = rows.get(i);
+            BigDecimal value = (it.value() == null) ? BigDecimal.ZERO : it.value().multiply(LS_VALUE_TO_KRW);
+            out.add(new RankedCode(it.shcode(), value.toPlainString(), String.valueOf(i + 1)));
+        }
+        return out;
     }
 
     /** 순위 상위부터 거래가능·소수점가능 종목만 PER_MARKET개 보강. */
@@ -190,7 +209,8 @@ public class WelcomeRewardService {
     private boolean isGrantable(TradableStock stock) {
         return stock != null
                 && Boolean.TRUE.equals(stock.getIsActive())
-                && Boolean.TRUE.equals(stock.getIsFractional());
+                && Boolean.TRUE.equals(stock.getIsFractional())
+                && SEC_TYPE_STOCK.equals(stock.getSecType());   // 개별주만(순위 API와 동일 — ETF 제외)
     }
 
     private BigDecimal currentPrice(Long userId, String stockCode, boolean domestic) {

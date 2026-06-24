@@ -51,4 +51,14 @@
         WHERE stock_code = #{stockCode}
     </select>
 
+    <select id="findByCodes" resultMap="tradableStock">
+        SELECT <include refid="columns"/>
+        FROM tradable_stocks
+        WHERE is_active = 1
+          AND stock_code IN
+          <foreach item="code" collection="codes" open="(" separator="," close=")">
+              #{code}
+          </foreach>
+    </select>
+
 </mapper>

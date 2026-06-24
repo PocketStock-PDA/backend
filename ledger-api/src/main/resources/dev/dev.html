@@ -38,6 +38,7 @@
 <div class="tabs">
   <button data-tab="flow" class="active" onclick="showTab('flow')">자금흐름</button>
   <button data-tab="quote" onclick="showTab('quote')">시세·종목</button>
+  <button data-tab="ranking" onclick="showTab('ranking')">순위</button>
   <button data-tab="trade" onclick="showTab('trade')">거래(온주·소수점)</button>
   <button data-tab="account" onclick="showTab('account')">계좌·보상</button>
   <button data-tab="realtime" onclick="showTab('realtime')">실시간(WS)</button>
@@ -108,6 +109,26 @@
   <button onclick="getOrderbook()">호가 조회</button>
   <div id="obView"></div>
   <pre id="obRaw" class="muted">결과 raw JSON</pre>
+</fieldset>
+</section>
+
+<section id="tab-ranking" class="tab">
+<fieldset>
+  <legend>종목 순위 (국내 LS t1463 / 해외 KIS NAS·NYS · 거래대금/시총 ∩ 자체 종목마스터)</legend>
+  시장
+  <select id="rankMarket">
+    <option value="domestic">국내</option>
+    <option value="overseas">해외</option>
+  </select>
+  정렬
+  <select id="rankSort">
+    <option value="tradevalue">거래대금순</option>
+    <option value="marketcap">시가총액순</option>
+  </select>
+  <button onclick="loadRankings()">순위 조회</button>
+  <span class="muted">전체시장 순위에서 우리 취급종목만 남겨 1위부터 재랭킹(상위 30)</span>
+  <div id="rankView"></div>
+  <pre id="rankRaw" class="muted">결과 raw JSON</pre>
 </fieldset>
 </section>
 
@@ -887,6 +908,29 @@ async function settleFx() {
 }
 
 // ---- 1-1) 종목 검색 / 상세 ----
+async function loadRankings() {
+  const h = await authHeaders();
+  const market = document.getElementById('rankMarket').value;
+  const sort = document.getElementById('rankSort').value;
+  const b = await (await fetch(`/api/trading/stocks/rankings/${market}?sort=${sort}`, { headers: h })).json();
+  document.getElementById('rankRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('rankView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const amt = (n, cur) => {
+    if (n === null || n === undefined || !Number(n)) return '-';
+    return cur === 'KRW' ? (Number(n) / 1e8).toLocaleString(undefined, { maximumFractionDigits: 0 }) + '억'
+                         : '$' + Number(n).toLocaleString();
+  };
+  const rows = (b.data || []).map(x => {
+    const cls = Number(x.changeRate) > 0 ? 'up' : (Number(x.changeRate) < 0 ? 'down' : '');
+    return `<tr><td>${x.rank}</td><td>${x.stockCode}</td><td>${x.stockName}</td><td>${x.exchange}</td>`
+      + `<td>${Number(x.price).toLocaleString()}</td><td class="${cls}">${x.changeRate}%</td>`
+      + `<td>${amt(x.tradingValue, x.currency)}</td><td>${amt(x.marketCap, x.currency)}</td></tr>`;
+  }).join('');
+  v.innerHTML = `<table><tr><th>순위</th><th>코드</th><th>종목명</th><th>거래소</th><th>현재가</th><th>등락률</th><th>거래대금</th><th>시총</th></tr>`
+    + `${rows || '<tr><td colspan="8" class="muted">결과 없음</td></tr>'}</table>`;
+}
+
 async function searchStocks() {
   const h = await authHeaders();
   const q = encodeURIComponent(document.getElementById('searchQ').value.trim());
