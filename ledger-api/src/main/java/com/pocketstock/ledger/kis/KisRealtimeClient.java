@@ -86,8 +86,9 @@ public class KisRealtimeClient implements RealtimeUpstream {
         if (!activation.isActive()) {
             return;   // 비활성 색 — 세션 안 엶(KIS 한도 N배 회피). rearm 때 일괄 등록.
         }
-        connectIfNeeded();
-        if (added) {
+        // 새로 연결됐다면 connectIfNeeded 가 activeKeys 전체(이 키 포함)를 이미 재전송했으므로 중복 send 금지.
+        boolean freshlyConnected = connectIfNeeded();
+        if (added && !freshlyConnected) {
             send(TR_TYPE_REGISTER, trId, trKey);
             log.info("KIS 실시간 등록 tr_id={} tr_key={}", trId, trKey);
         }
@@ -98,11 +99,14 @@ public class KisRealtimeClient implements RealtimeUpstream {
         if (activeKeys.isEmpty()) {
             return;
         }
-        connectIfNeeded();
-        activeKeys.forEach(k -> {
-            String[] p = k.split("\\|", 2);
-            send(TR_TYPE_REGISTER, p[0], p[1]);
-        });
+        // 새 연결이면 connectIfNeeded 가 일괄 재전송함 → 추가 forEach 생략(이중 등록 방지).
+        // 이미 열린 세션이면 connectIfNeeded 가 no-op 이라 여기서 직접 일괄 재전송한다.
+        if (!connectIfNeeded()) {
+            activeKeys.forEach(k -> {
+                String[] p = k.split("\\|", 2);
+                send(TR_TYPE_REGISTER, p[0], p[1]);
+            });
+        }
         log.info("KIS 실시간 rearm — {}건 재등록", activeKeys.size());
     }
 
@@ -126,10 +130,15 @@ public class KisRealtimeClient implements RealtimeUpstream {
         }
     }
 
-    private void connectIfNeeded() {
+    /**
+     * 세션이 없으면 연다. 새로 열면 activeKeys 전체를 재등록(replay 단일 책임) 후 {@code true} 반환,
+     * 이미 열려 있었으면 {@code false}. 호출자는 반환값으로 중복 등록(자기 키 재전송)을 피한다.
+     */
+    private boolean connectIfNeeded() {
         if (isOpen()) {
-            return;
+            return false;
         }
+        boolean opened = false;
         boolean reconnected = false;
         synchronized (connectLock) {
             if (!isOpen()) {
@@ -137,11 +146,12 @@ public class KisRealtimeClient implements RealtimeUpstream {
                 try {
                     session = wsClient.execute(new InboundHandler(), url).get();
                     log.info("KIS 실시간 WebSocket 연결: {}", url);
-                    // 재연결이면 끊기기 전 등록 종목을 다시 켠다.
+                    // 새 연결이면 끊기기 전(또는 비활성 동안 보류된) 등록 종목을 여기서 일괄 재등록한다(replay 단일 지점).
                     activeKeys.forEach(k -> {
                         String[] p = k.split("\\|", 2);
                         send(TR_TYPE_REGISTER, p[0], p[1]);
                     });
+                    opened = true;
                     reconnected = everConnected;   // 직전에 한 번이라도 붙었었다면 이번은 '재연결'
                     everConnected = true;
                 } catch (Exception e) {
@@ -158,6 +168,7 @@ public class KisRealtimeClient implements RealtimeUpstream {
         if (reconnected) {
             eventPublisher.publishEvent(new RealtimeReconnectedEvent(name()));
         }
+        return opened;
     }
 
     /** 등록/해제 프레임 — header(approval_key/custtype/tr_type) + body.input(tr_id/tr_key). */
