@@ -2,10 +2,10 @@ name: CD (build → ECR → deploy)
 
 # 흐름: OIDC로 AWS 단기자격 → 두 이미지 git-SHA로 ECR push →
 #       배포 동안만 EC2 보안그룹 22 개방(러너 IP) → SSH로 deploy-release.sh 실행 → 22 닫기.
-# 트리거(현재): chore/cicd/demo push + 수동 dispatch. 검증되면 dev push로 승격.
+# 트리거: dev push + 수동 dispatch. (demo 브랜치에서 1차 검증 완료 후 dev로 승격 — 2026-06-24)
 on:
   push:
-    branches: [chore/cicd/demo]
+    branches: [dev]
   workflow_dispatch:
 
 concurrency:
