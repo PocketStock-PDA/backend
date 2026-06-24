@@ -64,9 +64,15 @@ public class WholeOrderService {
     private final ApplicationEventPublisher eventPublisher;
     private final OrderFundingService fundingService;
 
-    /** 온주 매수/매도 — 검증 → 주문기록 → 자체 시뮬 체결 → holdings·예수금 반영. */
+    /** 온주 매수/매도 — 검증 → 주문기록 → 자체 시뮬 체결 → holdings·예수금 반영. 직접주문=MANUAL. */
     @Transactional
     public WholeOrderResponse placeWholeOrder(Long userId, WholeOrderRequest req) {
+        return placeWholeOrder(userId, req, "MANUAL");
+    }
+
+    /** source 지정 — 소수점 split·자동모으기가 출처(MANUAL/AUTO)를 박아 재사용. orders.source에 기록. */
+    @Transactional
+    public WholeOrderResponse placeWholeOrder(Long userId, WholeOrderRequest req, String source) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
@@ -140,7 +146,7 @@ public class WholeOrderService {
                     .orderQuantity(quantity)
                     .price(orderPrice)
                     .status(fillNow ? OrderStatus.RECEIVED : OrderStatus.PENDING)
-                    .source("MANUAL")
+                    .source(source)
                     .currency(currency)
                     .requestedAt(LocalDateTime.now())
                     .build();
