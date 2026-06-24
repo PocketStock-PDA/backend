@@ -1,6 +1,7 @@
 package com.pocketstock.ledger.trading.service;
 
 import com.pocketstock.ledger.exchange.service.AutoFxService;
+import com.pocketstock.ledger.trading.port.CmaAutoChargePort;
 import com.pocketstock.ledger.trading.port.CmaPoolPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class OrderFundingService {
 
     private final DepositService depositService;
     private final CmaPoolPort cmaPool;
+    private final CmaAutoChargePort autoChargePort;
     private final AutoFxService autoFxService;
 
     /**
@@ -42,10 +44,14 @@ public class OrderFundingService {
         if (shortage.signum() <= 0) {
             return;   // 예수금 주문가능으로 충분 — 충당 불필요
         }
-        // 해외(USD): CMA 달러풀이 부족하면 설정대로 원화풀에서 자동환전해 달러풀을 먼저 채운다(#172). 국내(KRW)는 해당 없음.
+        // 해외(USD): CMA 달러풀이 부족하면 설정대로 원화풀에서 자동환전해 달러풀을 먼저 채운다(#172).
         // 환전이 같은 트랜잭션이라, 이후 출금/체결이 실패하면 자동환전까지 통째 롤백된다.
         if (CURRENCY_USD.equals(currency)) {
             autoFxService.ensureUsdForOrder(userId, shortage, cmaPool.poolBalance(userId, currency), orderId);
+        } else {
+            // 국내(KRW): CMA 원화풀이 부족하면 부족금액 자동충전(은행 → CMA)으로 먼저 채운다(#193). OFF면 무동작.
+            // 충전까지 같은 트랜잭션 — 이후 출금/체결 실패 시 자동충전도 통째 롤백된다.
+            autoChargePort.ensureKrwPoolForBuy(userId, shortage, orderId);
         }
         String base = "order:" + orderId;
         // ① CMA풀 출금(BUY_TRANSFER) 먼저 — 풀 잔액 부족이면 예수금 입금 전에 막혀 롤백(부분반영 없음).

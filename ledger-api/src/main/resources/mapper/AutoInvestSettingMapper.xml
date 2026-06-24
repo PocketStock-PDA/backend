@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.AutoInvestSettingMapper">
+
+    <resultMap id="setting" type="com.pocketstock.ledger.trading.domain.AutoInvestSetting">
+        <id     property="id"                    column="id"/>
+        <result property="userId"                column="user_id"/>
+        <result property="isEnabled"             column="is_enabled"/>
+        <result property="isPaused"              column="is_paused"/>
+        <result property="keepCollectingOnPause" column="keep_collecting_on_pause"/>
+        <result property="createdAt"             column="created_at"/>
+        <result property="updatedAt"             column="updated_at"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="setting">
+        SELECT id, user_id, is_enabled, is_paused, keep_collecting_on_pause, created_at, updated_at
+        FROM auto_invest_settings
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestSetting"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO auto_invest_settings
+            (user_id, is_enabled, is_paused, keep_collecting_on_pause)
+        VALUES
+            (#{userId}, #{isEnabled}, #{isPaused}, #{keepCollectingOnPause})
+    </insert>
+
+    <update id="enable">
+        UPDATE auto_invest_settings
+        SET is_enabled = TRUE
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="update" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestSetting">
+        UPDATE auto_invest_settings
+        SET is_enabled = #{isEnabled},
+            is_paused = #{isPaused},
+            keep_collecting_on_pause = #{keepCollectingOnPause}
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

@@ -82,14 +82,19 @@ public class FractionalOrderService {
     private final OrderRejectionService rejectionService;
     private final WholeOrderService wholeOrderService;
 
-    /** 소수점 매수/매도 통합 진입 — side(body)로 디스패치(엔드포인트 단일화, 온주와 동일 정책). */
+    /** 소수점 매수/매도 통합 진입 — side(body)로 디스패치(엔드포인트 단일화, 온주와 동일 정책). 직접주문=MANUAL. */
     public SplitOrderResponse place(Long userId, FractionalOrderRequest req) {
+        return place(userId, req, "MANUAL");
+    }
+
+    /** source 지정 진입 — 자동모으기 스케줄러가 source=AUTO로 호출(직접주문은 MANUAL). 출처는 orders.source에 박힌다. */
+    public SplitOrderResponse place(Long userId, FractionalOrderRequest req, String source) {
         String side = req.side() == null ? "" : req.side().trim().toUpperCase();
         if ("BUY".equals(side)) {
-            return placeBuy(userId, req);
+            return placeBuy(userId, req, source);
         }
         if ("SELL".equals(side)) {
-            return placeSell(userId, req);
+            return placeSell(userId, req, source);
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT, "side는 BUY 또는 SELL이어야 합니다.");
     }
@@ -100,8 +105,8 @@ public class FractionalOrderService {
      * 프론트는 split을 모르고 "13.14 매수" 한 번만 보낸다.
      */
     @Transactional
-    public SplitOrderResponse placeBuy(Long userId, FractionalOrderRequest req) {
-        Ctx ctx = resolveContext(userId, req, "BUY");
+    public SplitOrderResponse placeBuy(Long userId, FractionalOrderRequest req, String source) {
+        Ctx ctx = resolveContext(userId, req, "BUY", source);
         String method = normalize(req.orderType());
         // 멱등 replay — 서브키(:W/:F) 중 하나라도 있으면 이미 처리됨 → 재구성 반환(한 tx라 둘 다 있거나 둘 다 없음).
         SplitOrderResponse replay = findSplitReplay("BUY", userId, ctx);
@@ -114,7 +119,8 @@ public class FractionalOrderService {
                     ? splitBuyByQuantity(userId, ctx, req, estPrice)
                     : splitBuyByAmount(userId, ctx, req, estPrice);
         } catch (BusinessException e) {
-            if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT) {
+            // AUTO(자동모으기) 실패는 REJECTED 안 남김 — 스케줄러가 잡아 auto_invest_executions에 FAILED로 기록(설계 ⑦·자잘).
+            if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT && !"AUTO".equals(source)) {
                 try {
                     rejectionService.recordRejection(userId, ctx.account().getId(), ctx.stock().getStockCode(),
                             ctx.stock().getExchange(), "BUY", method, null, null, ctx.spec().currency(), e.getMessage());
@@ -188,7 +194,7 @@ public class FractionalOrderService {
     private WholeOrderResponse placeWholeBuy(Long userId, Ctx ctx, int wholeShares) {
         WholeOrderRequest wreq = new WholeOrderRequest(ctx.clientOrderId() + ":W",
                 ctx.stock().getStockCode(), "BUY", "MARKET", null, wholeShares);
-        return wholeOrderService.placeWholeOrder(userId, wreq);
+        return wholeOrderService.placeWholeOrder(userId, wreq, ctx.source());
     }
 
     /** 소수분 접수 — 예수금 hold + 현재 차수 QUEUED 편입. 멱등키 서브키 :F. */
@@ -208,7 +214,7 @@ public class FractionalOrderService {
                 .estQuantity(estQty)
                 .heldAmount(hold)
                 .status(OrderStatus.QUEUED)
-                .source("MANUAL")
+                .source(ctx.source())
                 .roundId(round.getId())
                 .currency(ctx.spec().currency())
                 .requestedAt(LocalDateTime.now())
@@ -273,8 +279,8 @@ public class FractionalOrderService {
      * 한 트랜잭션이라 둘 다 성공 or 둘 다 롤백.
      */
     @Transactional
-    public SplitOrderResponse placeSell(Long userId, FractionalOrderRequest req) {
-        Ctx ctx = resolveContext(userId, req, "SELL");
+    public SplitOrderResponse placeSell(Long userId, FractionalOrderRequest req, String source) {
+        Ctx ctx = resolveContext(userId, req, "SELL", source);
         String method = normalize(req.orderType());
         SplitOrderResponse replay = findSplitReplay("SELL", userId, ctx);
         if (replay != null) {
@@ -283,7 +289,8 @@ public class FractionalOrderService {
         try {
             return splitSell(userId, ctx, req, method);
         } catch (BusinessException e) {
-            if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT) {
+            // AUTO(자동모으기 익절) 실패는 REJECTED 안 남김 — 스케줄러가 executions FAILED로 기록.
+            if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT && !"AUTO".equals(source)) {
                 try {
                     rejectionService.recordRejection(userId, ctx.account().getId(), ctx.stock().getStockCode(),
                             ctx.stock().getExchange(), "SELL", method, null, null, ctx.spec().currency(), e.getMessage());
@@ -346,7 +353,7 @@ public class FractionalOrderService {
     private WholeOrderResponse placeWholeSell(Long userId, Ctx ctx, int whole) {
         WholeOrderRequest wreq = new WholeOrderRequest(ctx.clientOrderId() + ":W",
                 ctx.stock().getStockCode(), "SELL", "MARKET", null, whole);
-        return wholeOrderService.placeWholeOrder(userId, wreq);
+        return wholeOrderService.placeWholeOrder(userId, wreq, ctx.source());
     }
 
     /** 소수부 매도 접수 — 소수 수량 hold(held_fractional) + 현재 차수 QUEUED 편입. 서브키 :F. */
@@ -368,7 +375,7 @@ public class FractionalOrderService {
                 .estQuantity(fracQty)
                 .heldAmount(null)                  // 매도 hold 기준은 수량(holdings.held_fractional)
                 .status(OrderStatus.QUEUED)
-                .source("MANUAL")
+                .source(ctx.source())
                 .roundId(round.getId())
                 .currency(ctx.spec().currency())
                 .requestedAt(LocalDateTime.now())
@@ -386,7 +393,7 @@ public class FractionalOrderService {
     }
 
     /** 공통 검증·해석 — userId·method·멱등키 비어있음·종목(국내·거래가능·통화)·계좌. 멱등 단락은 호출자별로. */
-    private Ctx resolveContext(Long userId, FractionalOrderRequest req, String side) {
+    private Ctx resolveContext(Long userId, FractionalOrderRequest req, String side, String source) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
@@ -422,11 +429,12 @@ public class FractionalOrderService {
             throw new BusinessException(ErrorCode.NOT_FOUND,
                     (spec.overseas() ? "해외" : "국내") + " 위탁계좌가 없습니다. 먼저 계좌를 개설하세요.");
         }
-        return new Ctx(clientOrderId, stock, account, spec);
+        return new Ctx(clientOrderId, stock, account, spec, source);
     }
 
-    /** 검증 통과 컨텍스트. */
-    private record Ctx(String clientOrderId, TradableStock stock, SecuritiesAccount account, MarketSpec spec) {
+    /** 검증 통과 컨텍스트. source = 주문 출처(MANUAL/AUTO) — split 하위 주문(:W·:F)에 전파. */
+    private record Ctx(String clientOrderId, TradableStock stock, SecuritiesAccount account, MarketSpec spec,
+                       String source) {
     }
 
     /**

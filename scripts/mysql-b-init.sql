@@ -327,25 +327,62 @@ CREATE TABLE IF NOT EXISTS auto_invest_settings (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- 종목별 자동모으기 = [주기 base · 필수]. 정기매수가 메인 축.
+-- 매수트리거(물타기)·매도트리거(익절)는 옵션이라 auto_invest_triggers로 분리(아래). trigger_type 택1 폐기(2026-06-24).
 CREATE TABLE IF NOT EXISTS auto_invest_stocks (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   account_id BIGINT NULL,
   stock_code VARCHAR(20) NOT NULL,
   market VARCHAR(10),
-  trigger_type VARCHAR(20),
-  period VARCHAR(20) NULL,
-  period_day INT NULL,
-  buy_condition_rate DECIMAL(7,4) NULL,
-  amount_type VARCHAR(20),
-  buy_amount DECIMAL(18,4) NULL,
-  buy_quantity DECIMAL(18,6) NULL,
+  period VARCHAR(20) NOT NULL,        -- DAILY(매일) / WEEKLY(주1회) / MONTHLY(월1회)
+  period_day INT NULL,               -- DAILY=NULL · WEEKLY=요일 1~5(월~금) · MONTHLY=1~31
+  amount_type VARCHAR(20) NOT NULL,  -- AMOUNT(금액) / QUANTITY(수량) — 정기매수 방식
+  buy_amount DECIMAL(18,4) NULL,     -- 정기 1회 매수금액 (amount_type=AMOUNT, 국내≥1,000·해외≥$0.01)
+  buy_quantity DECIMAL(18,6) NULL,   -- 정기 1회 매수수량 (amount_type=QUANTITY)
   currency VARCHAR(3),
-  sell_condition_rate DECIMAL(7,4) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
+  is_active BOOLEAN DEFAULT TRUE,    -- 이 종목 자동모으기 ON/OFF
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ais (user_id, stock_code)
+);
+
+-- 매수트리거(물타기)·매도트리거(익절): 자동모으기 종목에 얹는 옵션 조건-액션 규칙.
+-- 종목당 종류별 최대 1행(UNIQUE) — 매수1·매도1. (다단계는 추후 UNIQUE 해제로 확장)
+CREATE TABLE IF NOT EXISTS auto_invest_triggers (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  auto_invest_stock_id BIGINT NOT NULL,   -- FK → auto_invest_stocks (ON DELETE CASCADE)
+  trigger_kind VARCHAR(10) NOT NULL,      -- BUY(물타기) / SELL(익절)
+  condition_rate DECIMAL(7,4) NOT NULL,   -- BUY: 내 수익률 ≤ (예 -7.0000) · SELL: 내 수익률 ≥ (예 +15.0000)
+  action_type VARCHAR(20) NOT NULL,       -- BUY: AMOUNT/QUANTITY · SELL: RATIO/QUANTITY/ALL
+  action_amount DECIMAL(18,4) NULL,       -- BUY 추가매수 금액 (action_type=AMOUNT)
+  action_quantity DECIMAL(18,6) NULL,     -- BUY/SELL 수량 (QUANTITY) — SELL은 부족시 가능한 만큼 클램프
+  action_ratio DECIMAL(5,2) NULL,         -- SELL 보유 비율% (action_type=RATIO)
+  is_active BOOLEAN DEFAULT TRUE,         -- 트리거 ON/OFF (사용자 설정)
+  is_armed BOOLEAN DEFAULT TRUE,          -- 에지 재발동 상태(결정⑤): 발동→false, 조건 밖으로 나가면→true. armed&&조건충족일 때만 실행
+  last_fired_at DATETIME NULL,            -- 마지막 발동시각 (감사·표시용)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ait (auto_invest_stock_id, trigger_kind)
+);
+
+-- 자동모으기 실행 회차 로그(와이어 "모으기 내역" 화면). 회차별 체결/실패 전부 기록 — 실패(접수실패·주문가능금액 부족)도 1행.
+-- ⑦ B안: orders FK(A안)로는 실패 회차(주문 미생성)를 못 담아서 전용 로그. 성공 시 order_id로 체결 역추적.
+CREATE TABLE IF NOT EXISTS auto_invest_executions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  auto_invest_stock_id BIGINT NOT NULL,   -- FK → auto_invest_stocks (ON DELETE CASCADE)
+  round_no INT NOT NULL,                  -- 자동모으기 회차(종목별 1씩 증가) — trading_rounds(1분 차수)와 무관
+  trigger_source VARCHAR(20) NOT NULL,    -- PERIODIC(정기) / DIP_BUY(물타기) / TAKE_PROFIT(익절)
+  side VARCHAR(4) NOT NULL,               -- BUY / SELL
+  exec_date DATE NOT NULL,                -- 회차 실행일(표시: 오늘/어제/날짜)
+  status VARCHAR(20) NOT NULL,            -- FILLED(체결) / FAILED(접수 실패)
+  fail_reason VARCHAR(50) NULL,           -- FAILED 사유: INSUFFICIENT_FUNDS(주문가능금액 부족) 등
+  order_id BIGINT NULL,                   -- 성공 시 생성된 주문 → orders(체결 역추적). 실패는 NULL
+  exec_amount DECIMAL(18,4) NULL,         -- 체결 금액(성공, 예 $0.7514 / 1,156원)
+  exec_quantity DECIMAL(18,6) NULL,       -- 체결 수량(성공, 예 0.01주)
+  currency VARCHAR(3),                    -- KRW / USD
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_aie (auto_invest_stock_id, round_no)
 );
 
 -- 종목 마스터 (한투 .mst/.COD 파일 정제 → seed). 단축코드=LS API tr_key.
@@ -438,6 +475,11 @@ ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_round  FOREIGN KEY (round_
 ALTER TABLE allocations          ADD CONSTRAINT fk_alloc_ord FOREIGN KEY (order_id)       REFERENCES orders(id);
 ALTER TABLE allocations          ADD CONSTRAINT fk_alloc_bo  FOREIGN KEY (batch_order_id) REFERENCES batch_orders(id);
 ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+ALTER TABLE auto_invest_triggers ADD INDEX idx_ait_ais (auto_invest_stock_id);
+ALTER TABLE auto_invest_triggers ADD CONSTRAINT fk_ait_ais  FOREIGN KEY (auto_invest_stock_id) REFERENCES auto_invest_stocks(id) ON DELETE CASCADE;
+ALTER TABLE auto_invest_executions ADD INDEX idx_aie_ais (auto_invest_stock_id);
+ALTER TABLE auto_invest_executions ADD CONSTRAINT fk_aie_ais FOREIGN KEY (auto_invest_stock_id) REFERENCES auto_invest_stocks(id) ON DELETE CASCADE;
+ALTER TABLE auto_invest_executions ADD CONSTRAINT fk_aie_ord FOREIGN KEY (order_id) REFERENCES orders(id);
 ALTER TABLE whole_share_events   ADD CONSTRAINT fk_wse_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
 -- cross-domain (exchange → trading, 같은 DB B)
 ALTER TABLE fx_transactions      ADD CONSTRAINT fk_fx_order  FOREIGN KEY (ref_order_id) REFERENCES orders(id);
