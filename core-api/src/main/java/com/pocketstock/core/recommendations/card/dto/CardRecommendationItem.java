@@ -5,8 +5,10 @@ import java.util.List;
 
 public record CardRecommendationItem(
         String cardName,
-        String cardCompany,
+        String cardType,
+        String imageUrl,
+        String applyUrl,
         BigDecimal annualFee,
-        List<String> benefits,
+        List<CardBenefitItem> benefits,
         int matchRate
 ) {}

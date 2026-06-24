@@ -18,7 +18,8 @@
 
     <select id="findAllActiveCards" resultType="com.pocketstock.core.recommendations.card.dto.CardRow">
         SELECT id, card_name AS cardName, card_type AS cardType,
-               provider, annual_fee_domestic AS annualFeeDomestic
+               provider, annual_fee_domestic AS annualFeeDomestic, image_url AS imageUrl,
+               apply_url AS applyUrl
         FROM cards
         WHERE is_active = true
           AND id NOT IN (

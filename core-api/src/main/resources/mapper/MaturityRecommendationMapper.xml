@@ -41,7 +41,7 @@
         WHERE ds.is_active = TRUE
           AND ds.dividend_yield > #{interestRatePct}
         ORDER BY ds.dividend_yield DESC
-        LIMIT 5
+        LIMIT 10
     </select>
 
 </mapper>
