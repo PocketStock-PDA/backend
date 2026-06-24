@@ -44,6 +44,7 @@
   <button data-tab="realtime" onclick="showTab('realtime')">실시간(WS)</button>
   <button data-tab="fx" onclick="showTab('fx')">환율·환전</button>
   <button data-tab="autoinvest" onclick="showTab('autoinvest')">자동모으기</button>
+  <button data-tab="valuation" onclick="showTab('valuation')">평가추이</button>
 </div>
 
 <section id="tab-flow" class="tab active">
@@ -362,6 +363,23 @@
   <pre id="aiManageRaw" class="muted">결과 raw JSON</pre>
   <div class="muted">일시중지=is_active OFF(스케줄러 제외) / 재개=ON / 해제=완전 삭제(트리거·회차로그 CASCADE).
     회차 내역 = 와이어 "모으기 내역" — 체결(FILLED)·실패(FAILED 주문가능금액 부족)를 회차별로.</div>
+</fieldset>
+</section>
+
+<section id="tab-valuation" class="tab">
+<fieldset>
+  <legend>15) 일별 평가·수익률 추이 (daily_valuations · BATCH-002 · #125)</legend>
+  <button onclick="valuationRun()">BATCH-002 지금 적재(dev)</button>
+  <span id="valRunState" class="muted"></span>
+  <div class="muted">자동은 매일 07:00 KST(미장 마감 후). 여기선 수동 트리거(/dev/daily-valuation-run) — 보유종목 전체 × 종가 → daily_valuations upsert(멱등).</div>
+  <hr/>
+  종목 <input id="valCode" value="005930" size="8"/>
+  from <input id="valFrom" placeholder="2026-06-01" size="11"/>
+  to <input id="valTo" placeholder="2026-06-25" size="11"/>
+  <button onclick="valuationTrend()">추이 조회</button>
+  <div id="valView"></div>
+  <pre id="valRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">from/to 비우면 최근 90일. 종가 기준 native 평가손익(환차손익 제외). 추이 보려면 먼저 "BATCH-002 적재"를 며칠 돌려 데이터를 쌓아야 함(같은 날 재적재는 멱등=1행).</div>
 </fieldset>
 </section>
 
@@ -1240,6 +1258,33 @@ async function aiExecutions() {
   }).join('');
   v.innerHTML = `<table><tr><th>회차</th><th>날짜</th><th>출처</th><th>side</th><th>상태</th><th>결과</th></tr>`
     + `${rows || '<tr><td colspan="6" class="muted">회차 내역 없음</td></tr>'}</table>`;
+}
+
+// ---- 15) 일별 평가·수익률 추이 (daily_valuations #125) ----
+async function valuationRun() {
+  const b = await (await fetch('/dev/daily-valuation-run')).json();
+  document.getElementById('valRunState').textContent = b.success ? b.message : ('실패: ' + b.message);
+}
+
+async function valuationTrend() {
+  const h = await authHeaders();
+  const code = document.getElementById('valCode').value.trim();
+  const from = document.getElementById('valFrom').value.trim();
+  const to = document.getElementById('valTo').value.trim();
+  const qs = [];
+  if (from) qs.push('from=' + from);
+  if (to) qs.push('to=' + to);
+  const url = '/api/trading/valuations/' + code + (qs.length ? '?' + qs.join('&') : '');
+  const b = await (await fetch(url, { headers: h })).json();
+  document.getElementById('valRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('valView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.evalDate}</td><td>${Number(x.quantity)}</td><td>${won(x.closePrice)}</td>`
+    + `<td>${won(x.evalAmount)}</td><td>${won(x.profitAmount)}</td>`
+    + `<td>${Number(x.profitRate)}%</td><td>${x.currency}</td></tr>`).join('');
+  v.innerHTML = `<table><tr><th>날짜</th><th>수량</th><th>종가</th><th>평가액</th><th>평가손익</th><th>수익률</th><th>통화</th></tr>`
+    + `${rows || '<tr><td colspan="7" class="muted">추이 없음 — 먼저 BATCH-002 적재</td></tr>'}</table>`;
 }
 
 setTokenState();
