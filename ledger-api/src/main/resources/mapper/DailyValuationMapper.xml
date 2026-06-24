@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.DailyValuationMapper">
+
+    <resultMap id="valuation" type="com.pocketstock.ledger.trading.domain.DailyValuation">
+        <id     property="id"           column="id"/>
+        <result property="userId"       column="user_id"/>
+        <result property="stockCode"    column="stock_code"/>
+        <result property="evalDate"     column="eval_date"/>
+        <result property="quantity"     column="quantity"/>
+        <result property="closePrice"   column="close_price"/>
+        <result property="evalAmount"   column="eval_amount"/>
+        <result property="profitAmount" column="profit_amount"/>
+        <result property="profitRate"   column="profit_rate"/>
+        <result property="currency"     column="currency"/>
+        <result property="createdAt"    column="created_at"/>
+    </resultMap>
+
+    <insert id="upsert" parameterType="com.pocketstock.ledger.trading.domain.DailyValuation">
+        INSERT INTO daily_valuations
+            (user_id, stock_code, eval_date, quantity, close_price,
+             eval_amount, profit_amount, profit_rate, currency)
+        VALUES
+            (#{userId}, #{stockCode}, #{evalDate}, #{quantity}, #{closePrice},
+             #{evalAmount}, #{profitAmount}, #{profitRate}, #{currency})
+        ON DUPLICATE KEY UPDATE
+            quantity = VALUES(quantity),
+            close_price = VALUES(close_price),
+            eval_amount = VALUES(eval_amount),
+            profit_amount = VALUES(profit_amount),
+            profit_rate = VALUES(profit_rate),
+            currency = VALUES(currency)
+    </insert>
+
+    <select id="findByUserAndStock" resultMap="valuation">
+        SELECT id, user_id, stock_code, eval_date, quantity, close_price,
+               eval_amount, profit_amount, profit_rate, currency, created_at
+        FROM daily_valuations
+        WHERE user_id = #{userId}
+          AND stock_code = #{stockCode}
+          AND eval_date BETWEEN #{from} AND #{to}
+        ORDER BY eval_date ASC
+    </select>
+
+</mapper>

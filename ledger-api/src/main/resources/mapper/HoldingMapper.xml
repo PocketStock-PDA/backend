@@ -107,6 +107,13 @@
         ORDER BY id
     </select>
 
+    <select id="findAllActive" resultMap="holding">
+        SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, avg_buy_price, currency, created_at, updated_at
+        FROM holdings
+        WHERE quantity > 0
+        ORDER BY id
+    </select>
+
     <select id="findByUserIdAndStock" resultMap="holding">
         SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, held_whole, held_fractional,
                avg_buy_price, currency, created_at, updated_at
