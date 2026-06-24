@@ -96,6 +96,8 @@
 | 증권계좌 | 계좌 상태 조회 | GET | `/api/trading/accounts` |  | B·김준형 | ✅ |
 | 증권계좌 | 예수금/출금가능금액 조회(국내 KRW+해외 USD) | GET | `/api/trading/deposit` |  | B·김준형 | ✅ balances 시장별 분해 #137 |
 | 시세 | 종목 카테고리 탐색(40대 여성 상위 등) | GET | `/api/trading/stocks/categories` |  | B·김준형 |  |
+| 시세 | 국내 종목 순위(sort=tradevalue/marketcap, 상위 30) | GET | `/api/trading/stocks/rankings/domestic` | t1463 (거래대금상위) [LS 실전] | B·김준형 | ✅ LS t1463 거래대금·시총 동시·ETF제외→유니버스 필터·재랭킹 |
+| 시세 | 해외 종목 순위(sort=tradevalue/marketcap, 상위 30) | GET | `/api/trading/stocks/rankings/overseas` | HHDFS76320010(거래대금)·HHDFS76350100(시총) [KIS 실전] | B·김준형 | ✅ KIS NAS/NYS 머지·개별주만→유니버스 필터·재랭킹. 정렬 지표만 채움(반대쪽 null)·USD |
 | 시세 | 종목 검색(자체 종목마스터) | GET | `/api/trading/stocks/search` |  | B·김준형 | ✅ |
 | 시세 | 종목 상세(마스터+현재가 합성) | GET | `/api/trading/stocks/{stockCode}` |  | B·김준형 | ✅ |
 | 시세 | [국내] 현재가 조회 | GET | `/api/trading/stocks/{stockCode}/price?market=domestic` | t1102 [LS 실전] | B·김준형 | ✅ |
@@ -132,8 +134,8 @@
 > 참고: 해외 `현재가 조회`·`종목 기업정보`는 같은 KIS TR(HHDFS76200200) 응답을 시세/지표로 나눠 쓴 것. 한 화면에서 둘 다 호출 시 KIS 응답을 짧게 캐시해 중복 호출 줄일 것.
 >
 > 참고: 웰컴보상 후보(`rewards/welcome/candidates`)는 국내 거래대금순위 1·2위 + 해외 거래대금순위 1·2위 = 4종목. 둘 다 KIS(모의 미지원 → 실전 토큰 필요). 온보딩(계좌개설+연동) 완료 후 1인 1회, 선택 종목에 1,000원어치 소수점 무상 지급(예수금 차감 없음, 해외는 매매기준율로 KRW→USD 환산).
-> - 국내: 거래량순위 `국내주식-047`(FHPST01710000, `/uapi/domestic-stock/v1/quotations/volume-rank`), `FID_BLNG_CLS_CODE=3`(거래금액순), 거래대금값 `acml_tr_pbmn`.
-> - 해외: `해외주식-044`(HHDFS76320010, `/uapi/overseas-stock/v1/ranking/trade-pbmn`), 거래대금값 `tamt`.
+> - 국내: LS `t1463`(거래대금상위, `/stock/high-item`) — 거래대금 desc·ETF 제외(jc_num2=1), 거래대금값 `value`(백만원→원 환산). 순위 API(`/stocks/rankings`)와 동일 소스(`LsRankingClient`) 공유. (구 KIS `국내주식-047` FHPST01710000에서 교체)
+> - 해외: KIS `해외주식-044`(HHDFS76320010, `/uapi/overseas-stock/v1/ranking/trade-pbmn`), 거래대금값 `tamt`.
 > - 선택 시 `POST rewards/welcome`으로 1종목 1,000원어치 소수점 지급.
 
 ## Recommendations
