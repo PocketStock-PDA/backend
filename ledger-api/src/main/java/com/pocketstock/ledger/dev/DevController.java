@@ -13,6 +13,7 @@ import com.pocketstock.ledger.exchange.dto.response.CurrencyRateResponse;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
+import com.pocketstock.ledger.trading.service.AutoInvestScheduler;
 import com.pocketstock.ledger.trading.service.DepositService;
 import com.pocketstock.ledger.trading.service.SecuritiesAccountService;
 import com.pocketstock.user.security.TxnAuth;
@@ -53,6 +54,7 @@ public class DevController {
     private final DepositService depositService;
     private final DividendBatchService dividendBatchService;
     private final EarningsBatchService earningsBatchService;
+    private final AutoInvestScheduler autoInvestScheduler;
     private final StringRedisTemplate redis;
     private final CmaAccountService cmaAccountService;
     private final CmaAccountMapper cmaAccountMapper;
@@ -155,5 +157,13 @@ public class DevController {
         log.info("[DEV] 실적배치 수동 트리거");
         earningsBatchService.syncEarningsEvents();
         return ApiResponse.ok("실적 배치 완료", null);
+    }
+
+    /** 자동모으기 정기매수 스케줄러 수동 트리거(market=DOMESTIC/OVERSEAS) — cron(9:10/22:40) 안 기다리고 즉시 집행. */
+    @GetMapping("/dev/auto-invest-run")
+    public ApiResponse<String> triggerAutoInvest(@RequestParam(defaultValue = "DOMESTIC") String market) {
+        log.info("[DEV] 자동모으기 수동 집행 트리거 — {}", market);
+        autoInvestScheduler.run(market.toUpperCase());
+        return ApiResponse.ok(market + " 자동모으기 집행 완료", null);
     }
 }

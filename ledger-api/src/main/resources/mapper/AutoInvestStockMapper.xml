@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.AutoInvestStockMapper">
+
+    <resultMap id="stock" type="com.pocketstock.ledger.trading.domain.AutoInvestStock">
+        <id     property="id"          column="id"/>
+        <result property="userId"      column="user_id"/>
+        <result property="accountId"   column="account_id"/>
+        <result property="stockCode"   column="stock_code"/>
+        <result property="market"      column="market"/>
+        <result property="period"      column="period"/>
+        <result property="periodDay"   column="period_day"/>
+        <result property="amountType"  column="amount_type"/>
+        <result property="buyAmount"   column="buy_amount"/>
+        <result property="buyQuantity" column="buy_quantity"/>
+        <result property="currency"    column="currency"/>
+        <result property="isActive"    column="is_active"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+        <result property="stockName"   column="stock_name"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestStock"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO auto_invest_stocks
+            (user_id, account_id, stock_code, market, period, period_day,
+             amount_type, buy_amount, buy_quantity, currency, is_active)
+        VALUES
+            (#{userId}, #{accountId}, #{stockCode}, #{market}, #{period}, #{periodDay},
+             #{amountType}, #{buyAmount}, #{buyQuantity}, #{currency}, #{isActive})
+    </insert>
+
+    <select id="findByUserId" resultMap="stock">
+        SELECT a.id, a.user_id, a.account_id, a.stock_code, a.market, a.period, a.period_day,
+               a.amount_type, a.buy_amount, a.buy_quantity, a.currency, a.is_active,
+               a.created_at, a.updated_at, s.stock_name
+        FROM auto_invest_stocks a
+        LEFT JOIN tradable_stocks s ON s.stock_code = a.stock_code
+        WHERE a.user_id = #{userId}
+        ORDER BY a.id DESC
+    </select>
+
+    <select id="findByIdAndUserId" resultMap="stock">
+        SELECT a.id, a.user_id, a.account_id, a.stock_code, a.market, a.period, a.period_day,
+               a.amount_type, a.buy_amount, a.buy_quantity, a.currency, a.is_active,
+               a.created_at, a.updated_at, s.stock_name
+        FROM auto_invest_stocks a
+        LEFT JOIN tradable_stocks s ON s.stock_code = a.stock_code
+        WHERE a.id = #{id} AND a.user_id = #{userId}
+    </select>
+
+    <update id="update" parameterType="com.pocketstock.ledger.trading.domain.AutoInvestStock">
+        UPDATE auto_invest_stocks
+        SET period = #{period},
+            period_day = #{periodDay},
+            amount_type = #{amountType},
+            buy_amount = #{buyAmount},
+            buy_quantity = #{buyQuantity},
+            is_active = #{isActive}
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+    <update id="updateActive">
+        UPDATE auto_invest_stocks
+        SET is_active = #{active}
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteByIdAndUserId">
+        DELETE FROM auto_invest_stocks
+        WHERE id = #{id} AND user_id = #{userId}
+    </delete>
+
+    <select id="findActiveDue" resultMap="stock">
+        SELECT a.id, a.user_id, a.account_id, a.stock_code, a.market, a.period, a.period_day,
+               a.amount_type, a.buy_amount, a.buy_quantity, a.currency, a.is_active,
+               a.created_at, a.updated_at, s.stock_name
+        FROM auto_invest_stocks a
+        JOIN auto_invest_settings g ON g.user_id = a.user_id
+        LEFT JOIN tradable_stocks s ON s.stock_code = a.stock_code
+        WHERE a.market = #{market}
+          AND a.is_active = TRUE
+          AND g.is_enabled = TRUE
+          AND g.is_paused = FALSE
+          AND (
+                a.period = 'DAILY'
+             OR (a.period = 'WEEKLY' AND a.period_day = #{weekday})
+             OR (a.period = 'MONTHLY' AND a.period_day = #{dayOfMonth})
+          )
+        ORDER BY a.id
+    </select>
+
+</mapper>
