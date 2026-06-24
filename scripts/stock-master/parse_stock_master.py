@@ -22,6 +22,21 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(HERE, "raw")
 
+# 로고 에셋: 프론트 public/ 하위(=실제 서빙 위치)에 복사된 PNG가 있을 때만 logo_url을
+# 채운다(copy_logos.py가 seed 매칭 종목만 복사). 없으면 NULL → 프론트 placeholder.
+LOGO_PUBLIC = os.path.normpath(os.path.join(HERE, "..", "..", "..", "frontend", "public"))
+# exchange → 로고 폴더(미국은 거래소 구분 없이 단일 폴더). 파일명 = stock_code.png
+LOGO_DIR = {"KOSPI": "KOSPI-logo", "KOSDAQ": "KOSDAQ-logo",
+            "NASDAQ": "us-logo", "NYSE": "us-logo", "AMEX": "us-logo"}
+
+
+def logo_url(row):
+    folder = LOGO_DIR.get(row["exchange"])
+    if not folder:
+        return ""
+    rel = f"/{folder}/{row['stock_code']}.png"
+    return rel if os.path.isfile(os.path.join(LOGO_PUBLIC, folder, row["stock_code"] + ".png")) else ""
+
 # --- KR 큐레이션 기준 ---
 KOSPI_TOP_N = 200                      # KOSPI: 전일 시가총액 상위 N개 STOCK
 KOSDAQ150_CSV = "kosdaq150_codes.csv"  # KOSDAQ: KODEX 코스닥150 구성종목(=150개)
@@ -43,7 +58,7 @@ US_FILES = ["NASMST.COD", "NYSMST.COD", "AMSMST.COD"]
 US_SECTYPE = {"2": "STOCK", "3": "ETF"}
 
 COLS = ["stock_code", "exchange", "standard_code", "stock_name", "english_name",
-        "currency", "sec_type", "is_fractional", "is_active"]
+        "currency", "sec_type", "is_fractional", "is_active", "logo_url"]
 
 
 def parse_kr(fname):
@@ -170,6 +185,12 @@ def main():
     dropped = len(all_rows) - len(dedup)
     print(f"{'TOTAL':18} -> {len(dedup):5} rows (중복 {dropped} 제거)")
 
+    # 로고: 프론트 public/에 복사된 에셋이 있는 종목만 logo_url, 없으면 NULL
+    for r in dedup:
+        r["logo_url"] = logo_url(r)
+    with_logo = sum(1 for r in dedup if r["logo_url"])
+    print(f"{'  logo_url':18} -> {with_logo:5} / {len(dedup)} (에셋 없음 {len(dedup) - with_logo} = NULL)")
+
     # CSV
     csv_path = os.path.join(HERE, "tradable_stocks.csv")
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -183,7 +204,7 @@ def main():
         f.write("-- 자동생성: parse_stock_master.py (한투 마스터 정제)\n")
         f.write("USE pocketstock_ledger;\n")
         f.write("SET NAMES utf8mb4;  -- 적재 client charset 고정(미지정 시 한글 이중인코딩)\n\n")
-        cols = "stock_code, exchange, standard_code, stock_name, english_name, currency, sec_type, is_fractional, is_active"
+        cols = "stock_code, exchange, standard_code, stock_name, english_name, currency, sec_type, is_fractional, is_active, logo_url"
         CHUNK = 1000
         for i in range(0, len(dedup), CHUNK):
             f.write(f"INSERT INTO tradable_stocks ({cols}) VALUES\n")
@@ -192,7 +213,8 @@ def main():
                 vals.append("(" + ", ".join(sql_val(r[c]) for c in COLS) + ")")
             f.write(",\n".join(vals))
             f.write("\nON DUPLICATE KEY UPDATE stock_name=VALUES(stock_name), "
-                    "exchange=VALUES(exchange), updated_at=CURRENT_TIMESTAMP;\n\n")
+                    "exchange=VALUES(exchange), logo_url=VALUES(logo_url), "
+                    "updated_at=CURRENT_TIMESTAMP;\n\n")
 
     print(f"\n작성: {csv_path}")
     print(f"작성: {sql_path}")
