@@ -23,17 +23,20 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # 액션은 공급망 공격 방지를 위해 커밋 SHA로 핀(주석은 버전 참고용)
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false   # checkout 후 토큰을 .git에 남기지 않음
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
 
       - name: Build & push images (git-SHA tag)
         env:
@@ -53,9 +56,17 @@ jobs:
           set -euo pipefail
           RUNNER_IP="$(curl -s https://checkip.amazonaws.com)"
           echo "runner_ip=$RUNNER_IP" >> "$GITHUB_OUTPUT"
-          aws ec2 authorize-security-group-ingress \
-            --group-id "${{ vars.EC2_SG_ID }}" \
-            --protocol tcp --port 22 --cidr "${RUNNER_IP}/32"
+          # 멱등 처리: 이전 실행이 revoke 못 하고 남긴 규칙이 있으면 Duplicate가 나는데,
+          # 그건 "이미 열려 있음"이라 성공으로 간주. 그 외 에러는 그대로 실패시킨다.
+          if ! aws ec2 authorize-security-group-ingress \
+                --group-id "${{ vars.EC2_SG_ID }}" \
+                --protocol tcp --port 22 --cidr "${RUNNER_IP}/32" 2>/tmp/sg_err; then
+            if grep -q 'InvalidPermission.Duplicate' /tmp/sg_err; then
+              echo "이미 열려 있는 규칙 — 계속 진행"
+            else
+              cat /tmp/sg_err; exit 1
+            fi
+          fi
 
       - name: Deploy over SSH
         env:
@@ -68,7 +79,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy "${EC2_USER}@${EC2_HOST}" \
+          # 호스트 키 핀: 사전 등록한 known_hosts로 검증(MITM 방지). accept-new(TOFU) 대신 yes.
+          printf '%s\n' "${{ vars.EC2_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/id_deploy "${EC2_USER}@${EC2_HOST}" \
             "set -e
              cd ~/app
              git fetch origin

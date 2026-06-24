@@ -12,7 +12,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: UTC
-      DB_URL: "jdbc:mysql://${RDS_CORE_ENDPOINT}:3306/pocketstock_main?serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false"
+      DB_URL: "jdbc:mysql://${RDS_CORE_ENDPOINT}:3306/pocketstock_main?serverTimezone=UTC&characterEncoding=UTF-8&sslMode=REQUIRED"
       DB_USERNAME: ${CORE_DB_USERNAME}
       DB_PASSWORD: ${CORE_DB_PASSWORD}
       REDIS_HOST: redis
@@ -37,7 +37,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: UTC
-      DB_URL: "jdbc:mysql://${RDS_LEDGER_ENDPOINT}:3306/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false"
+      DB_URL: "jdbc:mysql://${RDS_LEDGER_ENDPOINT}:3306/pocketstock_ledger?serverTimezone=UTC&characterEncoding=UTF-8&sslMode=REQUIRED"
       DB_USERNAME: ${LEDGER_DB_USERNAME}
       DB_PASSWORD: ${LEDGER_DB_PASSWORD}
       REDIS_HOST: redis
