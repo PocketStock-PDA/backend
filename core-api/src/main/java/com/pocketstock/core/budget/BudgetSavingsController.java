@@ -6,11 +6,16 @@ import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.core.budget.dto.CategorySavingsResponse;
 import com.pocketstock.core.budget.dto.ComparisonResponse;
 import com.pocketstock.core.budget.dto.SavingsStatusResponse;
+import com.pocketstock.core.budget.dto.SetTransferAccountRequest;
+import com.pocketstock.core.budget.dto.TransferAccountResponse;
 import com.pocketstock.user.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -51,5 +56,22 @@ public class BudgetSavingsController {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
         budgetSavingsService.agreeCollect(userId);
         return ResponseEntity.ok(ApiResponse.ok("절약금 모으기 동의 완료", null));
+    }
+
+    @GetMapping("/savings/transfer-account")
+    public ResponseEntity<ApiResponse<TransferAccountResponse>> getTransferAccount(
+            @CurrentUserId Long userId) {
+        if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        return ResponseEntity.ok(ApiResponse.ok("이체 계좌 조회 성공",
+                budgetSavingsService.getTransferAccount(userId)));
+    }
+
+    @PutMapping("/savings/transfer-account")
+    public ResponseEntity<ApiResponse<Void>> setTransferAccount(
+            @CurrentUserId Long userId,
+            @RequestBody @Valid SetTransferAccountRequest request) {
+        if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        budgetSavingsService.setTransferAccount(userId, request.accountId());
+        return ResponseEntity.ok(ApiResponse.ok("이체 계좌 등록 성공", null));
     }
 }

@@ -1,5 +1,7 @@
 package com.pocketstock.core.budget;
 
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.core.budget.dto.BudgetGoalRow;
 import com.pocketstock.core.budget.dto.BudgetSavingsRow;
 import com.pocketstock.core.budget.dto.CategorySavingsItem;
@@ -9,10 +11,13 @@ import com.pocketstock.core.budget.dto.CategorySpendingRow;
 import com.pocketstock.core.budget.dto.ComparisonItem;
 import com.pocketstock.core.budget.dto.ComparisonResponse;
 import com.pocketstock.core.budget.dto.SavingsStatusResponse;
+import com.pocketstock.core.budget.dto.TransferAccountResponse;
 import com.pocketstock.core.budget.mapper.BudgetGoalMapper;
 import com.pocketstock.core.budget.mapper.BudgetSavingsMapper;
+import com.pocketstock.core.budget.mapper.BudgetTransferMapper;
 import com.pocketstock.core.notification.NotificationService;
 import com.pocketstock.core.notification.NotificationType;
+import com.pocketstock.user.security.TxnAuthGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +42,9 @@ public class BudgetSavingsService {
 
     private final BudgetSavingsMapper savingsMapper;
     private final BudgetGoalMapper goalMapper;
+    private final BudgetTransferMapper transferMapper;
     private final NotificationService notificationService;
+    private final TxnAuthGuard txnAuthGuard;
 
     public CategorySavingsResponse getCategoryWithSavings(Long userId) {
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
@@ -139,5 +146,18 @@ public class BudgetSavingsService {
         savingsMapper.agreeCollect(userId, period);
         notificationService.create(userId, NotificationType.GOAL_NUDGE,
                 "절약금 모으기 동의", "이번 달 절약금을 CMA 계좌로 이체하기로 동의했어요.");
+    }
+
+    public TransferAccountResponse getTransferAccount(Long userId) {
+        return transferMapper.findTransferAccount(userId);
+    }
+
+    @Transactional
+    public void setTransferAccount(Long userId, Long accountId) {
+        txnAuthGuard.requireTxnAuth(userId);
+        if (!transferMapper.existsAccountOwnedBy(userId, accountId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        transferMapper.upsertTransferAccount(userId, accountId);
     }
 }

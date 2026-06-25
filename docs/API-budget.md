@@ -267,3 +267,55 @@
  }
  }
 ```
+
+---
+
+### ✅ GET `/api/budget/savings/transfer-account`
+
+절약금 이체 계좌 조회. 등록된 계좌가 없으면 `data: null`.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "이체 계좌 조회 성공",
+  "data": {
+    "accountId": 1,
+    "bankName": "신한은행",
+    "accountName": "신한 주거래 통장"
+  }
+}
+```
+
+---
+
+### ✅ PUT `/api/budget/savings/transfer-account`
+
+절약금 이체 계좌 등록/변경. 유저당 1개 유지 (upsert).
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+**Request Body**
+
+```json
+{
+  "accountId": 1
+}
+```
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "이체 계좌 등록 성공",
+  "data": null
+}
+```

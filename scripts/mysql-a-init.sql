@@ -219,6 +219,14 @@ CREATE TABLE IF NOT EXISTS budget_savings (
   UNIQUE KEY uq_bs (user_id, period)
 );
 
+CREATE TABLE IF NOT EXISTS budget_transfer_settings (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL UNIQUE,
+  account_id BIGINT NOT NULL,               -- → linked_bank_accounts (이체 대상 계좌)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ========== portfolio ==========
 CREATE TABLE IF NOT EXISTS recommended_portfolios (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -409,6 +417,8 @@ ALTER TABLE spending_analysis       ADD CONSTRAINT fk_sa_user   FOREIGN KEY (use
 ALTER TABLE external_holdings       ADD CONSTRAINT fk_eh_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_goals            ADD CONSTRAINT fk_bg_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_savings          ADD CONSTRAINT fk_bs_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE budget_transfer_settings ADD CONSTRAINT fk_bts_user  FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE budget_transfer_settings ADD CONSTRAINT fk_bts_acc   FOREIGN KEY (account_id) REFERENCES linked_bank_accounts(id);
 ALTER TABLE recommended_portfolios  ADD CONSTRAINT fk_rp_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE holdings_replica        ADD CONSTRAINT fk_hr_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE calendar_recommendations ADD CONSTRAINT fk_cr_user  FOREIGN KEY (user_id) REFERENCES users(id);

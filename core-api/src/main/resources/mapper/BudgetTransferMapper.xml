@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.budget.mapper.BudgetTransferMapper">
+
+    <select id="findTransferAccount"
+            resultType="com.pocketstock.core.budget.dto.TransferAccountResponse">
+        SELECT bts.account_id   AS accountId,
+               im.company_name  AS bankName,
+               lba.account_name AS accountName
+        FROM budget_transfer_settings bts
+        JOIN linked_bank_accounts lba ON lba.id = bts.account_id
+        JOIN linked_institutions  li  ON li.id  = lba.institution_id
+        JOIN institution_master   im  ON im.id  = li.institution_master_id
+        WHERE bts.user_id = #{userId}
+    </select>
+
+    <select id="existsAccountOwnedBy" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM linked_bank_accounts lba
+        JOIN linked_institutions li ON li.id = lba.institution_id
+        WHERE lba.id = #{accountId}
+          AND li.user_id = #{userId}
+    </select>
+
+    <insert id="upsertTransferAccount">
+        INSERT INTO budget_transfer_settings (user_id, account_id, created_at, updated_at)
+        VALUES (#{userId}, #{accountId}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            account_id = #{accountId},
+            updated_at = NOW()
+    </insert>
+
+</mapper>
