@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS fx_transactions (
   fee DECIMAL(18,4) DEFAULT 0,
   trigger_type VARCHAR(20),
   ref_order_id BIGINT NULL,
-  status VARCHAR(20) DEFAULT 'DONE',
+  status VARCHAR(20) DEFAULT 'COMPLETED',
   idempotency_key VARCHAR(80) UNIQUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS batch_orders (
   whole_qty INT,
   ls_order_id VARCHAR(40) NULL,
   ls_exec_id VARCHAR(40) NULL,
-  status VARCHAR(20) DEFAULT 'PENDING',
+  status VARCHAR(20) DEFAULT 'BUILDING',
   fill_price DECIMAL(18,4) NULL,
   sent_at DATETIME NULL,
   filled_at DATETIME NULL,
@@ -375,7 +375,7 @@ CREATE TABLE IF NOT EXISTS auto_invest_executions (
   trigger_source VARCHAR(20) NOT NULL,    -- PERIODIC(정기) / DIP_BUY(물타기) / TAKE_PROFIT(익절)
   side VARCHAR(4) NOT NULL,               -- BUY / SELL
   exec_date DATE NOT NULL,                -- 회차 실행일(표시: 오늘/어제/날짜)
-  status VARCHAR(20) NOT NULL,            -- FILLED(체결) / FAILED(접수 실패)
+  status VARCHAR(20) NOT NULL,            -- 접수 스냅샷: QUEUED(소수 차수대기)/FILLED(온주 즉시)/FAILED(접수실패). 조회 시 order_id→orders 조인해 라이브 파생(REJECTED 등)
   fail_reason VARCHAR(50) NULL,           -- FAILED 사유: INSUFFICIENT_FUNDS(주문가능금액 부족) 등
   order_id BIGINT NULL,                   -- 성공 시 생성된 주문 → orders(체결 역추적). 실패는 NULL
   exec_amount DECIMAL(18,4) NULL,         -- 체결 금액(성공, 예 $0.7514 / 1,156원)
@@ -457,6 +457,22 @@ CREATE TABLE IF NOT EXISTS rewards (
   INDEX idx_rwd_user (user_id)
 );
 
+-- 비동기 알림 이벤트 발행함(Transactional Outbox, #204). 체결·자동모으기 트랜잭션과 같은 커밋에 이벤트를 적어
+-- 이중쓰기(체결 커밋 후 Kafka 발행 실패=알림 유실)를 차단. 릴레이가 미발행분을 폴링→Kafka 발행→마킹.
+-- ledger(DB B)에 두는 이유: 발행원(체결·자동모으기)이 DB B라 같은 로컬 트랜잭션으로 원자성 보장.
+CREATE TABLE IF NOT EXISTS outbox (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  event_id VARCHAR(80) NOT NULL UNIQUE,   -- 멱등키(consumer 중복배달 차단). 예: order:1234:filled / autoinvest:exec:567
+  topic VARCHAR(60) NOT NULL,             -- trading.order.filled / autoinvest.executed
+  aggregate_type VARCHAR(20) NOT NULL,    -- ORDER / AUTO_INVEST
+  aggregate_id BIGINT,                    -- orderId / executionId (추적용)
+  payload JSON NOT NULL,                  -- 이벤트 본문(JSON 직렬화)
+  published BOOLEAN NOT NULL DEFAULT FALSE,-- 발행 완료 여부
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  published_at DATETIME NULL,
+  INDEX idx_outbox_unpublished (published, id)  -- 릴레이가 미발행분(published=false) 빠르게 스캔
+);
+
 -- =====================================================================
 -- 외래키(FK) — 같은 DB B 내 관계 (2026-06-15: cross-domain ref_order_id·stock_code 포함)
 -- ※ user_id는 users가 DB A라 cross-DB → FK 불가(값참조).
@@ -475,6 +491,8 @@ ALTER TABLE batch_orders         ADD CONSTRAINT fk_bo_round  FOREIGN KEY (round_
 ALTER TABLE allocations          ADD CONSTRAINT fk_alloc_ord FOREIGN KEY (order_id)       REFERENCES orders(id);
 ALTER TABLE allocations          ADD CONSTRAINT fk_alloc_bo  FOREIGN KEY (batch_order_id) REFERENCES batch_orders(id);
 ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_acc   FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+ALTER TABLE account_balances     ADD CONSTRAINT fk_ab_acc    FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
+ALTER TABLE welcome_rewards      ADD CONSTRAINT fk_wr_acc    FOREIGN KEY (account_id) REFERENCES securities_accounts(id);
 ALTER TABLE auto_invest_triggers ADD INDEX idx_ait_ais (auto_invest_stock_id);
 ALTER TABLE auto_invest_triggers ADD CONSTRAINT fk_ait_ais  FOREIGN KEY (auto_invest_stock_id) REFERENCES auto_invest_stocks(id) ON DELETE CASCADE;
 ALTER TABLE auto_invest_executions ADD INDEX idx_aie_ais (auto_invest_stock_id);
