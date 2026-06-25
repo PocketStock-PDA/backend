@@ -1,2 +1,2 @@
-id,user_id,account_id,stock_code,quantity,avg_buy_price,currency,created_at,updated_at
+﻿id,user_id,account_id,stock_code,quantity,avg_buy_price,currency,created_at,updated_at
 1,1,1,005930,5.000000,70500.0000,KRW,2026-02-10 09:10:00,2026-02-10 09:10:00

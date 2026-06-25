@@ -10,8 +10,8 @@
 | **A·우정인** | 회원·인증 · 증권계좌 개설 · 알림 · 퍼즐/보상 | 30 |
 | **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 | 34 |
 | **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 35 |
-| **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 리밸런싱 | 24 |
-| | **합계** | **123** |
+| **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 리밸런싱 | 26 |
+| | **합계** | **125** |
 
 ## 📌 범례
 
@@ -53,6 +53,7 @@
 | 자산연동 | 포인트 연동 | POST | `/api/assets/links/point` |  | C·강문군 |  |
 | 자산연동 | SOL트래블 외화잔액 연동 | POST | `/api/assets/links/fx` |  | C·강문군 |  |
 | 자산연동 | 타 증권사 연동 | POST | `/api/assets/links/securities` |  | C·강문군 |  |
+| 자산연동 | 연동 카드 목록 조회(잔돈 모으기 카드 선택용) | GET | `/api/assets/cards` |  | D·김서현 | ✅ |
 | 자산연동 | 보유 은행 계좌 목록 조회(1원 인증·재원 계좌 선택 공용) | GET | `/api/assets/bank-accounts` |  | C·강문군 | ✅ |
 | 자산연동 | 계좌 1원 인증 송금요청(코드 푸시 발송) | POST | `/api/assets/bank-accounts/{accountId}/verification` |  | C·강문군 | ✅ |
 | 자산연동 | 계좌 1원 인증 확인(코드 검증) | POST | `/api/assets/bank-accounts/{accountId}/verification/confirm` |  | C·강문군 | ✅ |
@@ -78,6 +79,7 @@
 | 잔돈수집 | 카드 라운드업 적립 | POST | `/api/cma/collect/card` |  | C·강문군 |  |
 | 잔돈수집 | 포인트 전환 적립 | POST | `/api/cma/collect/point` |  | C·강문군 |  |
 | 잔돈수집 | 외화 잔돈 적립(연동 USD 지갑 → CMA 달러풀, 환전 없음) | POST | `/api/cma/collect/fx` |  | C·강문군 | ✅ |
+| 잔돈수집 | 적립 소스 설정 조회 | GET | `/api/cma/collect/settings` |  | D·김서현 | ✅ |
 | 잔돈수집 | 적립 소스 설정(카드/계좌별 ON/OFF) | PUT | `/api/cma/collect/settings` |  | C·강문군 | ✅ |
 | 잔돈수집 | 적립 이력 조회 | GET | `/api/cma/collect/history` |  | C·강문군 | ✅ |
 | CMA | CMA 잔액·성과율(원화RP/외화RP) 조회 | GET | `/api/cma/balance` |  | C·강문군 | ✅ |

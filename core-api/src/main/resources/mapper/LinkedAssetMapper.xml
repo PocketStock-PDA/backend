@@ -51,6 +51,21 @@
           AND closed_at IS NULL
     </update>
 
+    <!-- 연동 카드 목록 — 잔돈 모으기 카드 선택 화면(GET /api/assets/cards).
+         카드사명은 linked_institutions → institution_master 체인으로 조회. id 오름차순. -->
+    <select id="findLinkedCards" resultType="com.pocketstock.core.asset.dto.LinkedCardResponse">
+        SELECT lc.id           AS cardId,
+               lc.card_name   AS cardName,
+               lc.card_type   AS cardType,
+               lc.masked_no   AS maskedNo,
+               im.company_name AS companyName
+        FROM linked_cards lc
+        JOIN linked_institutions li ON li.id = lc.institution_id
+        JOIN institution_master im ON im.id = li.institution_master_id
+        WHERE lc.user_id = #{userId}
+        ORDER BY lc.id ASC
+    </select>
+
     <!-- 외화(USD) 입출금 지갑 잔액 합계 — 잔돈 스캔 FX 소스(SOL트래블 외화예금 등 입출금식 USD 지갑).
          account_type='DEMAND'만 포함 — 외화 정기예금/적금은 잔돈이 아니라 제외(findUsdWallets와 동일 모집단).
          휴면 계좌 제외(휴면은 별도 해지 흐름). COALESCE로 행 없을 때 0 반환. -->

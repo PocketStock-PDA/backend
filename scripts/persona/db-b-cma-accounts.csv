@@ -1,2 +1,2 @@
-id,user_id,account_no_enc,status,opened_at,created_at,updated_at
+﻿id,user_id,account_no_enc,status,opened_at,created_at,updated_at
 1,1,,ACTIVE,2026-01-20 10:00:00,2026-01-20 10:00:00,2026-01-20 10:00:00

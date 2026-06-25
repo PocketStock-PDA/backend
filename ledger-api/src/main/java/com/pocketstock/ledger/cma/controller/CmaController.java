@@ -13,6 +13,7 @@ import com.pocketstock.ledger.cma.dto.response.CmaHomeResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransactionResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaTransferResponse;
 import com.pocketstock.ledger.cma.dto.response.CollectResult;
+import com.pocketstock.ledger.cma.dto.response.CollectionSettingView;
 import com.pocketstock.ledger.cma.service.CmaAccountService;
 import com.pocketstock.ledger.cma.service.CmaAutoChargeSettingService;
 import com.pocketstock.ledger.cma.service.CmaCollectService;
@@ -155,6 +156,11 @@ public class CmaController {
             @CurrentUserId Long userId,
             @RequestBody @Valid CmaDepositRequest request) {
         return ApiResponse.ok("CMA 충전 성공", depositService.deposit(userId, request));
+    }
+
+    @GetMapping("/collect/settings")
+    public ApiResponse<List<CollectionSettingView>> getSettings(@CurrentUserId Long userId) {
+        return ApiResponse.ok("수집 소스 설정 조회 성공", collectService.getSettings(userId));
     }
 
     @PutMapping("/collect/settings")

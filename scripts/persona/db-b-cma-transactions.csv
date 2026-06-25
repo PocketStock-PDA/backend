@@ -1,4 +1,4 @@
-id,user_id,cma_account_id,currency,tx_type,source_type,amount,balance_after,ref_type,ref_id,idempotency_key,created_at
+﻿id,user_id,cma_account_id,currency,tx_type,source_type,amount,balance_after,ref_type,ref_id,idempotency_key,created_at
 1,1,1,KRW,DEPOSIT,MANUAL,340000.0000,340000.0000,,,cma-manual-deposit-20260120,2026-01-20 10:30:00
 2,1,1,KRW,COLLECT,CARD,8340.0000,348340.0000,,,cma-card-roundup-202602,2026-02-28 23:59:00
 3,1,1,KRW,INTEREST,SYSTEM,1250.0000,349590.0000,,,cma-interest-202602,2026-02-28 23:59:30

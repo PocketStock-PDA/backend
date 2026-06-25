@@ -58,8 +58,6 @@ public class AssetLinkService {
 
     private static final List<BankTpl> DEFAULT_BANK =
             List.of(new BankTpl("DEMAND", "입출금 통장", new BigDecimal("500000"), "KRW"));
-    private static final List<CardTpl> DEFAULT_CARD =
-            List.of(new CardTpl("연동 카드", "CREDIT", "0000-****-****-0000"));
     private static final PointTpl DEFAULT_POINT = new PointTpl("연동 포인트", 5000);
     private static final SecTpl DEFAULT_SEC = new SecTpl(new BigDecimal("10000"), "KRW", List.of());
 
@@ -239,8 +237,11 @@ public class AssetLinkService {
                 }
             }
             case "CARD" -> {
-                for (CardTpl t : CARD_TPL.getOrDefault(companyCode, DEFAULT_CARD)) {
-                    mapper.insertCard(userId, institutionId, t.cardName(), t.cardType(), t.maskedNo());
+                List<CardTpl> tpls = CARD_TPL.get(companyCode);
+                if (tpls != null) {
+                    for (CardTpl t : tpls) {
+                        mapper.insertCard(userId, institutionId, t.cardName(), t.cardType(), t.maskedNo());
+                    }
                 }
             }
             case "POINT" -> {
