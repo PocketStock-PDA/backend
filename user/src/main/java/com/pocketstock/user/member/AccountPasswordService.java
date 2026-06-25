@@ -44,6 +44,13 @@ public class AccountPasswordService {
     /** 자동 잠금까지 허용하는 오답 횟수. */
     private static final int MAX_ATTEMPTS = 5;
 
+    /** 잠금 해제 인증번호 오입력 카운터 키 접두사 — acctpw:unlock-fail:{userId}. */
+    private static final String UNLOCK_FAIL_PREFIX = "acctpw:unlock-fail:";
+    /** 인증번호 무차별 대입 방어 — 이 횟수 초과 시 새 인증번호 재요청 필요. */
+    private static final int MAX_UNLOCK_ATTEMPTS = 5;
+    /** 인증번호 오입력 카운터 윈도우 — 코드 TTL(3분)보다 넉넉히 두어 잔여 키 정리. */
+    private static final Duration UNLOCK_FAIL_WINDOW = Duration.ofMinutes(5);
+
     private final AccountPasswordMapper accountPasswordMapper;
     private final MemberMapper memberMapper;
     private final PhoneVerificationService phoneVerificationService;
@@ -137,6 +144,7 @@ public class AccountPasswordService {
         if (!sent) {
             throw new BusinessException(ErrorCode.PUSH_NOT_AVAILABLE);
         }
+        redis.delete(unlockFailKey(userId));   // 새 인증번호 발급 → 오입력 카운터 리셋(재시도 횟수 초기화)
     }
 
     /**
@@ -164,15 +172,25 @@ public class AccountPasswordService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "등록된 휴대폰 번호가 없습니다.");
         }
 
+        // verifySms는 불일치 시 코드를 소비하지 않아 TTL 내 무제한 추측이 가능 →
+        // 6자리 무차별 대입 방어를 위해 시도 횟수를 별도 카운터로 제한한다(휴대폰 소유 2차인증 보호).
+        String unlockFailKey = unlockFailKey(userId);
+        if (currentUnlockFailures(unlockFailKey) >= MAX_UNLOCK_ATTEMPTS) {
+            throw new BusinessException(ErrorCode.VERIFICATION_ATTEMPTS_EXCEEDED,
+                    "인증 시도 횟수를 초과했습니다. 인증번호를 다시 요청해 주세요.");
+        }
+
         boolean verified = phoneVerificationService
                 .verifySms(new SmsVerifyRequest(member.getPhone(), code))
                 .verified();
         if (!verified) {
+            recordUnlockFailure(unlockFailKey);
             throw new BusinessException(ErrorCode.INVALID_INPUT, "인증번호가 일치하지 않거나 만료되었습니다.");
         }
 
         accountPasswordMapper.updateLockStatus(userId, false);
-        redis.delete(failKey(userId));   // 해제 → 실패 카운터 리셋
+        redis.delete(failKey(userId));         // 해제 → 비밀번호 오답 카운터 리셋
+        redis.delete(unlockFailKey);           // 해제 → 인증번호 오입력 카운터 리셋
     }
 
     private void requireAuth(Long userId) {
@@ -190,5 +208,30 @@ public class AccountPasswordService {
     private long increment(Long userId) {
         Long fails = redis.opsForValue().increment(failKey(userId));
         return fails == null ? MAX_ATTEMPTS : fails;   // 카운터 손상 시 보수적으로 잠금 유도
+    }
+
+    private String unlockFailKey(Long userId) {
+        return UNLOCK_FAIL_PREFIX + userId;
+    }
+
+    /** 현재 인증번호 오입력 횟수 — 값이 없거나 손상되면 0(파싱 예외로 해제 API가 죽지 않게). */
+    private int currentUnlockFailures(String key) {
+        String cnt = redis.opsForValue().get(key);
+        if (cnt == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(cnt);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /** 인증번호 오입력 누적 — 첫 실패에 윈도우 TTL을 건다(새 코드 발급 시 리셋됨). */
+    private void recordUnlockFailure(String key) {
+        Long fails = redis.opsForValue().increment(key);
+        if (fails != null && fails == 1L) {
+            redis.expire(key, UNLOCK_FAIL_WINDOW);
+        }
     }
 }
