@@ -16,6 +16,14 @@
         WHERE bts.user_id = #{userId}
     </select>
 
+    <select id="existsAccountOwnedBy" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM linked_bank_accounts lba
+        JOIN linked_institutions li ON li.id = lba.institution_id
+        WHERE lba.id = #{accountId}
+          AND li.user_id = #{userId}
+    </select>
+
     <insert id="upsertTransferAccount">
         INSERT INTO budget_transfer_settings (user_id, account_id, created_at, updated_at)
         VALUES (#{userId}, #{accountId}, NOW(), NOW())

@@ -15,6 +15,7 @@ import com.pocketstock.core.budget.mapper.BudgetSavingsMapper;
 import com.pocketstock.core.budget.mapper.BudgetTransferMapper;
 import com.pocketstock.core.notification.NotificationService;
 import com.pocketstock.core.notification.NotificationType;
+import com.pocketstock.user.security.TxnAuthGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class BudgetSavingsService {
     private final BudgetGoalMapper goalMapper;
     private final BudgetTransferMapper transferMapper;
     private final NotificationService notificationService;
+    private final TxnAuthGuard txnAuthGuard;
 
     public CategorySavingsResponse getCategoryWithSavings(Long userId) {
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
@@ -150,6 +152,10 @@ public class BudgetSavingsService {
 
     @Transactional
     public void setTransferAccount(Long userId, Long accountId) {
+        txnAuthGuard.requireTxnAuth(userId);
+        if (!transferMapper.existsAccountOwnedBy(userId, accountId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
         transferMapper.upsertTransferAccount(userId, accountId);
     }
 }

@@ -9,6 +9,11 @@ public interface BudgetTransferMapper {
 
     TransferAccountResponse findTransferAccount(@Param("userId") Long userId);
 
+    boolean existsAccountOwnedBy(
+            @Param("userId") Long userId,
+            @Param("accountId") Long accountId
+    );
+
     void upsertTransferAccount(
             @Param("userId") Long userId,
             @Param("accountId") Long accountId
