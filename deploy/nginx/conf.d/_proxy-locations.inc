@@ -16,6 +16,7 @@ location /api/budget/          { proxy_pass http://core-api; }
 location /api/notifications    { proxy_pass http://core-api; }
 location /api/recommendations/ { proxy_pass http://core-api; }
 location /api/trading/calendar { proxy_pass http://core-api; }  # /api/trading/ 보다 더 구체적 → nginx 최장일치로 먼저 매칭
+location /api/users/           { proxy_pass http://core-api; }
 
 # ---- ledger-api (DB B) ----
 location /api/cma/      { proxy_pass http://ledger-api; }
