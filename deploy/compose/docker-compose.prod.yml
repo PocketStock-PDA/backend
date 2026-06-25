@@ -144,7 +144,7 @@ services:
       KAFKA_NUM_PARTITIONS: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
