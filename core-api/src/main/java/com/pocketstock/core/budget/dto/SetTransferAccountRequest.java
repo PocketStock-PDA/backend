@@ -1,3 +1,5 @@
 package com.pocketstock.core.budget.dto;
 
-public record SetTransferAccountRequest(Long accountId) {}
+import jakarta.validation.constraints.NotNull;
+
+public record SetTransferAccountRequest(@NotNull Long accountId) {}

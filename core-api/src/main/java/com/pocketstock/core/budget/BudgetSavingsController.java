@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -68,7 +69,7 @@ public class BudgetSavingsController {
     @PutMapping("/savings/transfer-account")
     public ResponseEntity<ApiResponse<Void>> setTransferAccount(
             @CurrentUserId Long userId,
-            @RequestBody SetTransferAccountRequest request) {
+            @RequestBody @Valid SetTransferAccountRequest request) {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
         budgetSavingsService.setTransferAccount(userId, request.accountId());
         return ResponseEntity.ok(ApiResponse.ok("이체 계좌 등록 성공", null));
