@@ -49,7 +49,7 @@ public class StockService {
                 .toList();
     }
 
-    /** 종목 상세 — 마스터 + 현재가(국내만 t1102, 해외는 null). */
+    /** 종목 상세 — 마스터 + 현재가(국내 t1102 / 해외 HHDFS76200200, 둘 다 스냅샷 readThrough). */
     @Transactional(readOnly = true)
     public StockDetailResponse getDetail(Long userId, String stockCode) {
         requireAuth(userId);
@@ -58,10 +58,10 @@ public class StockService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
         }
 
-        StockPriceResponse price = null;
-        if (DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
-            price = stockPriceService.getDomesticPrice(userId, stockCode);
-        }
+        // 국내/해외 모두 현재가 합성 — 해외는 detail에서 빠져 주문·상세 화면이 시세 없이 떴었음.
+        StockPriceResponse price = DOMESTIC_EXCHANGES.contains(stock.getExchange())
+                ? stockPriceService.getDomesticPrice(userId, stockCode)
+                : stockPriceService.getOverseasPrice(userId, stockCode);
 
         return new StockDetailResponse(
                 stock.getStockCode(),
