@@ -12,6 +12,10 @@ public enum ErrorCode {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     TXN_AUTH_REQUIRED(HttpStatus.UNAUTHORIZED, "거래 인증이 필요합니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+    // 계좌 비밀번호 잠금 — 프론트가 일반 오답과 구분해 해제 화면으로 분기(423 LOCKED)
+    ACCOUNT_PASSWORD_LOCKED(HttpStatus.LOCKED, "계좌 비밀번호가 잠겼습니다. 휴대폰 인증으로 해제해 주세요."),
+    // 푸시 발송 불가(미구독·알림 미허용) — 잠금 해제 인증번호를 보낼 수단이 없음
+    PUSH_NOT_AVAILABLE(HttpStatus.UNPROCESSABLE_ENTITY, "푸시 알림을 받을 수 없습니다. 기기에서 알림을 허용했는지 확인해 주세요."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "리소스를 찾을 수 없습니다."),
     CONFLICT(HttpStatus.CONFLICT, "중복 또는 충돌이 발생했습니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
