@@ -1,4 +1,4 @@
-# 운영(데모) compose — EC2 1대: nginx 게이트웨이 + core/ledger(Blue-Green 2벌) + redis
+# 운영(데모) compose — EC2 1대: nginx 게이트웨이 + core/ledger(Blue-Green 2벌) + redis + kafka
 # 이미지는 EC2에서 빌드하지 않고 ECR에서 pull (CICD가 git-SHA 태그로 push).
 #   ECR_REGISTRY : .env 에서 주입 (예: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com)
 #   IMAGE_TAG    : 배포 스크립트가 릴리스 SHA로 주입 (deploy-release.sh 가 export)
@@ -23,6 +23,7 @@ x-core-env: &core-env
   DB_PASSWORD: ${CORE_DB_PASSWORD}
   REDIS_HOST: redis
   REDIS_PORT: "6379"
+  KAFKA_SERVERS: kafka:9092
   LEDGER_API_URL: http://ledger-api:8082   # 네트워크 alias → 떠 있는 ledger 색으로 해석
   JWT_SECRET: ${JWT_SECRET}
   VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
@@ -50,6 +51,7 @@ x-ledger-env: &ledger-env
   DB_PASSWORD: ${LEDGER_DB_PASSWORD}
   REDIS_HOST: redis
   REDIS_PORT: "6379"
+  KAFKA_SERVERS: kafka:9092
   CORE_API_URL: http://core-api:8081       # 네트워크 alias → 떠 있는 core 색으로 해석
   JWT_SECRET: ${JWT_SECRET}
   ACCOUNT_CIPHER_SECRET: ${ACCOUNT_CIPHER_SECRET}
@@ -124,6 +126,35 @@ services:
       retries: 5
     restart: unless-stopped
 
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: pocketstock-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
   nginx:
     image: nginx:1.27-alpine
     container_name: pocketstock-nginx
@@ -150,5 +181,6 @@ networks:
   default:
 
 volumes:
+  kafka-data:
   certbot-www:
   certbot-conf:

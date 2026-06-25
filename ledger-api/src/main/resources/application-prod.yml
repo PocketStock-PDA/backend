@@ -5,3 +5,7 @@ logging:
     org.mybatis: INFO
 server:
   shutdown: graceful
+management:
+  health:
+    kafka:
+      enabled: false
