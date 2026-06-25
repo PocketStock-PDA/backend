@@ -45,6 +45,7 @@
   <button data-tab="fx" onclick="showTab('fx')">환율·환전</button>
   <button data-tab="autoinvest" onclick="showTab('autoinvest')">자동모으기</button>
   <button data-tab="valuation" onclick="showTab('valuation')">평가추이</button>
+  <button data-tab="outbox" onclick="showTab('outbox')">알림(Kafka)</button>
 </div>
 
 <section id="tab-flow" class="tab active">
@@ -392,10 +393,11 @@
     종목당 BUY 1·SELL 1(재등록 시 갱신·재무장). 평가 = 일배치 종가 수익률(daily_valuations #125) · 에지 재발동(is_armed).
     <b>해제</b>는 목록의 트리거ID 필요 → 먼저 "목록" 눌러 ID 확인 후 trgRemove의 prompt에 입력.</div>
   <hr/>
-  <button onclick="trgEvalRun('DOMESTIC')">트리거 평가(국내·dev)</button>
-  <button onclick="trgEvalRun('OVERSEAS')">트리거 평가(해외·dev)</button>
+  종목 <input id="trgEvalCode" value="005930" size="8"/>
+  <button onclick="trgEvalRun()">트리거 강제 평가(dev)</button>
   <span id="trgEvalState" class="muted"></span>
-  <div class="muted">/dev/auto-invest-trigger-run — 정기매수 없이 트리거만 평가. <b>먼저 평가추이 탭에서 BATCH-002 적재</b>(종가 수익률)해야 판정됨.
+  <div class="muted">실시간 감지(#194): 운영은 <b>호가 틱마다 자동 평가</b>(AutoInvestTriggerEngine) — 물타기=최우선 매도호가·익절=최우선 매수호가로 수익률 계산.
+    이 버튼은 장외 테스트용 <b>현재가(캐시/REST) 강제 1회 평가</b>(/dev/auto-invest-trigger-run?stockCode=). 먼저 그 종목에 트리거 등록 필요.
     결과는 거래 탭 보유종목/거래내역, 회차내역(DIP_BUY/TAKE_PROFIT)에서 확인.</div>
 </fieldset>
 </section>
@@ -414,6 +416,23 @@
   <div id="valView"></div>
   <pre id="valRaw" class="muted">결과 raw JSON</pre>
   <div class="muted">from/to 비우면 최근 90일. 종가 기준 native 평가손익(환차손익 제외). 추이 보려면 먼저 "BATCH-002 적재"를 며칠 돌려 데이터를 쌓아야 함(같은 날 재적재는 멱등=1행).</div>
+</fieldset>
+</section>
+
+<section id="tab-outbox" class="tab">
+<fieldset>
+  <legend>16) 비동기 알림 발행 (Outbox → Kafka, #204)</legend>
+  <button onclick="outboxList()">outbox 조회(새로고침)</button>
+  <span id="outboxState" class="muted"></span>
+  <div id="outboxView"></div>
+  <pre id="outboxRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">
+    체결·자동모으기가 발생하면 outbox에 이벤트가 쌓이고, 릴레이(1초 폴링)가 Kafka로 발행 후 <b>published=true</b>로 마킹.
+    <b>published=true = Kafka 발행 성공</b>(Kafka 미기동이면 false로 머묾).<br/>
+    검증 순서: ① <b>자동모으기</b> 탭에서 "지금 집행" → ② 이 탭 "outbox 조회"로 이벤트 published 확인 →
+    ③ <b>core(8081)</b> 알림함(<code>GET /api/notifications</code>) 또는 DB <code>notifications</code> 테이블에서 수신 확인.<br/>
+    토픽: <code>trading.order.filled</code>(체결)·<code>autoinvest.executed</code>(자동모으기). core consumer가 멱등(processed_events) 처리.
+  </div>
 </fieldset>
 </section>
 
@@ -1388,9 +1407,29 @@ async function trgRemove() {
   if (b.success) trgList();
 }
 
-async function trgEvalRun(market) {
-  const b = await (await fetch('/dev/auto-invest-trigger-run?market=' + market)).json();
+async function trgEvalRun() {
+  const code = document.getElementById('trgEvalCode').value.trim();
+  const b = await (await fetch('/dev/auto-invest-trigger-run?stockCode=' + code)).json();
   document.getElementById('trgEvalState').textContent = b.success ? b.message : ('실패: ' + b.message);
+}
+
+// ---- 16) 비동기 알림 발행 outbox (#204) ----
+async function outboxList() {
+  const b = await (await fetch('/dev/outbox?limit=30')).json();
+  document.getElementById('outboxRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('outboxView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x => {
+    const pub = x.published
+      ? '<span style="color:#1a7f37">published</span>'
+      : '<span class="down">대기</span>';
+    return `<tr><td>${x.id}</td><td>${x.eventId}</td><td>${x.topic}</td><td>${pub}</td>`
+      + `<td>${x.createdAt || ''}</td></tr>`;
+  }).join('');
+  const pending = (b.data || []).filter(x => !x.published).length;
+  document.getElementById('outboxState').textContent = `총 ${(b.data || []).length}건 · 미발행 ${pending}건`;
+  v.innerHTML = `<table><tr><th>id</th><th>eventId</th><th>topic</th><th>발행</th><th>생성</th></tr>`
+    + `${rows || '<tr><td colspan="5" class="muted">이벤트 없음 — 먼저 자동모으기/체결 발생</td></tr>'}</table>`;
 }
 
 setTokenState();
