@@ -26,6 +26,12 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    producer:                              # 알림 이벤트 발행(Outbox 릴레이, #204)
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all                            # 리더+팔로워 ack — 발행 유실 최소화(Outbox와 합쳐 at-least-once)
+      properties:
+        enable.idempotence: true           # 프로듀서 재시도 중복 방지
 
   jackson:
     serialization:

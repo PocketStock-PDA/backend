@@ -25,6 +25,14 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:                              # 알림 이벤트 구독(#204)
+      group-id: core-notification
+      auto-offset-reset: earliest          # 새 그룹은 처음부터(놓친 이벤트 흡수)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false            # 처리 성공 후 수동 ack(at-least-once)
+    listener:
+      ack-mode: record
 
   jackson:
     serialization:

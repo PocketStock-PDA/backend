@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.outbox.OutboxMapper">
+
+    <resultMap id="outbox" type="com.pocketstock.ledger.outbox.Outbox">
+        <id     property="id"            column="id"/>
+        <result property="eventId"       column="event_id"/>
+        <result property="topic"         column="topic"/>
+        <result property="aggregateType" column="aggregate_type"/>
+        <result property="aggregateId"   column="aggregate_id"/>
+        <result property="payload"       column="payload"/>
+        <result property="published"     column="published"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="publishedAt"   column="published_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.outbox.Outbox" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO outbox (event_id, topic, aggregate_type, aggregate_id, payload, published)
+        VALUES (#{eventId}, #{topic}, #{aggregateType}, #{aggregateId}, #{payload}, FALSE)
+    </insert>
+
+    <select id="findUnpublished" resultMap="outbox">
+        SELECT id, event_id, topic, aggregate_type, aggregate_id, payload, published, created_at, published_at
+        FROM outbox
+        WHERE published = FALSE
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <update id="markPublished">
+        UPDATE outbox
+        SET published = TRUE, published_at = NOW()
+        WHERE id = #{id} AND published = FALSE
+    </update>
+
+    <select id="findRecent" resultMap="outbox">
+        SELECT id, event_id, topic, aggregate_type, aggregate_id, payload, published, created_at, published_at
+        FROM outbox
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
