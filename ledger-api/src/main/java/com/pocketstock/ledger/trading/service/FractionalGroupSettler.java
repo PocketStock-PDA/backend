@@ -4,6 +4,10 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
+import com.pocketstock.ledger.outbox.OutboxEventPublisher;
+import com.pocketstock.ledger.outbox.event.OrderFilledEvent;
+import com.pocketstock.ledger.trading.realtime.OrderNotification;
+import com.pocketstock.ledger.trading.realtime.OrderNotificationPublisher;
 import com.pocketstock.ledger.trading.domain.Allocation;
 import com.pocketstock.ledger.trading.domain.BatchOrder;
 import com.pocketstock.ledger.trading.domain.Order;
@@ -48,6 +52,8 @@ public class FractionalGroupSettler {
     private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
     private static final int QTY_SCALE = 6;
     private static final int TICK_STEPS = 5;   // 국내 금액매수 = 현재가 + 5틱(#101)
+    private static final String SOURCE_AUTO = "AUTO";
+    private static final java.time.ZoneId KST = java.time.ZoneId.of("Asia/Seoul");
 
     private final OrderMapper orderMapper;
     private final BatchOrderMapper batchOrderMapper;
@@ -60,6 +66,8 @@ public class FractionalGroupSettler {
     private final OrderbookService orderbookService;
     private final CurrencyRateProvider currencyRateProvider;
     private final OrderFundingService fundingService;
+    private final OutboxEventPublisher outboxPublisher;
+    private final OrderNotificationPublisher orderNotificationPublisher;
 
     /**
      * 한 그룹 정산(한 tx) — 같은 종목·side·가격모델의 QUEUED 주문을 합산·체결·배분·정산.
@@ -162,6 +170,18 @@ public class FractionalGroupSettler {
             if (orderMapper.markFilledFractional(o.getId()) == 0) {
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 전이 실패(SENT→FILLED) orderId=" + o.getId());
             }
+            // 비동기 체결 알림(#204) — 소수점 배치체결은 화면 떠난 뒤 확정이라 통보. 같은 커밋에 outbox 기록.
+            // 자동모으기 주문(AUTO)은 autoinvest.executed로 이미 알림 → 중복 방지로 skip.
+            if (!SOURCE_AUTO.equals(o.getSource())) {
+                String eventId = "order:" + o.getId() + ":filled";
+                String filledAt = LocalDateTime.now(KST).toString();
+                outboxPublisher.publish(OrderFilledEvent.TOPIC, eventId, OrderFilledEvent.AGGREGATE, o.getId(),
+                        new OrderFilledEvent(eventId, o.getUserId(), stockCode, o.getSide(), "FRACTIONAL", "FILLED",
+                                f.qty(), fillPrice, gross, currency, filledAt));
+                // 실시간 체결통보(#139) — WS 즉시 화면 반영(비영속).
+                orderNotificationPublisher.push(o.getUserId(), new OrderNotification(o.getId(), stockCode,
+                        o.getSide(), "FRACTIONAL", "FILLED", f.qty(), fillPrice, currency, filledAt));
+            }
             allocatedTotal = allocatedTotal.add(f.qty());
         }
 
@@ -198,6 +218,8 @@ public class FractionalGroupSettler {
                     continue;
                 }
                 refundHold(o);
+                // 비동기 거부 알림(#204 outbox + #139 WS) — "접수됐는데 거부"는 화면 떠난 뒤라 통보. rejectOne과 공용.
+                publishRejected(o);
             } catch (Exception e) {
                 log.error("[소수점배치] 거부 환원 실패 orderId={} — 개별 스킵", o.getId(), e);
             }
@@ -222,6 +244,21 @@ public class FractionalGroupSettler {
             return;
         }
         refundHold(o);
+        publishRejected(o);   // rejectGroup과 동일 — "접수됐는데 거부" 비동기 통보(#204·#139)
+    }
+
+    /** 소수점 주문 거부 통보(#204 outbox + #139 WS) — AUTO는 autoinvest로 커버 → skip. rejectGroup·rejectOne 공용. */
+    private void publishRejected(Order o) {
+        if (SOURCE_AUTO.equals(o.getSource())) {
+            return;
+        }
+        String eventId = "order:" + o.getId() + ":rejected";
+        String now = LocalDateTime.now(KST).toString();
+        outboxPublisher.publish(OrderFilledEvent.TOPIC, eventId, OrderFilledEvent.AGGREGATE, o.getId(),
+                new OrderFilledEvent(eventId, o.getUserId(), o.getStockCode(), o.getSide(), "FRACTIONAL",
+                        "REJECTED", o.getOrderQuantity(), null, null, o.getCurrency(), now));
+        orderNotificationPublisher.push(o.getUserId(), new OrderNotification(o.getId(), o.getStockCode(),
+                o.getSide(), "FRACTIONAL", "REJECTED", o.getOrderQuantity(), null, o.getCurrency(), now));
     }
 
     /** 접수 hold 환원 — 매수=예수금 held_amount, 매도=잠근 수량(order_quantity). 거부·실패 보상 공용(FRAC-014). */

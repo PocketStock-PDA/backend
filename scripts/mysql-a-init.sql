@@ -352,9 +352,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   title VARCHAR(200),
   body VARCHAR(500),
   is_read BOOLEAN DEFAULT FALSE,
-  ref_type VARCHAR(20) NULL,
-  ref_id BIGINT NULL,
-  sent_at DATETIME,
+  ref_type VARCHAR(20) NULL,           -- 딥링크 원천 종류: ORDER / AUTO_INVEST … (#204)
+  ref_id BIGINT NULL,                  -- 원천 식별(값참조) — 알림 탭 시 해당 화면 이동
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_noti_user (user_id),
   -- 알림센터 목록: WHERE user_id=? ORDER BY created_at DESC 를 인덱스로 처리(filesort 제거)
@@ -372,6 +371,13 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   notify_marketing BOOLEAN DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Kafka consumer 멱등 처리이력(#204). at-least-once라 같은 event_id가 중복 배달될 수 있어,
+-- 처리 전 INSERT 시도 → DuplicateKey면 이미 처리한 이벤트로 보고 스킵(알림 중복 발송 차단).
+CREATE TABLE IF NOT EXISTS processed_events (
+  event_id VARCHAR(80) PRIMARY KEY,   -- 발행원 outbox.event_id (order:{id}:filled 등)
+  processed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =====================================================================

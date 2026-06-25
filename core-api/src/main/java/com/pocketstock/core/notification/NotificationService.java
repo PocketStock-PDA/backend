@@ -38,20 +38,30 @@ public class NotificationService {
      * 발송 실패는 알림 기록을 막지 않는다(알림함엔 항상 남김).
      */
     public void create(Long userId, NotificationType type, String title, String body) {
+        create(userId, type, title, body, null, null);
+    }
+
+    /**
+     * ref 포함 — 알림 탭 시 해당 화면 딥링크용({@code refType}=ORDER 등, {@code refId}=orderId).
+     * 체결·자동모으기 알림(#204)이 사용.
+     */
+    public void create(Long userId, NotificationType type, String title, String body,
+                       String refType, Long refId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    doCreate(userId, type, title, body);
+                    doCreate(userId, type, title, body, refType, refId);
                 }
             });
         } else {
-            doCreate(userId, type, title, body);
+            doCreate(userId, type, title, body, refType, refId);
         }
     }
 
-    private void doCreate(Long userId, NotificationType type, String title, String body) {
-        notificationMapper.insert(userId, type.name(), title, body);   // 1) 알림함 기록
+    private void doCreate(Long userId, NotificationType type, String title, String body,
+                          String refType, Long refId) {
+        notificationMapper.insert(userId, type.name(), title, body, refType, refId);   // 1) 알림함 기록
 
         NotificationSettingRow setting = notificationSettingMapper.findByUserId(userId);
         if (setting == null) return;                       // 설정 없음 → 푸시 생략

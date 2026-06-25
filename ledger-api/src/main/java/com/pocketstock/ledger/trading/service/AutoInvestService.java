@@ -19,7 +19,10 @@ import com.pocketstock.ledger.trading.mapper.AutoInvestStockMapper;
 import com.pocketstock.ledger.trading.mapper.AutoInvestTriggerMapper;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.mapper.StockMapper;
+import com.pocketstock.ledger.trading.matching.TriggerArmedEvent;
+import com.pocketstock.ledger.trading.matching.TriggerDisarmedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +60,7 @@ public class AutoInvestService {
     private final AutoInvestTriggerMapper triggerMapper;
     private final StockMapper stockMasterMapper;
     private final SecuritiesAccountMapper accountMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** 종목 등록 — 종목·계좌 해석 + 검증 후 1행 INSERT. 같은 종목 중복 시 409. */
     @Transactional
@@ -194,10 +198,13 @@ public class AutoInvestService {
         AutoInvestTrigger trigger = validateTrigger(req, stock.getCurrency());
         trigger.setAutoInvestStockId(stockId);
         triggerMapper.upsert(trigger);
-        return triggerMapper.findByStockId(stockId).stream()
+        AutoInvestTrigger saved = triggerMapper.findByStockId(stockId).stream()
                 .filter(t -> t.getTriggerKind().equals(trigger.getTriggerKind()))
-                .findFirst().map(AutoInvestTriggerResponse::from)
+                .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_ERROR, "트리거 저장 확인 실패"));
+        // 실시간 감지 엔진에 등록(#194) — 커밋 후 그 종목 호가 구독 ON·인덱스 적재.
+        eventPublisher.publishEvent(new TriggerArmedEvent(saved.getId(), stock.getStockCode()));
+        return AutoInvestTriggerResponse.from(saved);
     }
 
     /** 종목 트리거 목록(매수/매도). */
@@ -216,12 +223,15 @@ public class AutoInvestService {
     @Transactional
     public void removeTrigger(Long userId, Long stockId, Long triggerId) {
         requireUser(userId);
-        if (stockMapper.findByIdAndUserId(stockId, userId) == null) {
+        AutoInvestStock stock = stockMapper.findByIdAndUserId(stockId, userId);
+        if (stock == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "자동모으기 설정을 찾을 수 없습니다.");
         }
         if (triggerMapper.deleteByIdAndStockId(triggerId, stockId) == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "트리거를 찾을 수 없습니다.");
         }
+        // 실시간 감지 엔진에서 제거(#194) — 커밋 후 그 종목 트리거 0건이면 구독 OFF.
+        eventPublisher.publishEvent(new TriggerDisarmedEvent(triggerId, stock.getStockCode()));
     }
 
     /** 트리거 검증 + 엔티티 구성. BUY(물타기)=수익률 음수·AMOUNT/QUANTITY / SELL(익절)=수익률 양수·RATIO/QUANTITY/ALL. */

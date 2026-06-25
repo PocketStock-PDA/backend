@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.notification.mapper.ProcessedEventMapper">
+
+    <insert id="markProcessed">
+        INSERT IGNORE INTO processed_events (event_id) VALUES (#{eventId})
+    </insert>
+
+</mapper>

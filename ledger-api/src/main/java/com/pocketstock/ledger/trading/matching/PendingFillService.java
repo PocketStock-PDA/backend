@@ -3,6 +3,10 @@ package com.pocketstock.ledger.trading.matching;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.exchange.CurrencyRateProvider;
+import com.pocketstock.ledger.outbox.OutboxEventPublisher;
+import com.pocketstock.ledger.outbox.event.OrderFilledEvent;
+import com.pocketstock.ledger.trading.realtime.OrderNotification;
+import com.pocketstock.ledger.trading.realtime.OrderNotificationPublisher;
 import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
@@ -15,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * 온주 지정가 PENDING 1건의 체결 확정(매칭 데몬 전용, 국내·해외). 진입 시 묶어둔 hold(M2)를
@@ -30,6 +36,7 @@ import java.math.BigDecimal;
 public class PendingFillService {
 
     private static final String CURRENCY_USD = "USD";
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final OrderMapper orderMapper;
     private final DepositService depositService;
@@ -38,6 +45,8 @@ public class PendingFillService {
     private final HoldingMapper holdingMapper;
     private final CurrencyRateProvider currencyRateProvider;
     private final OrderFundingService fundingService;
+    private final OutboxEventPublisher outboxPublisher;
+    private final OrderNotificationPublisher orderNotificationPublisher;
 
     /**
      * @return true=이 호출이 체결을 확정, false=경합에서 짐(이미 취소·체결됨).
@@ -82,6 +91,15 @@ public class PendingFillService {
             // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금 잔류 0. 같은 트랜잭션.
             fundingService.returnFromSell(cmd.userId(), cmd.accountId(), cmd.currency(), total, cmd.orderId());
         }
+        // 비동기 체결 알림(#204) — 온주 지정가 체결은 화면 떠난 뒤 확정이라 통보 대상. 같은 커밋에 outbox 기록.
+        String eventId = "order:" + cmd.orderId() + ":filled";
+        String now = LocalDateTime.now(KST).toString();
+        outboxPublisher.publish(OrderFilledEvent.TOPIC, eventId, OrderFilledEvent.AGGREGATE, cmd.orderId(),
+                new OrderFilledEvent(eventId, cmd.userId(), cmd.stockCode(), cmd.side(), "LIMIT", "FILLED",
+                        cmd.quantity(), cmd.fillPrice(), total, cmd.currency(), now));
+        // 실시간 체결통보(#139) — 앱 켜져있을 때 즉시 화면 반영(WS, 비영속). 영속 알림은 위 outbox→core.
+        orderNotificationPublisher.push(cmd.userId(), new OrderNotification(cmd.orderId(), cmd.stockCode(),
+                cmd.side(), "LIMIT", "FILLED", cmd.quantity(), cmd.fillPrice(), cmd.currency(), now));
         return true;
     }
 

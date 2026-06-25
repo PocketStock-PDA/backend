@@ -9,12 +9,14 @@ import java.util.List;
 @Mapper
 public interface NotificationMapper {
 
-    /** 알림 생성(알림함 기록). 타 도메인 이벤트 → create() 경유. */
+    /** 알림 생성(알림함 기록). 타 도메인 이벤트 → create() 경유. refType/refId는 딥링크용(없으면 null). */
     void insert(
             @Param("userId") Long userId,
             @Param("type") String type,
             @Param("title") String title,
-            @Param("body") String body
+            @Param("body") String body,
+            @Param("refType") String refType,
+            @Param("refId") Long refId
     );
 
     List<NotificationRow> findByUser(
