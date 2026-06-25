@@ -1,5 +1,6 @@
 package com.pocketstock.ledger.outbox;
 
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -11,13 +12,11 @@ import java.util.List;
 /**
  * Outbox 릴레이(#204) — 미발행 이벤트를 폴링해 Kafka로 발행하고 마킹한다.
  *
- * <p>흐름: ① {@code published=false} 배치 조회 → ② 행 선점(markPublished, 멀티 인스턴스 이중발행 차단) →
- * ③ 선점 성공분만 Kafka 발행. 발행 실패 시 그 행은 다음 폴링에서 재시도(이미 마킹됐으면? — 아래 순서 주의).
+ * <p>흐름: ① active ledger 색만 {@code published=false} 배치 조회 → ② Kafka 발행 →
+ * ③ 발행 성공분만 published 마킹. 발행 실패 시 그 행은 다음 폴링에서 재시도한다.
  *
- * <p><b>순서 = 선점 먼저, 발행 나중</b>: markPublished(affected=1)로 한 인스턴스만 그 행을 가져가고, 그 다음 발행.
- * Kafka 발행이 실패하면 그 행은 이미 published=true라 재시도 안 됨 → <b>at-least-once보다 약함(유실 가능)</b>.
- * 이를 막으려면 "발행 성공 후 마킹"이 정석이나 멀티 인스턴스 이중발행이 생긴다. 트레이드오프:
- * 여기선 <b>발행 후 마킹</b>을 택해 유실 0을 우선(이중발행은 consumer가 event_id로 멱등 흡수). 선점은 트랜잭션으로 단일화.
+ * <p>순서는 <b>발행 후 마킹</b>이다. Kafka 장애 시 published=false로 남겨 복구 후 재시도하고,
+ * blue-green 중복 실행은 {@link LedgerActivation}으로 줄인다. 만약 중복 발행이 발생해도 consumer가 event_id로 멱등 흡수한다.
  */
 @Slf4j
 @Component
@@ -28,10 +27,14 @@ public class OutboxRelay {
 
     private final OutboxMapper outboxMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final LedgerActivation activation;
 
-    /** 미발행 이벤트 발행 — 1초 폴링. 알림은 1~2초 지연 무방. */
+    /** 미발행 이벤트 발행 — active ledger 색에서만 1초 폴링. 알림은 1~2초 지연 무방. */
     @Scheduled(fixedDelay = 1000)
     public void relay() {
+        if (!activation.isActive()) {
+            return;
+        }
         List<Outbox> batch = outboxMapper.findUnpublished(BATCH_SIZE);
         if (batch.isEmpty()) {
             return;
