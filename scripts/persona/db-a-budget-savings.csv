@@ -1,2 +1,2 @@
-id,user_id,period,target_amount,spent_amount,saved_amount,is_collect_agreed,transfer_status,transferred_at,created_at,updated_at
+﻿id,user_id,period,target_amount,spent_amount,saved_amount,is_collect_agreed,transfer_status,transferred_at,created_at,updated_at
 1,1,2026-06,300000.0000,733300.0000,0.0000,TRUE,PENDING,,2026-06-01 00:00:00,2026-06-19 08:00:00

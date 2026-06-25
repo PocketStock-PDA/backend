@@ -1,2 +1,3 @@
-id,username,password_hash,name,phone,ci,birth_date,gender,device_id,status,created_at,updated_at,deleted_at
+﻿id,username,password_hash,name,phone,ci,birth_date,gender,device_id,status,created_at,updated_at,deleted_at
 1,test1234,$2b$10$4j4DV4JDv0pB4bil3GWR7.oqA/aRVrxB58cWm..rw7xRq1zK7Ibba,임혜진,010-9876-5432,,1990-07-22,FEMALE,,ACTIVE,2026-01-15 10:00:00,2026-01-15 10:00:00,
+3,suhyunlee,$2b$10$4j4DV4JDv0pB4bil3GWR7.oqA/aRVrxB58cWm..rw7xRq1zK7Ibba,이수현,010-2345-6789,,1985-04-12,FEMALE,,ACTIVE,2026-02-15 10:00:00,2026-02-15 10:00:00,

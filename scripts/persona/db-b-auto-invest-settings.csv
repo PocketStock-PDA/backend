@@ -1,2 +1,2 @@
-id,user_id,is_enabled,is_paused,keep_collecting_on_pause,created_at,updated_at
+﻿id,user_id,is_enabled,is_paused,keep_collecting_on_pause,created_at,updated_at
 1,1,FALSE,FALSE,TRUE,2026-01-20 10:00:00,2026-01-20 10:00:00

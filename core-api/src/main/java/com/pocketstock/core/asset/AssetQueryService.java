@@ -4,6 +4,7 @@ import com.pocketstock.core.asset.dto.DormantAccountResponse;
 import com.pocketstock.core.asset.dto.ExternalHoldingResponse;
 import com.pocketstock.core.asset.dto.ExternalHoldingRow;
 import com.pocketstock.core.asset.dto.InstitutionResponse;
+import com.pocketstock.core.asset.dto.LinkedCardResponse;
 import com.pocketstock.core.asset.dto.ScanResponse;
 import com.pocketstock.core.asset.mapper.ExternalHoldingMapper;
 import com.pocketstock.core.asset.mapper.InstitutionMapper;
@@ -46,6 +47,10 @@ public class AssetQueryService {
 
     public List<DormantAccountResponse> getDormantAccounts(Long userId) {
         return linkedAssetMapper.findDormantAccounts(userId);
+    }
+
+    public List<LinkedCardResponse> getLinkedCards(Long userId) {
+        return linkedAssetMapper.findLinkedCards(userId);
     }
 
     /** 평면 행을 증권사(companyCode) 단위로 묶는다. 조회 순서(sort_order) 보존 위해 LinkedHashMap. */
