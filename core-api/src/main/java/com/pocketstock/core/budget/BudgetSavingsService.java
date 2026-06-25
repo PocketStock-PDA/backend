@@ -9,8 +9,10 @@ import com.pocketstock.core.budget.dto.CategorySpendingRow;
 import com.pocketstock.core.budget.dto.ComparisonItem;
 import com.pocketstock.core.budget.dto.ComparisonResponse;
 import com.pocketstock.core.budget.dto.SavingsStatusResponse;
+import com.pocketstock.core.budget.dto.TransferAccountResponse;
 import com.pocketstock.core.budget.mapper.BudgetGoalMapper;
 import com.pocketstock.core.budget.mapper.BudgetSavingsMapper;
+import com.pocketstock.core.budget.mapper.BudgetTransferMapper;
 import com.pocketstock.core.notification.NotificationService;
 import com.pocketstock.core.notification.NotificationType;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ public class BudgetSavingsService {
 
     private final BudgetSavingsMapper savingsMapper;
     private final BudgetGoalMapper goalMapper;
+    private final BudgetTransferMapper transferMapper;
     private final NotificationService notificationService;
 
     public CategorySavingsResponse getCategoryWithSavings(Long userId) {
@@ -139,5 +142,14 @@ public class BudgetSavingsService {
         savingsMapper.agreeCollect(userId, period);
         notificationService.create(userId, NotificationType.GOAL_NUDGE,
                 "절약금 모으기 동의", "이번 달 절약금을 CMA 계좌로 이체하기로 동의했어요.");
+    }
+
+    public TransferAccountResponse getTransferAccount(Long userId) {
+        return transferMapper.findTransferAccount(userId);
+    }
+
+    @Transactional
+    public void setTransferAccount(Long userId, Long accountId) {
+        transferMapper.upsertTransferAccount(userId, accountId);
     }
 }
