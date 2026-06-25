@@ -32,6 +32,10 @@ spring:
       acks: all                            # 리더+팔로워 ack — 발행 유실 최소화(Outbox와 합쳐 at-least-once)
       properties:
         enable.idempotence: true           # 프로듀서 재시도 중복 방지
+        delivery.timeout.ms: 5000          # 브로커 장애 시 outbox 폴링 스레드 장기 블로킹 방지
+        request.timeout.ms: 3000
+        retry.backoff.ms: 1000
+        max.block.ms: 3000                 # 메타데이터 조회 실패도 빠르게 실패시켜 다음 폴링에서 재시도
 
   jackson:
     serialization:

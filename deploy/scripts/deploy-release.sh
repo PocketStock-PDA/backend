@@ -93,6 +93,19 @@ ensure_redis() {
   wait_healthy redis || die "redis 가 healthy 되지 않음"
 }
 
+ensure_kafka() {
+  log "kafka 기동(필요 시, 알림 이벤트 브로커)"
+  dc up -d kafka \
+    || { log "  kafka 기동 실패 — API 배포는 계속하되 알림은 outbox에 적재 후 Kafka 복구 시 발행"; return 0; }
+  wait_healthy kafka \
+    || log "  kafka 가 healthy 되지 않음 — API 배포는 계속하되 알림은 outbox에 적재 후 Kafka 복구 시 발행"
+}
+
+ensure_infra() {
+  ensure_redis
+  ensure_kafka
+}
+
 log "=== 배포 시작 : $NEW_SHA ==="
 log "ECR 로그인: $ECR_REGISTRY"
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
@@ -106,7 +119,7 @@ PREV_SHA=""; [ -f "$STATE_FILE" ] && PREV_SHA="$(cat "$STATE_FILE" 2>/dev/null |
 # ════════════════════════════════════════════════════════════════════════
 if [ ! -f "$COLOR_FILE" ]; then
   log "!!! 활성 색 상태 없음 — 부트스트랩(단색 blue 기동, 무중단 아님). 이후 배포부터 Blue-Green."
-  ensure_redis
+  ensure_infra
   # 옛(단일 서비스) 스택이 있으면 orphan 으로 정리(포트 80 충돌 방지). 1회 컷오버 블립 허용.
   dc up -d --remove-orphans --force-recreate core-api-blue ledger-api-blue
   wait_healthy core-api-blue   || die "부트스트랩 core-api-blue health 실패"
@@ -126,7 +139,7 @@ ACTIVE="$(cat "$COLOR_FILE" 2>/dev/null || echo blue)"
 TARGET="$(opposite "$ACTIVE")"
 log "현재 활성 색=$ACTIVE → 새 색=$TARGET (직전 SHA: ${PREV_SHA:-없음})"
 
-ensure_redis
+ensure_infra
 
 # core upstream 이 새 색으로 넘어가 옛 core 가 정지된 뒤인지 — abort 시 새 core 를 보존할지 판단.
 CORE_PROMOTED=0
