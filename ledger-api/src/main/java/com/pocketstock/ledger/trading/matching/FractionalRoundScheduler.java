@@ -2,6 +2,7 @@ package com.pocketstock.ledger.trading.matching;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.ledger.exchange.CurrencyRateProvider;
+import com.pocketstock.ledger.lifecycle.LedgerActivation;
 import com.pocketstock.ledger.trading.domain.TradingRound;
 import com.pocketstock.ledger.trading.mapper.RoundMapper;
 import lombok.RequiredArgsConstructor;
@@ -36,9 +37,13 @@ public class FractionalRoundScheduler {
     private final RoundMapper roundMapper;
     private final FractionalBatchService batchService;
     private final CurrencyRateProvider currencyRateProvider;
+    private final LedgerActivation activation;
 
     @Scheduled(cron = "5 * * * * *")
     public void runDueRounds() {
+        if (!activation.isActive()) {
+            return;   // 비활성 색 — 활성 색이 차수 집행(중복 집행은 DB claim 으로도 차단되나 단일활성 일관성).
+        }
         LocalDateTime now = LocalDateTime.now();
         // 복구스윕 — 인스턴스 사망 등으로 정체된 EXECUTING 차수를 OPEN으로 회수(재집행은 QUEUED만 처리 → 멱등).
         int reopened = roundMapper.reopenStalled(now.minusMinutes(STALE_MINUTES));
