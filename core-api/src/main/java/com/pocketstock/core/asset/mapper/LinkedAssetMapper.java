@@ -2,6 +2,7 @@ package com.pocketstock.core.asset.mapper;
 
 import com.pocketstock.core.asset.dto.DormantAccountResponse;
 import com.pocketstock.core.asset.dto.DormantCloseRow;
+import com.pocketstock.core.asset.dto.LinkedCardResponse;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -29,6 +30,9 @@ public interface LinkedAssetMapper {
      * 멱등 재요청 대비 이미 해지된 계좌도 함께 반환한다(closed_at으로 ALREADY_CLOSED 판정).
      */
     List<DormantCloseRow> findForClose(@Param("userId") Long userId, @Param("ids") List<Long> ids);
+
+    /** 사용자 연동 카드 목록 — 잔돈 모으기 카드 선택 화면용. */
+    List<LinkedCardResponse> findLinkedCards(@Param("userId") Long userId);
 
     /**
      * 휴면계좌 소프트 해지 — balance=0, closed_at=NOW(), closed_amount 기록.

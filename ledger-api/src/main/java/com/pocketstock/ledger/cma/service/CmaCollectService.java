@@ -12,6 +12,7 @@ import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.request.CollectionSettingRequest;
 import com.pocketstock.ledger.cma.dto.response.CollectResult;
+import com.pocketstock.ledger.cma.dto.response.CollectionSettingView;
 import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
 import com.pocketstock.ledger.cma.mapper.CollectionSettingMapper;
 import org.springframework.context.annotation.Lazy;
@@ -264,6 +265,12 @@ public class CmaCollectService {
     }
 
     // ── 수집 소스 설정 ───────────────────────────────────────────────────
+
+    public List<CollectionSettingView> getSettings(Long userId) {
+        return settingMapper.findByUserId(userId).stream()
+                .map(CollectionSettingView::from)
+                .toList();
+    }
 
     @Transactional
     public void updateSettings(Long userId, CollectionSettingRequest request) {

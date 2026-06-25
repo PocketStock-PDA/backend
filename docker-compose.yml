@@ -19,6 +19,7 @@ services:
       - ./scripts/stock-master/dividend_stocks_seed.sql:/docker-entrypoint-initdb.d/02b-dividend-seed.sql
       - ./scripts/mysql-a-persona-seed.sql:/docker-entrypoint-initdb.d/03-persona-seed.sql
       - ./scripts/mysql-a-persona-seed-extra.sql:/docker-entrypoint-initdb.d/04-persona-extra.sql
+      - ./scripts/mysql-a-persona-seed-suhyun.sql:/docker-entrypoint-initdb.d/05-persona-suhyun.sql
       - mysql-a-data:/var/lib/mysql
 
   # DB B (원장, pocketstock_ledger, 물리 격리) — mysql-b 인스턴스

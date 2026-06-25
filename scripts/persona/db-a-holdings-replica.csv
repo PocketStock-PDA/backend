@@ -1,2 +1,2 @@
-id,user_id,stock_code,quantity,avg_buy_price,eval_amount,profit_rate,currency,synced_at
+﻿id,user_id,stock_code,quantity,avg_buy_price,eval_amount,profit_rate,currency,synced_at
 1,1,005930,5.000000,70500.0000,359000.0000,1.84,KRW,2026-06-19 08:00:00

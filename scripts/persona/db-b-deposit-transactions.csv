@@ -1,3 +1,3 @@
-id,user_id,account_id,tx_type,amount,currency,balance_after,ref_type,ref_id,idempotency_key,created_at
+﻿id,user_id,account_id,tx_type,amount,currency,balance_after,ref_type,ref_id,idempotency_key,created_at
 1,1,1,DEPOSIT,500000.0000,KRW,500000.0000,,,sec-init-deposit-20260210,2026-02-10 09:05:00
 2,1,1,BUY,-352500.0000,KRW,147500.0000,,,sec-buy-005930-5sh-20260210,2026-02-10 09:10:00

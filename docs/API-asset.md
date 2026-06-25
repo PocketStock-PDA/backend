@@ -201,6 +201,49 @@
 
 ---
 
+### GET `/api/assets/cards`
+
+연동 카드 목록 조회 — 잔돈 모으기 설정 화면의 카드 선택 용도. `linked_cards`에 등록된 카드를 반환하며, 카드사 템플릿(`CARD_TPL`)이 없는 회사는 연동 시 row가 생성되지 않으므로 실제로는 템플릿 정의된 카드사 카드만 포함된다.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "연동 카드 목록 조회 성공",
+  "data": [
+    {
+      "cardId": 1,
+      "cardName": "신한 SOL 체크카드",
+      "cardType": "CHECK",
+      "maskedNo": "4321-****-****-8765",
+      "companyName": "신한카드"
+    },
+    {
+      "cardId": 2,
+      "cardName": "KB 굿데이 카드",
+      "cardType": "CREDIT",
+      "maskedNo": "5310-****-****-1209",
+      "companyName": "KB국민카드"
+    }
+  ]
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `cardId` | number | 카드 ID (`linked_cards.id`) — 잔돈 수집 설정의 `sourceRefId`로 사용 |
+| `cardName` | string | 카드명 |
+| `cardType` | string | `CREDIT`(신용) / `CHECK`(체크) |
+| `maskedNo` | string\|null | 마스킹된 카드번호. 없으면 null |
+| `companyName` | string | 카드사명 |
+
+---
+
 ### POST `/api/assets/bank-accounts/{accountId}/verification`
 
 계좌 1원 인증 — 송금요청

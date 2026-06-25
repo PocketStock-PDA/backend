@@ -165,6 +165,46 @@ CMA 계좌 개설 (서비스 진입 게이트). 온보딩 마지막 단계에서
 
 ---
 
+### GET `/api/cma/collect/settings`
+
+적립 소스 설정 조회 — 사용자가 등록한 수집 소스(카드/계좌/포인트) 설정 목록을 반환한다. 설정한 적이 없는 소스는 포함되지 않는다(빈 배열 반환).
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "수집 소스 설정 조회 성공",
+  "data": [
+    {
+      "sourceType": "CARD",
+      "sourceRefId": 1,
+      "enabled": true,
+      "threshold": null
+    },
+    {
+      "sourceType": "ACCOUNT",
+      "sourceRefId": 3,
+      "enabled": true,
+      "threshold": 5000
+    }
+  ]
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `sourceType` | string | `ACCOUNT` / `CARD` / `POINT` / `FX` |
+| `sourceRefId` | number | 소스 참조 ID (카드: `linked_cards.id`, 계좌: `linked_bank_accounts.id` 등) |
+| `enabled` | boolean | 수집 활성화 여부 |
+| `threshold` | number\|null | 끝전 커팅 기준. `ACCOUNT` 타입에만 적용(1000 / 5000 / 10000). 나머지는 null |
+
+---
+
 ### PUT `/api/cma/collect/settings`
 
 적립 소스 설정 (카드/계좌별 ON/OFF)

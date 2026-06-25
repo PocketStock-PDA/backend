@@ -1,2 +1,2 @@
-id,cma_account_id,currency,balance,interest_rate,created_at,updated_at
+﻿id,cma_account_id,currency,balance,interest_rate,created_at,updated_at
 1,1,KRW,405490.0000,3.5000,2026-01-20 10:00:00,2026-06-15 09:00:00
