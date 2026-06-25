@@ -72,6 +72,19 @@ public class PhoneVerificationService {
         return new SmsSendResponse(code, (int) SMS_TTL.getSeconds());
     }
 
+    /**
+     * 인증번호 발급·저장만 수행하고 코드를 반환한다(발송 채널은 호출자 책임).
+     * 잠금 해제처럼 SMS가 아닌 다른 채널(푸시)로 보낼 때 사용 — 응답·로그로 코드를 노출하지 않는다.
+     */
+    public String issueSmsCode(String phone) {
+        if (!StringUtils.hasText(phone)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "휴대폰 번호는 필수입니다.");
+        }
+        String code = randomNumericCode();
+        store.saveSms(phone, code, SMS_TTL);
+        return code;
+    }
+
     /** SMS 인증번호 확인 — 발급 코드와 대조. */
     public VerifyResponse verifySms(SmsVerifyRequest req) {
         if (!StringUtils.hasText(req.phone()) || !StringUtils.hasText(req.code())) {
