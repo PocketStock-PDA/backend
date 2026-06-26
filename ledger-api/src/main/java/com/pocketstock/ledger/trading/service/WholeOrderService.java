@@ -281,7 +281,8 @@ public class WholeOrderService {
         }
         return orderMapper.findByUserId(userId).stream()
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
-                        o.getOrderType(), o.getOrderQuantity(), o.getPrice(), o.getStatus().name(), o.getCreatedAt()))
+                        o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
+                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt()))
                 .toList();
     }
 
@@ -293,7 +294,8 @@ public class WholeOrderService {
         }
         return orderMapper.findActiveByUserId(userId).stream()
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
-                        o.getOrderType(), o.getOrderQuantity(), o.getPrice(), o.getStatus().name(), o.getCreatedAt()))
+                        o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
+                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt()))
                 .toList();
     }
 

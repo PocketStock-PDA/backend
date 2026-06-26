@@ -703,7 +703,7 @@
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 401 Unauthorized
 
-**Response Body** — `data` = `OrderHistoryResponse[]` 배열(페이지네이션 없음). `side`=BUY/SELL · `orderType`=QUANTITY/AMOUNT/ALL · `status`=FILLED/PENDING/QUEUED/REJECTED. **`quantity`는 AMOUNT(금액) 주문 시 null**, **`price`는 체결가 미기록 시 null**. `stockName`은 없음(종목명은 holdings/종목상세로 매핑).
+**Response Body** — `data` = `OrderHistoryResponse[]` 배열(페이지네이션 없음). `side`=BUY/SELL · `orderType`=QUANTITY/AMOUNT/ALL · `status`=FILLED/PENDING/QUEUED/REJECTED · `currency`=KRW/USD. **`quantity`는 AMOUNT(금액) 주문 시 null**, **`orderAmount`는 금액(AMOUNT) 주문의 주문 금액(수량 주문은 null)**, **`price`는 체결가 미기록 시 null**. `stockName`은 없음(종목명은 holdings/종목상세로 매핑).
 
 ```json
 {
@@ -717,8 +717,10 @@
       "side": "SELL",
       "orderType": "QUANTITY",
       "quantity": 0.01,
+      "orderAmount": null,
       "price": null,
       "status": "FILLED",
+      "currency": "KRW",
       "createdAt": "2026-06-25T07:15:29"
     }
   ]

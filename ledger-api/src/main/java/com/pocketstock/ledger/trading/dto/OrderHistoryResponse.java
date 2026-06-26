@@ -12,8 +12,10 @@ public record OrderHistoryResponse(
         String side,
         String orderType,
         BigDecimal quantity,
+        BigDecimal orderAmount,
         BigDecimal price,
         String status,
+        String currency,
         LocalDateTime createdAt
 ) {
 }
