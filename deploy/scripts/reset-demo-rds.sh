@@ -72,6 +72,7 @@ write_mysql_ssl_option() {
 
   case "$MYSQL_SSL_MODE" in
     DISABLED|disabled)
+      printf 'skip-ssl\n'
       ;;
     PREFERRED|preferred|REQUIRED|required)
       printf 'ssl\n'
