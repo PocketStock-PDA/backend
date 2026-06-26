@@ -47,8 +47,7 @@ public class AutoInvestService {
     private static final String CURRENCY_KRW = "KRW";
     private static final String CURRENCY_USD = "USD";
     private static final BigDecimal MIN_ORDER_KRW = BigDecimal.valueOf(1000);
-    private static final BigDecimal KRW_UNIT = BigDecimal.valueOf(1000);
-    private static final BigDecimal MIN_ORDER_USD = new BigDecimal("0.01");
+    private static final BigDecimal MIN_ORDER_USD = new BigDecimal("1");
     private static final Set<String> PERIODS = Set.of("DAILY", "WEEKLY", "MONTHLY");
 
     private static final Set<String> BUY_ACTIONS = Set.of("AMOUNT", "QUANTITY");
@@ -295,7 +294,7 @@ public class AutoInvestService {
         BigDecimal min = domestic ? MIN_ORDER_KRW : MIN_ORDER_USD;
         if (amount.compareTo(min) < 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT,
-                    "최소 매수금액은 " + (domestic ? "1,000원" : "$0.01") + "입니다.");
+                    "최소 매수금액은 " + (domestic ? "1,000원" : "$1") + "입니다.");
         }
     }
 
@@ -365,10 +364,7 @@ public class AutoInvestService {
             BigDecimal min = domestic ? MIN_ORDER_KRW : MIN_ORDER_USD;
             if (amount.compareTo(min) < 0) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT,
-                        "최소 매수금액은 " + (domestic ? "1,000원" : "$0.01") + "입니다.");
-            }
-            if (domestic && amount.remainder(KRW_UNIT).signum() != 0) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "매수금액은 1,000원 단위입니다.");
+                        "최소 매수금액은 " + (domestic ? "1,000원" : "$1") + "입니다.");
             }
             return amountType;
         }

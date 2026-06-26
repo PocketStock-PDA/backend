@@ -698,35 +698,31 @@
 
 ### GET `/api/trading/orders`
 
-거래내역 조회 (매수·매도·달성)<br> Query: type (BUY | SELL | ALL, 선택), page (number, 선택), size (number, 선택)
+거래내역 조회 (매수·매도, 상태 포함). 쿼리 파라미터 없음 — 사용자 전체 주문을 최신순 배열로 반환.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
 
-**Response Body**
+**Response Body** — `data` = `OrderHistoryResponse[]` 배열(페이지네이션 없음). `side`=BUY/SELL · `orderType`=QUANTITY/AMOUNT/ALL · `status`=FILLED/PENDING/QUEUED/REJECTED. **`quantity`는 AMOUNT(금액) 주문 시 null**, **`price`는 체결가 미기록 시 null**. `stockName`은 없음(종목명은 holdings/종목상세로 매핑).
 
 ```json
 {
   "success": true,
   "code": "SUCCESS",
   "message": "거래내역 조회 성공",
-  "data": {
-  "orders": [
-  {
-  "orderId": "ORD-20250615-001",
-  "stockCode": "005930",
-  "stockName": "삼성전자",
-  "orderType": "BUY",
-  "amount": 10000,
-  "filledQuantity": 0.136,
-  "status": "FILLED",
-  "filledAt": "2025-06-15T10:30:05"
-  }
-  ],
-  "page": 0,
-  "totalElements": 25
- }
- }
+  "data": [
+    {
+      "orderId": 8,
+      "stockCode": "005930",
+      "side": "SELL",
+      "orderType": "QUANTITY",
+      "quantity": 0.01,
+      "price": null,
+      "status": "FILLED",
+      "createdAt": "2026-06-25T07:15:29"
+    }
+  ]
+}
 ```
 
 ---

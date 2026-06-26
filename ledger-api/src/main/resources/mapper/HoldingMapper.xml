@@ -13,6 +13,7 @@
         <result property="heldWhole"      column="held_whole"/>
         <result property="heldFractional" column="held_fractional"/>
         <result property="avgBuyPrice"   column="avg_buy_price"/>
+        <result property="krwCostBasis"  column="krw_cost_basis"/>
         <result property="currency"    column="currency"/>
         <result property="createdAt"   column="created_at"/>
         <result property="updatedAt"   column="updated_at"/>
@@ -101,7 +102,7 @@
     </update>
 
     <select id="findByUserId" resultMap="holding">
-        SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, avg_buy_price, currency, created_at, updated_at
+        SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, avg_buy_price, krw_cost_basis, currency, created_at, updated_at
         FROM holdings
         WHERE user_id = #{userId} AND quantity > 0
         ORDER BY id

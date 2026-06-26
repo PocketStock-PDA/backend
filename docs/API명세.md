@@ -117,6 +117,7 @@
 | 소수점투자 | 거래내역 조회(매수·매도·달성) | GET | `/api/trading/orders` |  | B·김준형 | ✅ |
 | 소수점투자 | 미체결 주문 조회(온주 PENDING + 소수점 QUEUED) | GET | `/api/trading/orders/pending` |  | B·김준형 | ✅ |
 | 소수점투자 | 보유종목·잔고(평가·수익률) 조회 | GET | `/api/trading/holdings` |  | B·김준형 | ✅ |
+| 소수점투자 | 포트폴리오 요약(전체·국내·해외 집계 + 종목별 평가·수익률, 현재가·환율 환산) | GET | `/api/trading/portfolio/summary` |  | B·김준형 | ✅ |
 | 평가추이 | 일별 평가·수익률 추이 조회(차트, BATCH-002 종가 스냅샷·native) | GET | `/api/trading/valuations/{stockCode}` |  | B·김준형 | ✅ #125 |
 | 소수점투자 | 온주 전환 실행(소수→온주, 사용자 버튼) | POST | `/api/trading/whole-shares` |  | B·김준형 | ✅ 소수 정수부를 온주(직접소유)로 굳힘 #157 |
 | 소수점투자 | 온주 전환내역 조회 | GET | `/api/trading/whole-shares` |  | B·김준형 | ✅ #157 |

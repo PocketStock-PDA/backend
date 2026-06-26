@@ -29,6 +29,7 @@ public class Holding {
     private BigDecimal heldWhole;       // 온주 매도 예약(M2). 온주 매도가능 = (quantity−fractionalQty) − heldWhole
     private BigDecimal heldFractional;  // 소수 매도 예약(M2). 소수 매도가능 = fractionalQty − heldFractional
     private BigDecimal avgBuyPrice;
+    private BigDecimal krwCostBasis;    // 원화 취득원가 누적(국내=실원화, 해외=매수시점 환율 환산). 원금 단일소스
     private String currency;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

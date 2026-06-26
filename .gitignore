@@ -28,3 +28,6 @@ docs/un6unw
 
 # Claude (로컬 전용)
 CLAUDE.md
+
+# impeccable (디자인 훅 로컬 산출물)
+.impeccable/
