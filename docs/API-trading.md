@@ -124,12 +124,84 @@
 
 ---
 
-### GET `/api/trading/stocks/search`
+### GET `/api/trading/stocks/rankings/domestic` ✅ 구현완료
 
-종목 검색 (자체 종목마스터)<br> Query: keyword (string, 필수), page (number, 선택), size (number, 선택)
+국내 종목 실시간 순위 — LS t1463(거래대금·시총·ETF제외) ∩ 자체 종목마스터 교집합 재랭킹(상위 30).<br> Query: sort (string, 기본 `tradevalue`) — `tradevalue`(거래대금) | `marketcap`(시가총액)
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+> 정렬 기준과 무관하게 거래대금·시총을 함께 내려, 프론트 탭 전환(거래대금↔시총) 시 재정렬만으로 충분하다.
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "국내 종목 순위 조회 성공",
+  "data": [
+    {
+      "rank": 1,
+      "stockCode": "000660",
+      "stockName": "SK하이닉스",
+      "exchange": "KOSPI",
+      "currency": "KRW",
+      "price": 2823000,
+      "changeRate": 9.42,
+      "tradingValue": 14320677000000,
+      "marketCap": 2011958800000000,
+      "logoUrl": "/KOSPI-logo/000660.png"
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/trading/stocks/rankings/overseas` ✅ 구현완료
+
+해외 종목 실시간 순위 — KIS(NAS/NYS 머지·개별주만) ∩ 자체 종목마스터 교집합 재랭킹(상위 30, USD).<br> Query: sort (string, 기본 `tradevalue`) — `tradevalue` | `marketcap`
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+> KIS는 정렬 지표별 TR이 갈려, 정렬한 지표만 채워지고 반대쪽은 `null`(국내와 달리 둘 다 채우지 않음). 값 단위 USD.
+
+**Response Body** (국내와 동일 스키마, 정렬 안 한 지표는 `null`)
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "해외 종목 순위 조회 성공",
+  "data": [
+    {
+      "rank": 1,
+      "stockCode": "MU",
+      "stockName": "마이크론 테크놀로지",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "price": 1048.51,
+      "changeRate": -0.31,
+      "tradingValue": 9876543210,
+      "marketCap": null,
+      "logoUrl": null
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/trading/stocks/search` ✅ 구현완료
+
+종목 검색 (자체 종목마스터, LS 호출 없음 · 종목명/코드 부분일치).<br> Query: `q` (string, 필수), `limit` (number, 기본 20)
 
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+
+> 목록 표시용 최소 필드만 — 현재가는 미포함(상세/시세 API에서 합성). 응답 `data`는 배열.
 
 **Response Body**
 
@@ -138,18 +210,18 @@
   "success": true,
   "code": "SUCCESS",
   "message": "종목 검색 성공",
-  "data": {
-  "stocks": [
-  {
-  "stockCode": "005930",
-  "stockName": "삼성전자",
-  "market": "KOSPI",
-  "currentPrice": 73500
-  }
-  ],
-  "totalElements": 3
- }
- }
+  "data": [
+    {
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "englishName": "Samsung Electronics",
+      "exchange": "KOSPI",
+      "secType": "STOCK",
+      "currency": "KRW",
+      "logoUrl": "/KOSPI-logo/005930.png"
+    }
+  ]
+}
 ```
 
 ---
@@ -481,7 +553,7 @@
 - **Request Headers**: Authorization: Bearer {accessToken}
 - **거래 인증 필수**: 매매 진입에서 계좌 비밀번호 인증(txn-auth) 확인. 미인증 시 거부 — 예수금 부족 시 CMA풀에서 자동충당(BUY_TRANSFER)이 일어나므로 수동이체·환전과 동일 정책(#174).
 - **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-- **D4(국내 먼저)**: 현재 국내(KRW)만. 해외는 후속(#155).
+- **국내·해외 모두 지원**(#155 완료): 해외(USD)도 소수점 매수/매도 작동. 원화 자금은 체결 시 자동환전(KRW→USD)으로 충당(#174). (구 D4 "국내 먼저"는 단계적 출시였고 해외 확장 완료)
 - **자금 hold**: 온주분=즉시 차감 / 소수분 `AMOUNT`=남은금액 그대로·`QUANTITY`=예상금액×(1+버퍼 1%). 예수금 부족분은 CMA풀에서 자동충당(#174).
 - **market은 받지 않음**(stockCode→exchange 파생). `clientOrderId`(멱등키) 필수 — 내부 서브키 `:W`(온주)/`:F`(소수)로 파생.
 
@@ -786,26 +858,32 @@
 
 ## 정기적립식
 
-### POST `/api/trading/auto-invest`
+> 종목 1건 = 주기 기반 적립 설정(`AutoInvestStock`). `market`·`currency`·`accountId`는 `stockCode→거래소`에서 파생(요청에 받지 않음). 등록 자체가 자동매수 사전동의이며, 실제 매수는 `AutoInvestScheduler`가 `source=AUTO`로 소수점 배치 집행한다. 조건매수(물타기)/조건매도(익절)는 종목과 별개의 **트리거**(`/auto-invest/{id}/triggers`)로 관리한다.
+>
+> - 키는 `stockCode`가 아니라 종목 설정 `id`. 종목 기준 화면은 종합조회(`GET /auto-invest`)로 code→id를 해석한다.
+> - `period`=DAILY(매일)·WEEKLY(주1회)·MONTHLY(월1회)
+> - `periodDay`: DAILY=`null` / WEEKLY=`1~5`(월~금) / MONTHLY=`1~31`
+> - `amountType`=AMOUNT(금액)·QUANTITY(수량). AMOUNT는 국내 ≥1,000원·1,000원 단위 / 해외 ≥$0.01
+> - 같은 종목 중복 등록 시 409(CONFLICT)
 
-자동모으기 설정 등록 (주기/조건)
+### POST `/api/trading/auto-invest` ✅ 구현완료
+
+자동모으기 종목 등록(주기/금액·수량).
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized / 404 (위탁계좌·종목 없음) / 409 (중복 종목)
 
 **Request Body**
 
 ```json
 {
-  "trigger_type": "PERIODIC",
-  "cycle": "WEEKLY",
-  "dayOfWeek": "MON",
-  "amount": 10000,
-  "stocks": [
-  {"stockCode": "005930", "ratio": 60},
-  {"stockCode": "000660", "ratio": 40}
-  ]
- }
+  "stockCode": "005930",
+  "period": "WEEKLY",
+  "periodDay": 1,
+  "amountType": "AMOUNT",
+  "buyAmount": 5000,
+  "buyQuantity": null
+}
 ```
 
 **Response Body**
@@ -814,34 +892,31 @@
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "자동모으기 설정 등록 성공",
+  "message": "자동모으기 등록 성공",
   "data": {
-  "autoInvestId": 1,
-  "trigger_type": "PERIODIC",
-  "cycle": "WEEKLY",
-  "nextExecuteDate": "2025-06-16"
- }
- }
+    "id": 2,
+    "stockCode": "005930",
+    "stockName": "삼성전자",
+    "market": "DOMESTIC",
+    "period": "WEEKLY",
+    "periodDay": 1,
+    "amountType": "AMOUNT",
+    "buyAmount": 5000,
+    "buyQuantity": null,
+    "currency": "KRW",
+    "isActive": true
+  }
+}
 ```
 
 ---
 
-### PUT `/api/trading/auto-invest/{id}`
+### GET `/api/trading/auto-invest` ✅ 구현완료
 
-자동모으기 설정 수정<br> Path: {id} - 자동모으기 ID
+자동모으기 종합 조회 — 전역 스위치 + 종목 목록.
 
 - **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
-
-**Request Body**
-
-```json
-{
-  "cycle": "MONTHLY",
-  "dayOfMonth": 1,
-  "amount": 20000
- }
-```
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
 
 **Response Body**
 
@@ -849,31 +924,79 @@
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "자동모으기 설정 수정 성공",
+  "message": "자동모으기 조회 성공",
   "data": {
-  "autoInvestId": 1,
-  "cycle": "MONTHLY",
-  "nextExecuteDate": "2025-07-01"
- }
- }
+    "enabled": true,
+    "paused": false,
+    "keepCollectingOnPause": true,
+    "stocks": [
+      {
+        "id": 1,
+        "stockCode": "000660",
+        "stockName": "SK하이닉스",
+        "market": "DOMESTIC",
+        "period": "DAILY",
+        "periodDay": null,
+        "amountType": "AMOUNT",
+        "buyAmount": 10000,
+        "buyQuantity": null,
+        "currency": "KRW",
+        "isActive": true
+      }
+    ]
+  }
+}
 ```
+
+- `enabled`: 자동모으기 전역 사용 여부 / `paused`: 전역 일시중지 / `keepCollectingOnPause`: 일시중지 중에도 적립 유지
+- `isActive`: 종목별 활성(false=일시중지)
 
 ---
 
-### PATCH `/api/trading/auto-invest/{id}/status`
+### GET `/api/trading/auto-invest/{id}` ✅ 구현완료
 
-자동모으기 일시중지/재개/해제<br> Path: {id} - 자동모으기 ID
+자동모으기 단건 상세. Path: {id} - 종목 설정 id. 응답 `data`는 POST 응답의 종목 1건과 동일 스키마.
 
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **HTTP Status Code**: 200 OK / 401 / 404
+
+---
+
+### PUT `/api/trading/auto-invest/{id}` ✅ 구현완료
+
+설정 수정(주기·금액만). 종목/계좌/통화는 불변. Path: {id} - 종목 설정 id.
+
+- **HTTP Status Code**: 200 OK / 400 / 401 / 404
+
+**Request Body** (POST와 동일 스키마, `stockCode`는 무시됨)
+
+```json
+{
+  "stockCode": "005930",
+  "period": "MONTHLY",
+  "periodDay": 15,
+  "amountType": "AMOUNT",
+  "buyAmount": 10000,
+  "buyQuantity": null
+}
+```
+
+**Response Body**: `data`는 수정된 종목 1건(POST 응답과 동일 스키마).
+
+---
+
+### PATCH `/api/trading/auto-invest/{id}/status` ✅ 구현완료
+
+일시중지/재개. Path: {id} - 종목 설정 id. 완전 삭제는 `DELETE /auto-invest/{id}`.
+
+- **HTTP Status Code**: 200 OK / 400 / 401 / 404
 
 **Request Body**
 
 ```json
-{
-  "status": "PAUSED"
- }
+{ "action": "PAUSE" }
 ```
+
+- `action`: `PAUSE`(is_active=false) | `RESUME`(is_active=true)
 
 **Response Body**
 
@@ -882,30 +1005,72 @@
   "success": true,
   "code": "SUCCESS",
   "message": "자동모으기 상태 변경 성공",
-  "data": {
-  "autoInvestId": 1,
-  "status": "PAUSED"
- }
- }
+  "data": null
+}
 ```
 
 ---
 
-### POST `/api/trading/auto-invest/stocks`
+### DELETE `/api/trading/auto-invest/{id}` ✅ 구현완료
 
-자동모으기 종목 추가
+자동모으기 해제(완전 삭제). 트리거·회차로그는 FK CASCADE로 함께 삭제. Path: {id} - 종목 설정 id.
 
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+- **Response**: `{ "success": true, "code": "SUCCESS", "message": "자동모으기 해제 성공", "data": null }`
 
-**Request Body**
+---
+
+### GET `/api/trading/auto-invest/{id}/executions` ✅ 구현완료
+
+종목별 모으기 회차 내역(회차 desc). Path: {id} - 종목 설정 id.
+
+**Response Body**
 
 ```json
 {
-  "autoInvestId": 1,
-  "stockCode": "035720",
-  "ratio": 20
- }
+  "success": true,
+  "code": "SUCCESS",
+  "message": "모으기 내역 조회 성공",
+  "data": [
+    {
+      "id": 10,
+      "roundNo": 3,
+      "triggerSource": "PERIODIC",
+      "side": "BUY",
+      "execDate": "2026-06-23",
+      "status": "FILLED",
+      "failReason": null,
+      "orderId": 521,
+      "execAmount": 5000,
+      "execQuantity": 0.0141,
+      "currency": "KRW"
+    }
+  ]
+}
+```
+
+- `triggerSource`: `PERIODIC`(주기) | `BUY`/`SELL`(트리거 발동)
+- `status`: `QUEUED`·`FILLED`·`REJECTED`·`CANCELLED`·`FAILED` — 추적 주문(order_id) 결과를 라이브 반영(접수 스냅샷 위에 덮어씀)
+
+---
+
+### POST `/api/trading/auto-invest/{id}/triggers` ✅ 구현완료
+
+수익률 트리거 등록/수정(물타기 BUY·익절 SELL). 종목당 종류별 1건(재등록=upsert·is_armed 리셋). Path: {id} - 종목 설정 id.
+
+- `triggerKind=BUY`(물타기): `conditionRate` 음수(예 -7), `actionType`=AMOUNT/QUANTITY
+- `triggerKind=SELL`(익절): `conditionRate` 양수(예 +15), `actionType`=RATIO/QUANTITY/ALL (RATIO는 0<r≤100, ALL=보유 전량)
+
+**Request Body** (BUY 예시 — 수익률 -5% 이하 시 5,000원 추가매수)
+
+```json
+{
+  "triggerKind": "BUY",
+  "conditionRate": -5,
+  "actionType": "AMOUNT",
+  "actionAmount": 5000,
+  "actionQuantity": null,
+  "actionRatio": null
+}
 ```
 
 **Response Body**
@@ -914,45 +1079,35 @@
 {
   "success": true,
   "code": "SUCCESS",
-  "message": "자동모으기 종목 추가 성공",
+  "message": "트리거 등록 성공",
   "data": {
-  "autoInvestId": 1,
-  "stockCount": 3
- }
- }
+    "id": 1,
+    "triggerKind": "BUY",
+    "conditionRate": -5,
+    "actionType": "AMOUNT",
+    "actionAmount": 5000,
+    "actionQuantity": null,
+    "actionRatio": null,
+    "isActive": true,
+    "isArmed": false,
+    "lastFiredAt": null
+  }
+}
 ```
 
 ---
 
-### GET `/api/trading/auto-invest`
+### GET `/api/trading/auto-invest/{id}/triggers` ✅ 구현완료
 
-자동모으기 종합 설정 조회
+종목 트리거 목록(BUY/SELL). Path: {id} - 종목 설정 id. `data`는 위 트리거 1건 객체의 배열.
 
-- **Request Headers**: Authorization: Bearer {accessToken}
-- **HTTP Status Code**: 200 OK / 400 Bad Request / 401 Unauthorized
+---
 
-**Response Body**
+### DELETE `/api/trading/auto-invest/{id}/triggers/{triggerId}` ✅ 구현완료
 
-```json
-{
-  "success": true,
-  "code": "SUCCESS",
-  "message": "자동모으기 설정 조회 성공",
-  "data": {
-  "autoInvestId": 1,
-  "trigger_type": "PERIODIC",
-  "cycle": "WEEKLY",
-  "dayOfWeek": "MON",
-  "amount": 10000,
-  "status": "ACTIVE",
-  "stocks": [
-  {"stockCode": "005930", "stockName": "삼성전자", "ratio": 60},
-  {"stockCode": "000660", "stockName": "SK하이닉스", "ratio": 40}
-  ],
-  "nextExecuteDate": "2025-06-16"
- }
- }
-```
+트리거 해제. Path: {id} - 종목 설정 id, {triggerId} - 트리거 id.
+
+- **Response**: `{ "success": true, "code": "SUCCESS", "message": "트리거 해제 성공", "data": null }`
 
 ---
 
