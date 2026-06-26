@@ -16,6 +16,8 @@ public record OrderHistoryResponse(
         BigDecimal price,
         String status,
         String currency,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /** 체결금액 — 소수점은 allocations.gross_amount 합, 온주는 null(프론트가 체결가×수량). 미체결은 null. */
+        BigDecimal filledAmount
 ) {
 }

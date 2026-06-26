@@ -10,12 +10,14 @@ import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.OrderCancelResponse;
+import com.pocketstock.ledger.trading.dto.OrderFilledAmount;
 import com.pocketstock.ledger.trading.dto.OrderHistoryResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.dto.WholeOrderRequest;
 import com.pocketstock.ledger.trading.dto.WholeOrderResponse;
 import com.pocketstock.ledger.trading.matching.PendingOrderClosedEvent;
 import com.pocketstock.ledger.trading.matching.PendingOrderCreatedEvent;
+import com.pocketstock.ledger.trading.mapper.AllocationMapper;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
@@ -30,7 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 온주(정수 주식) 매수/매도. 호가 기반 지정가/시장가를 자체 시뮬로 즉시 전량 체결한다.
@@ -54,6 +58,7 @@ public class WholeOrderService {
     private final StockMapper stockMapper;
     private final SecuritiesAccountMapper accountMapper;
     private final OrderMapper orderMapper;
+    private final AllocationMapper allocationMapper;
     private final HoldingMapper holdingMapper;
     private final DepositService depositService;
     private final OperatingCashService operatingCashService;
@@ -279,11 +284,32 @@ public class WholeOrderService {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        return orderMapper.findByUserId(userId).stream()
+        List<Order> orders = orderMapper.findByUserId(userId);
+        Map<Long, BigDecimal> fracFilled = fractionalFilledAmounts(orders);
+        return orders.stream()
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
                         o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
-                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt()))
+                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt(),
+                        fracFilled.get(o.getId())))
                 .toList();
+    }
+
+    /**
+     * 소수점 체결분의 체결금액(allocations.gross_amount 합) — order_id→금액 맵.
+     * 온주는 orders.price가 있어 프론트가 체결가×수량으로 산출하므로 제외(price NULL = 소수점 경로).
+     * 미체결·미배분 주문은 맵에 없음(조회 시 null). 차수 분할 체결은 SUM으로 합산.
+     */
+    private Map<Long, BigDecimal> fractionalFilledAmounts(List<Order> orders) {
+        List<Long> ids = orders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.FILLED && o.getPrice() == null)
+                .map(Order::getId)
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return allocationMapper.sumGrossByOrderIds(ids).stream()
+                .filter(a -> a.amount() != null)
+                .collect(Collectors.toMap(OrderFilledAmount::orderId, OrderFilledAmount::amount));
     }
 
     /** 미체결 주문(최신순) — 온주 PENDING + 소수점 QUEUED, 종목 무관 전체. */
@@ -292,10 +318,11 @@ public class WholeOrderService {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
+        // 미체결(PENDING/QUEUED)은 체결금액 없음 → filledAmount=null.
         return orderMapper.findActiveByUserId(userId).stream()
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
                         o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
-                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt()))
+                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt(), null))
                 .toList();
     }
 
