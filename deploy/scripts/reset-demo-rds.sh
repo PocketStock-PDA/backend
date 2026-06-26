@@ -15,6 +15,7 @@ LOCK_FILE="/tmp/pocketstock-deploy.lock"
 CORE_DB_NAME="pocketstock_main"
 LEDGER_DB_NAME="pocketstock_ledger"
 MYSQL_SSL_MODE="${MYSQL_SSL_MODE:-}"
+MYSQL_SUPPORTS_SSL_MODE=false
 MYSQL_DEFAULT_FILES=()
 
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -55,6 +56,33 @@ mysql_option_escape() {
   printf '%s' "$value"
 }
 
+detect_mysql_ssl_mode_support() {
+  if mysql --help 2>/dev/null | grep -q -- '--ssl-mode'; then
+    MYSQL_SUPPORTS_SSL_MODE=true
+  fi
+}
+
+write_mysql_ssl_option() {
+  [ -n "$MYSQL_SSL_MODE" ] || return
+
+  if [ "$MYSQL_SUPPORTS_SSL_MODE" = true ]; then
+    printf 'ssl-mode=%s\n' "$MYSQL_SSL_MODE"
+    return
+  fi
+
+  case "$MYSQL_SSL_MODE" in
+    DISABLED|disabled)
+      printf 'skip-ssl\n'
+      ;;
+    PREFERRED|preferred|REQUIRED|required)
+      printf 'ssl\n'
+      ;;
+    *)
+      die "현재 mysql CLI는 ssl-mode 옵션을 지원하지 않아 MYSQL_SSL_MODE=${MYSQL_SSL_MODE} 를 사용할 수 없습니다. MySQL 8 client를 설치하거나 MYSQL_SSL_MODE=REQUIRED 를 사용하세요."
+      ;;
+  esac
+}
+
 create_mysql_defaults_file() {
   local label="$1" host="$2" port="$3" user="$4" password="$5" file
   file="$(mktemp "${TMPDIR:-/tmp}/pocketstock-mysql-${label}.XXXXXX")"
@@ -67,7 +95,7 @@ create_mysql_defaults_file() {
     printf 'user="%s"\n' "$(mysql_option_escape "$user")"
     printf 'password="%s"\n' "$(mysql_option_escape "$password")"
     printf 'default-character-set=utf8mb4\n'
-    [ -n "$MYSQL_SSL_MODE" ] && printf 'ssl-mode=%s\n' "$MYSQL_SSL_MODE"
+    write_mysql_ssl_option
   } > "$file"
   printf '%s' "$file"
 }
@@ -172,6 +200,7 @@ command -v mysql >/dev/null 2>&1 || die "mysql CLI가 필요합니다."
 command -v docker >/dev/null 2>&1 || die "docker CLI가 필요합니다."
 command -v flock >/dev/null 2>&1 || die "flock CLI가 필요합니다."
 command -v mktemp >/dev/null 2>&1 || die "mktemp CLI가 필요합니다."
+detect_mysql_ssl_mode_support
 
 CORE_HOST="$(require_env RDS_CORE_ENDPOINT)"
 LEDGER_HOST="$(require_env RDS_LEDGER_ENDPOINT)"
