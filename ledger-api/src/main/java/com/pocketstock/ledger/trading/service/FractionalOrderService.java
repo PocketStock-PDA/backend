@@ -54,20 +54,19 @@ public class FractionalOrderService {
     private static final Set<String> DOMESTIC_EXCHANGES = Set.of("KOSPI", "KOSDAQ");
     private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
 
-    /** 국내 최소 주문금액·금액단위(천원), 수량매수 버퍼 1%. 해외는 최소 $0.01·단위 없음·버퍼 2%. */
+    /** 국내 최소 주문금액 1,000원·수량매수 버퍼 1%. 해외는 최소 $1·버퍼 2%. (금액단위 배수 제약 없음) */
     private static final BigDecimal MIN_ORDER_KRW = BigDecimal.valueOf(1_000);
-    private static final BigDecimal KRW_UNIT = BigDecimal.valueOf(1_000);
     private static final BigDecimal BUFFER_DOMESTIC = new BigDecimal("0.01");
-    private static final BigDecimal MIN_ORDER_USD = new BigDecimal("0.01");
+    private static final BigDecimal MIN_ORDER_USD = new BigDecimal("1");
     private static final BigDecimal BUFFER_OVERSEAS = new BigDecimal("0.02");
     private static final int QTY_SCALE = 6;   // 내부원장 주수 6자리(DECIMAL(18,6))
 
-    /** 국내 위탁계좌(KRW·천원단위·버퍼 1%). */
+    /** 국내 위탁계좌(KRW·버퍼 1%). */
     private static final MarketSpec SPEC_DOMESTIC =
-            new MarketSpec(false, ACCOUNT_DOMESTIC, CURRENCY_KRW, MIN_ORDER_KRW, KRW_UNIT, BUFFER_DOMESTIC);
-    /** 해외 위탁계좌(USD·단위 없음·버퍼 2%). 자동환전 제외 — USD 예수금 충전 전제(#155). */
+            new MarketSpec(false, ACCOUNT_DOMESTIC, CURRENCY_KRW, MIN_ORDER_KRW, BUFFER_DOMESTIC);
+    /** 해외 위탁계좌(USD·버퍼 2%). 자동환전 제외 — USD 예수금 충전 전제(#155). */
     private static final MarketSpec SPEC_OVERSEAS =
-            new MarketSpec(true, ACCOUNT_OVERSEAS, CURRENCY_USD, MIN_ORDER_USD, null, BUFFER_OVERSEAS);
+            new MarketSpec(true, ACCOUNT_OVERSEAS, CURRENCY_USD, MIN_ORDER_USD, BUFFER_OVERSEAS);
 
     private static final DateTimeFormatter ROUND_NO = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
 
@@ -168,10 +167,6 @@ public class FractionalOrderService {
         MarketSpec spec = ctx.spec();
         if (amount.compareTo(spec.minOrder()) < 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "최소 주문금액은 " + minOrderText(spec) + "입니다.");
-        }
-        // 금액단위 제약은 국내(천원단위)만 — 해외는 단위 없음(spec.unit == null).
-        if (spec.unit() != null && amount.remainder(spec.unit()).signum() != 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "주문금액은 1,000원 단위입니다.");
         }
         int whole = amount.divide(estPrice, 0, RoundingMode.DOWN).intValueExact();
 
@@ -439,10 +434,9 @@ public class FractionalOrderService {
 
     /**
      * 시장 규격 — 국내/해외 접수 분기값을 한 곳에 모은다.
-     * @param unit 금액단위(국내 천원=1,000), 해외는 단위 없음(null).
      */
     private record MarketSpec(boolean overseas, String accountMarket, String currency,
-                             BigDecimal minOrder, BigDecimal unit, BigDecimal buffer) {
+                             BigDecimal minOrder, BigDecimal buffer) {
     }
 
     // ---- 차수 ----
@@ -494,7 +488,7 @@ public class FractionalOrderService {
         throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "시세 정보를 아직 받지 못했습니다.");
     }
 
-    /** 최소주문 안내 문구 — 국내 "1,000원" / 해외 "$0.01". */
+    /** 최소주문 안내 문구 — 국내 "1,000원" / 해외 "$1". */
     private static String minOrderText(MarketSpec spec) {
         return spec.overseas() ? "$" + spec.minOrder().toPlainString() : "1,000원";
     }
