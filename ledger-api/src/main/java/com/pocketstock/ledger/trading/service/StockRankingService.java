@@ -110,7 +110,7 @@ public class StockRankingService {
                     s.getExchange(),
                     s.getCurrency(),
                     r.price(),
-                    nz(r.diff()),
+                    signedRate(r.diff(), r.sign()),
                     nz(r.value()).multiply(VALUE_TO_KRW),
                     nz(r.total()).multiply(TOTAL_TO_KRW),
                     s.getLogoUrl()));
@@ -175,6 +175,15 @@ public class StockRankingService {
 
     private static BigDecimal nz(BigDecimal v) {
         return (v == null) ? BigDecimal.ZERO : v;
+    }
+
+    /**
+     * LS 등락율 부호 적용 — diff(등락율)는 부호 없는 절대값, 방향은 sign 필드(4하한·5하락=음수)로 온다.
+     * t1102 현재가(StockPriceService)와 동일 규칙으로 맞춰 상세·실시간과 부호가 일치하도록 한다.
+     */
+    private static BigDecimal signedRate(BigDecimal diff, String sign) {
+        BigDecimal abs = nz(diff).abs();
+        return ("4".equals(sign) || "5".equals(sign)) ? abs.negate() : abs;
     }
 
     /** 정렬키용 — 파싱 실패/공란은 0(정렬에서 최하위로). */
