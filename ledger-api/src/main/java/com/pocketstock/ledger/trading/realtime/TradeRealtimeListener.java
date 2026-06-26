@@ -45,8 +45,8 @@ public class TradeRealtimeListener implements LsRealtimeListener {
                 stockCode,
                 body.path("chetime").asText(""),       // 체결시간 HHmmss
                 dec(body, "price"),                     // 현재가(체결가)
-                signed(dec(body, "change").abs(), sign),// 전일대비 → abs 후 sign 재적용
-                signed(dec(body, "drate").abs(), sign), // 등락율 → abs 후 sign 재적용
+                signed(dec(body, "change"), sign),      // 전일대비(절대값) → 부호 적용
+                signed(dec(body, "drate"), sign),       // 등락율(절대값) → 부호 적용
                 dec(body, "open"),                      // 시가
                 dec(body, "high"),                      // 고가
                 dec(body, "low"),                       // 저가
