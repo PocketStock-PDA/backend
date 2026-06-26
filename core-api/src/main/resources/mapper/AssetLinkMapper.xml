@@ -100,4 +100,75 @@
         SELECT MAX(last_synced_at) FROM linked_institutions WHERE user_id = #{userId}
     </select>
 
+    <!-- ── 연동 해제(unlink) ───────────────────────────────────────────── -->
+
+    <update id="markAvailable">
+        UPDATE linked_institutions
+        SET link_status = #{status}, last_synced_at = NOW()
+        WHERE id = #{id}
+          AND link_status = 'LINKED'
+    </update>
+
+    <delete id="deletePoints">
+        DELETE FROM linked_points
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </delete>
+
+    <delete id="deleteSecurities">
+        DELETE FROM linked_securities
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </delete>
+
+    <delete id="deleteHoldings">
+        DELETE FROM external_holdings
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </delete>
+
+    <!-- 카드 해제 — 거래내역(가계부 원천)은 보존하고 card_id만 NULL로 푼다. -->
+    <update id="nullifyCardTransactions">
+        UPDATE card_transactions
+        SET card_id = NULL
+        WHERE user_id = #{userId}
+          AND card_id IN (
+              SELECT id FROM linked_cards
+              WHERE user_id = #{userId} AND institution_id = #{institutionId}
+          )
+    </update>
+
+    <delete id="deleteCards">
+        DELETE FROM linked_cards
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </delete>
+
+    <!-- 은행 해제 — 이 은행 계좌를 결제계좌로 쓰는 카드의 참조 해제. -->
+    <update id="nullifyCardPaymentAccounts">
+        UPDATE linked_cards
+        SET payment_account_id = NULL
+        WHERE user_id = #{userId}
+          AND payment_account_id IN (
+              SELECT id FROM linked_bank_accounts
+              WHERE user_id = #{userId} AND institution_id = #{institutionId}
+          )
+    </update>
+
+    <delete id="deleteTransferSettings">
+        DELETE FROM budget_transfer_settings
+        WHERE user_id = #{userId}
+          AND account_id IN (
+              SELECT id FROM linked_bank_accounts
+              WHERE user_id = #{userId} AND institution_id = #{institutionId}
+          )
+    </delete>
+
+    <delete id="deleteBankAccounts">
+        DELETE FROM linked_bank_accounts
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </delete>
+
+    <delete id="deleteUsdWallet">
+        DELETE FROM linked_bank_accounts
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+          AND currency = 'USD'
+    </delete>
+
 </mapper>

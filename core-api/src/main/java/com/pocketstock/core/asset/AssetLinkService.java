@@ -43,6 +43,7 @@ import java.util.UUID;
 public class AssetLinkService {
 
     private static final String LINKED = "LINKED";
+    private static final String AVAILABLE = "AVAILABLE";          // 연동 해제 시 되돌릴 상태
     private static final String SHINHAN_BANK = "SHINHAN_BANK";   // SOL트래블 외화지갑이 매달리는 기관
     private static final BigDecimal FX_USD_BALANCE = new BigDecimal("120.50");
 
@@ -121,6 +122,77 @@ public class AssetLinkService {
     public SecuritiesLinkResponse linkSecurities(Long userId, String companyCode) {
         LinkResult r = linkOne(userId, companyCode, "SECURITIES");
         return new SecuritiesLinkResponse(true, mapper.countHoldings(userId, r.institutionId()));
+    }
+
+    // ── 개별 연동 해제 ────────────────────────────────────────────────────
+    // 적재 자산을 제거하고 link_status를 AVAILABLE로 되돌린다(멱등). 재연동 시 템플릿으로 새로 적재된다.
+
+    @Transactional
+    public void unlinkPoint(Long userId, String companyCode) {
+        Long inst = resolveForUnlink(userId, companyCode, "POINT");
+        if (inst == null) return;
+        mapper.deletePoints(userId, inst);
+        mapper.markAvailable(inst, AVAILABLE);
+    }
+
+    @Transactional
+    public void unlinkSecurities(Long userId, String companyCode) {
+        Long inst = resolveForUnlink(userId, companyCode, "SECURITIES");
+        if (inst == null) return;
+        mapper.deleteHoldings(userId, inst);
+        mapper.deleteSecurities(userId, inst);
+        mapper.markAvailable(inst, AVAILABLE);
+    }
+
+    /** 카드 해제 — 가계부 원천인 거래내역은 보존(card_id만 NULL)하고 카드 행만 제거한다. */
+    @Transactional
+    public void unlinkCard(Long userId, String companyCode) {
+        Long inst = resolveForUnlink(userId, companyCode, "CARD");
+        if (inst == null) return;
+        mapper.nullifyCardTransactions(userId, inst);   // 거래내역 보존(가계부 합산은 user_id 기준)
+        mapper.deleteCards(userId, inst);
+        mapper.markAvailable(inst, AVAILABLE);
+    }
+
+    /** 은행 해제 — 이 은행 계좌를 가리키는 인바운드 FK(카드 결제계좌·이체설정)를 정리한 뒤 계좌를 제거한다. */
+    @Transactional
+    public void unlinkBank(Long userId, String companyCode) {
+        Long inst = resolveForUnlink(userId, companyCode, "BANK");
+        if (inst == null) return;
+        mapper.nullifyCardPaymentAccounts(userId, inst); // 카드 결제계좌 참조 해제(payment_account_id NULL)
+        mapper.deleteTransferSettings(userId, inst);     // 절약금 이체 설정(account_id NOT NULL) 제거
+        mapper.deleteBankAccounts(userId, inst);
+        mapper.markAvailable(inst, AVAILABLE);
+    }
+
+    /** SOL트래블(FX) 해제 — SHINHAN_BANK의 USD 지갑 행만 제거한다(기관 상태는 KRW 계좌 때문에 유지). */
+    @Transactional
+    public void unlinkFx(Long userId) {
+        MasterRef master = mapper.findMasterByCode(SHINHAN_BANK);
+        if (master == null) return;
+        LinkedRef existing = mapper.findLinkedInstitution(userId, master.id());
+        if (existing == null) return;
+        mapper.deleteUsdWallet(userId, existing.id());   // 없으면 no-op(멱등)
+    }
+
+    /** 해제 공통 검증 — companyCode/카테고리 확인 후 LINKED 커넥션 id 반환. 미연동이면 null(멱등 no-op). */
+    private Long resolveForUnlink(Long userId, String companyCode, String expectedCategory) {
+        if (companyCode == null || companyCode.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "기관 코드가 필요합니다.");
+        }
+        MasterRef master = mapper.findMasterByCode(companyCode);
+        if (master == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 기관입니다: " + companyCode);
+        }
+        if (expectedCategory != null && !expectedCategory.equals(master.category())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    companyCode + "은(는) " + expectedCategory + " 연동 해제 대상이 아닙니다.");
+        }
+        LinkedRef existing = mapper.findLinkedInstitution(userId, master.id());
+        if (existing == null || !LINKED.equals(existing.linkStatus())) {
+            return null;   // 멱등 skip
+        }
+        return existing.id();
     }
 
     /**

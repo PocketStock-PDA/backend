@@ -18,6 +18,8 @@ import com.pocketstock.user.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -91,6 +93,52 @@ public class AssetLinkController {
         requireUser(userId);
         return ResponseEntity.ok(ApiResponse.ok("타 증권사 연동 성공",
                 assetLinkService.linkSecurities(userId, request.companyCode())));
+    }
+
+    // ── 개별 연동 해제 ────────────────────────────────────────────────────
+
+    /** 포인트 연동 해제. */
+    @DeleteMapping("/links/point/{companyCode}")
+    public ResponseEntity<ApiResponse<Void>> unlinkPoint(
+            @CurrentUserId Long userId, @PathVariable String companyCode) {
+        requireUser(userId);
+        assetLinkService.unlinkPoint(userId, companyCode);
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    /** 카드 연동 해제(거래내역은 보존). */
+    @DeleteMapping("/links/card/{companyCode}")
+    public ResponseEntity<ApiResponse<Void>> unlinkCard(
+            @CurrentUserId Long userId, @PathVariable String companyCode) {
+        requireUser(userId);
+        assetLinkService.unlinkCard(userId, companyCode);
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    /** 은행 연동 해제. */
+    @DeleteMapping("/links/bank/{companyCode}")
+    public ResponseEntity<ApiResponse<Void>> unlinkBank(
+            @CurrentUserId Long userId, @PathVariable String companyCode) {
+        requireUser(userId);
+        assetLinkService.unlinkBank(userId, companyCode);
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    /** 타 증권사 연동 해제. */
+    @DeleteMapping("/links/securities/{companyCode}")
+    public ResponseEntity<ApiResponse<Void>> unlinkSecurities(
+            @CurrentUserId Long userId, @PathVariable String companyCode) {
+        requireUser(userId);
+        assetLinkService.unlinkSecurities(userId, companyCode);
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    /** SOL트래블(FX) 외화잔액 연동 해제(본문 없음). */
+    @DeleteMapping("/links/fx")
+    public ResponseEntity<ApiResponse<Void>> unlinkFx(@CurrentUserId Long userId) {
+        requireUser(userId);
+        assetLinkService.unlinkFx(userId);
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 
     /** 연동 자산 새로고침(no-op + last_synced_at). */

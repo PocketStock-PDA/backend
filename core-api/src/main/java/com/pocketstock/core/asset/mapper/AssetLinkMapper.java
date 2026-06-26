@@ -30,6 +30,38 @@ public interface AssetLinkMapper {
     /** AVAILABLE 등 비-LINKED 커넥션을 LINKED로 승격(linked_at·last_synced_at 갱신). */
     int markLinked(@Param("id") Long id);
 
+    // ── 연동 해제(unlink) — 적재 자산 삭제 + 커넥션 AVAILABLE 전환 ──────────────
+
+    /** LINKED 커넥션을 AVAILABLE로 되돌림(연동 해제). */
+    int markAvailable(@Param("id") Long id, @Param("status") String status);
+
+    /** 포인트 적재 행 삭제. */
+    int deletePoints(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 증권 예수금 행 삭제. */
+    int deleteSecurities(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 외부 보유 종목 행 삭제. */
+    int deleteHoldings(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 카드 해제 시 거래내역(가계부 원천)은 보존하고 card_id만 NULL로 푼다. */
+    int nullifyCardTransactions(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 카드 행 삭제. */
+    int deleteCards(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 이 은행 계좌를 결제계좌로 쓰는 카드의 payment_account_id를 NULL로 푼다(인바운드 FK 정리). */
+    int nullifyCardPaymentAccounts(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 이 은행 계좌를 가리키는 절약금 이체 설정 삭제(account_id NOT NULL이라 행 삭제). */
+    int deleteTransferSettings(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 은행 계좌 행 삭제. */
+    int deleteBankAccounts(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** SOL트래블(FX) USD 지갑 행만 삭제. */
+    int deleteUsdWallet(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
     /** 템플릿 은행 계좌 INSERT(생성 id는 a.id에 채워짐). */
     void insertBankAccount(LinkedBankAccountInsert a);
 
