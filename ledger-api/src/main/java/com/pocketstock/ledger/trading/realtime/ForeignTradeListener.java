@@ -48,13 +48,14 @@ public class ForeignTradeListener implements KisRealtimeListener {
         String realtimeCode = f[0]; // RSYM (구독 tr_key와 동일)
         String symbol = f[1];       // SYMB (= stock_code, 안정적 토픽 키)
         String sign = f[12];        // SIGN 1상한·2상승·3보합·4하한·5하락
+        BigDecimal changePrice = signed(dec(f[13]), sign); // DIFF 전일대비(절대값) → SIGN 부호 적용
         ForeignTradeResponse payload = new ForeignTradeResponse(
                 symbol,          // SYMB
                 realtimeCode,
                 f[5],            // XHMS 현지시간
                 dec(f[11]),      // LAST 현재가 → currentPrice
-                signed(dec(f[13]), sign), // DIFF 전일대비(절대값) → SIGN 부호 적용 → changePrice
-                dec(f[14]),      // RATE 등락율(부호 포함) → changeRate
+                changePrice,     // 전일대비 → changePrice
+                signedLike(dec(f[14]), changePrice), // RATE 등락율 부호 = 전일대비 부호(절대값에 방향만)
                 dec(f[8]),       // OPEN → openPrice
                 dec(f[9]),       // HIGH → highPrice
                 dec(f[10]),      // LOW → lowPrice
@@ -69,6 +70,12 @@ public class ForeignTradeListener implements KisRealtimeListener {
     /** SIGN(4하한·5하락)이면 음수로. 절대값으로 오는 전일대비에 방향을 적용. */
     private BigDecimal signed(BigDecimal v, String sign) {
         return ("4".equals(sign) || "5".equals(sign)) ? v.negate() : v;
+    }
+
+    /** 등락율 절대값에 전일대비(reference) 부호를 입힌다 — 둘은 항상 같은 방향. */
+    private BigDecimal signedLike(BigDecimal rate, BigDecimal reference) {
+        BigDecimal abs = rate.abs();
+        return reference.signum() < 0 ? abs.negate() : abs;
     }
 }
 

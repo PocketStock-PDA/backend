@@ -41,12 +41,16 @@ public class TradeRealtimeListener implements LsRealtimeListener {
         }
 
         String sign = body.path("sign").asText("").trim();
+        // 전일대비(change)는 부호가 신뢰 가능(REST t1102·순위와 부호 일치). 반면 등락율(drate)은 US3에서
+        // change와 부호 표기 방식이 달라(한쪽 절대값·한쪽 부호포함) 같은 sign을 그대로 적용하면
+        // 하락 종목 등락율만 +로 뒤집힌다. 둘은 물리적으로 같은 방향이므로 등락율 부호를 전일대비에 맞춘다.
+        BigDecimal changePrice = signed(dec(body, "change"), sign);
         StockTradeResponse payload = new StockTradeResponse(
                 stockCode,
                 body.path("chetime").asText(""),       // 체결시간 HHmmss
                 dec(body, "price"),                     // 현재가(체결가)
-                signed(dec(body, "change"), sign),      // 전일대비(절대값) → 부호 적용
-                signed(dec(body, "drate"), sign),       // 등락율(절대값) → 부호 적용
+                changePrice,                            // 전일대비 → sign 부호 적용
+                signedLike(dec(body, "drate"), changePrice), // 등락율 부호 = 전일대비 부호(절대값에 방향만)
                 dec(body, "open"),                      // 시가
                 dec(body, "high"),                      // 고가
                 dec(body, "low"),                       // 저가
@@ -58,8 +62,14 @@ public class TradeRealtimeListener implements LsRealtimeListener {
         messagingTemplate.convertAndSend(TOPIC_PREFIX + stockCode, payload);
     }
 
-    /** sign(4하한·5하락)이면 음수로. 절대값으로 오는 전일대비·등락율에 방향을 적용. */
+    /** sign(4하한·5하락)이면 음수로. 절대값으로 오는 전일대비에 방향을 적용. */
     private BigDecimal signed(BigDecimal v, String sign) {
         return ("4".equals(sign) || "5".equals(sign)) ? v.negate() : v;
+    }
+
+    /** 등락율 절대값에 전일대비(reference) 부호를 입힌다 — 둘은 항상 같은 방향. */
+    private BigDecimal signedLike(BigDecimal rate, BigDecimal reference) {
+        BigDecimal abs = rate.abs();
+        return reference.signum() < 0 ? abs.negate() : abs;
     }
 }
