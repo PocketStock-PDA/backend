@@ -69,7 +69,6 @@ create_mysql_defaults_file() {
     printf 'default-character-set=utf8mb4\n'
     [ -n "$MYSQL_SSL_MODE" ] && printf 'ssl-mode=%s\n' "$MYSQL_SSL_MODE"
   } > "$file"
-  MYSQL_DEFAULT_FILES+=("$file")
   printf '%s' "$file"
 }
 
@@ -184,7 +183,9 @@ CORE_PORT="$(env_value RDS_CORE_PORT || true)"; CORE_PORT="${CORE_PORT:-3306}"
 LEDGER_PORT="$(env_value RDS_LEDGER_PORT || true)"; LEDGER_PORT="${LEDGER_PORT:-3306}"
 MYSQL_SSL_MODE="$(env_value MYSQL_SSL_MODE || true)"; MYSQL_SSL_MODE="${MYSQL_SSL_MODE:-REQUIRED}"
 CORE_DEFAULTS_FILE="$(create_mysql_defaults_file core "$CORE_HOST" "$CORE_PORT" "$CORE_USER" "$CORE_PASSWORD")"
+MYSQL_DEFAULT_FILES+=("$CORE_DEFAULTS_FILE")
 LEDGER_DEFAULTS_FILE="$(create_mysql_defaults_file ledger "$LEDGER_HOST" "$LEDGER_PORT" "$LEDGER_USER" "$LEDGER_PASSWORD")"
+MYSQL_DEFAULT_FILES+=("$LEDGER_DEFAULTS_FILE")
 
 CORE_SQL_FILES=(
   "$APP_DIR/scripts/mysql-a-init.sql"
