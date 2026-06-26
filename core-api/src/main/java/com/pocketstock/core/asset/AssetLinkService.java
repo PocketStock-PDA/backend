@@ -154,18 +154,24 @@ public class AssetLinkService {
         mapper.markAvailable(inst, AVAILABLE);
     }
 
-    /** 은행 해제 — 이 은행 계좌를 가리키는 인바운드 FK(카드 결제계좌·이체설정)를 정리한 뒤 계좌를 제거한다. */
+    /**
+     * 은행 해제 — 인바운드 FK(카드 결제계좌·이체설정) 정리 후 은행 계좌(KRW)만 제거한다.
+     * SOL트래블 USD 지갑(FX)은 건드리지 않는다(FX 해제는 {@link #unlinkFx} 전담). 남은 계좌가 없을 때만 AVAILABLE.
+     */
     @Transactional
     public void unlinkBank(Long userId, String companyCode) {
         Long inst = resolveForUnlink(userId, companyCode, "BANK");
         if (inst == null) return;
         mapper.nullifyCardPaymentAccounts(userId, inst); // 카드 결제계좌 참조 해제(payment_account_id NULL)
         mapper.deleteTransferSettings(userId, inst);     // 절약금 이체 설정(account_id NOT NULL) 제거
-        mapper.deleteBankAccounts(userId, inst);
-        mapper.markAvailable(inst, AVAILABLE);
+        mapper.deleteBankAccounts(userId, inst);         // USD(FX) 지갑은 제외하고 삭제
+        markAvailableIfNoAccounts(userId, inst);         // FX 지갑이 남아 있으면 LINKED 유지
     }
 
-    /** SOL트래블(FX) 해제 — SHINHAN_BANK의 USD 지갑 행만 제거한다(기관 상태는 KRW 계좌 때문에 유지). */
+    /**
+     * SOL트래블(FX) 해제 — SHINHAN_BANK의 USD 지갑 행만 제거한다.
+     * 같은 기관에 남은 계좌(은행 KRW)가 없으면 기관을 AVAILABLE로 정리(댕글링 LINKED 방지).
+     */
     @Transactional
     public void unlinkFx(Long userId) {
         MasterRef master = mapper.findMasterByCode(SHINHAN_BANK);
@@ -173,6 +179,14 @@ public class AssetLinkService {
         LinkedRef existing = mapper.findLinkedInstitution(userId, master.id());
         if (existing == null) return;
         mapper.deleteUsdWallet(userId, existing.id());   // 없으면 no-op(멱등)
+        markAvailableIfNoAccounts(userId, existing.id());
+    }
+
+    /** 은행 커넥션에 남은 계좌(USD 지갑 포함)가 없으면 LINKED→AVAILABLE로 정리. 은행/FX가 SHINHAN_BANK를 공유하기 때문. */
+    private void markAvailableIfNoAccounts(Long userId, Long institutionId) {
+        if (mapper.countBankAccounts(userId, institutionId) == 0) {
+            mapper.markAvailable(institutionId, AVAILABLE);
+        }
     }
 
     /** 해제 공통 검증 — companyCode/카테고리 확인 후 LINKED 커넥션 id 반환. 미연동이면 null(멱등 no-op). */

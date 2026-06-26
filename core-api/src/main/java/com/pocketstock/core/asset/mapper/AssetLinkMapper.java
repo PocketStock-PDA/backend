@@ -56,8 +56,11 @@ public interface AssetLinkMapper {
     /** 이 은행 계좌를 가리키는 절약금 이체 설정 삭제(account_id NOT NULL이라 행 삭제). */
     int deleteTransferSettings(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
 
-    /** 은행 계좌 행 삭제. */
+    /** 은행 계좌 행 삭제(USD(FX) 지갑은 제외). */
     int deleteBankAccounts(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
+    /** 은행 커넥션에 남은 계좌 수(USD 지갑 포함) — 해제 후 AVAILABLE 전환 판정용. */
+    int countBankAccounts(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
 
     /** SOL트래블(FX) USD 지갑 행만 삭제. */
     int deleteUsdWallet(@Param("userId") Long userId, @Param("institutionId") Long institutionId);

@@ -160,10 +160,17 @@
           )
     </delete>
 
+    <!-- 은행 해제 — USD(FX) 지갑은 보존하고 KRW 등 일반 계좌만 삭제. -->
     <delete id="deleteBankAccounts">
         DELETE FROM linked_bank_accounts
         WHERE user_id = #{userId} AND institution_id = #{institutionId}
+          AND currency != 'USD'
     </delete>
+
+    <select id="countBankAccounts" resultType="int">
+        SELECT COUNT(*) FROM linked_bank_accounts
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+    </select>
 
     <delete id="deleteUsdWallet">
         DELETE FROM linked_bank_accounts
