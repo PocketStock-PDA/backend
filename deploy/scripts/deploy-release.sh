@@ -106,6 +106,41 @@ ensure_infra() {
   ensure_kafka
 }
 
+ensure_existing_active_service() {
+  local svc="$1" cid state
+  cid="$(dc ps -a -q "$svc")"
+  [ -n "$cid" ] || die "활성 서비스 컨테이너 없음: $svc"
+
+  state="$(docker inspect -f '{{.State.Status}}' "$cid")" \
+    || die "활성 서비스 상태 확인 실패: $svc"
+  case "$state" in
+    running|restarting)
+      log "  $svc: 실행 중(${state})"
+      ;;
+    exited|created)
+      log "  $svc: ${state} → 기존 컨테이너 재시작"
+      dc start "$svc" >/dev/null || die "활성 서비스 재시작 실패: $svc"
+      ;;
+    paused)
+      log "  $svc: paused → unpause"
+      docker unpause "$cid" >/dev/null || die "활성 서비스 unpause 실패: $svc"
+      ;;
+    *)
+      die "활성 서비스 상태가 배포를 진행할 수 없음: $svc 상태=${state}"
+      ;;
+  esac
+  wait_healthy "$svc" || die "활성 서비스 health 실패: $svc"
+}
+
+ensure_active_stack() {
+  local active_color="$1"
+  log "활성 색 컨테이너 확인/복구: ${active_color}"
+  # reset-demo-rds.sh 이후에는 앱 컨테이너가 stopped 상태일 수 있다.
+  # 기존 컨테이너를 start 해야 직전 SHA를 유지한 채 nginx upstream 검증이 가능하다.
+  ensure_existing_active_service "core-api-${active_color}"
+  ensure_existing_active_service "ledger-api-${active_color}"
+}
+
 log "=== 배포 시작 : $NEW_SHA ==="
 log "ECR 로그인: $ECR_REGISTRY"
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
@@ -140,6 +175,7 @@ TARGET="$(opposite "$ACTIVE")"
 log "현재 활성 색=$ACTIVE → 새 색=$TARGET (직전 SHA: ${PREV_SHA:-없음})"
 
 ensure_infra
+ensure_active_stack "$ACTIVE"
 
 # core upstream 이 새 색으로 넘어가 옛 core 가 정지된 뒤인지 — abort 시 새 core 를 보존할지 판단.
 CORE_PROMOTED=0
