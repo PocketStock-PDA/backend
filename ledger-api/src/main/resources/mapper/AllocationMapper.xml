@@ -12,4 +12,13 @@
              #{fee}, #{tax}, #{netAmount})
     </insert>
 
+    <!-- 주문 id별 체결금액(gross_amount) 합 — 소수점 차수 분할 체결을 합산. idx_alloc_order 사용. -->
+    <select id="sumGrossByOrderIds" resultType="com.pocketstock.ledger.trading.dto.OrderFilledAmount">
+        SELECT order_id AS orderId, SUM(gross_amount) AS amount
+        FROM allocations
+        WHERE order_id IN
+        <foreach collection="orderIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        GROUP BY order_id
+    </select>
+
 </mapper>
