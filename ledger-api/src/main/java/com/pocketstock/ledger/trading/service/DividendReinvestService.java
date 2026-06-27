@@ -32,6 +32,9 @@ public class DividendReinvestService {
     @Transactional
     public DividendReinvestResponse setEnabled(Long userId, DividendReinvestRequest req) {
         requireUser(userId);
+        if (req == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "요청 본문이 필요합니다.");
+        }
         if (req.enabled() == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "enabled 값이 필요합니다.");
         }

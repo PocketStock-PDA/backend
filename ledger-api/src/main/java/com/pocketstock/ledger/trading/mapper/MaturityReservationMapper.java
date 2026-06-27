@@ -19,6 +19,16 @@ public interface MaturityReservationMapper {
     /** 단건 — 남의 예약 노출 금지(user_id 가드). */
     MaturityBuyReservation findByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 
+    /** (유저·계좌·종목) 1건 — 생성 시 기존 예약 확인용(취소/실패 건 되살리기 판단). UNIQUE라 0/1건. */
+    MaturityBuyReservation findByUserAccountStock(@Param("userId") Long userId,
+                                                  @Param("linkedBankAccountId") Long linkedBankAccountId,
+                                                  @Param("stockCode") String stockCode);
+
+    /** 취소·실패 예약 되살리기 — CANCELLED/FAILED를 새 만기일·금액으로 RESERVED 재활성(집행 흔적 초기화). */
+    int revive(@Param("id") Long id,
+               @Param("maturityDate") java.time.LocalDate maturityDate,
+               @Param("buyAmount") java.math.BigDecimal buyAmount);
+
     /**
      * 만기 도래 예약(스케줄러용) — status=RESERVED & maturity_date ≤ today. 종목명 join.
      * 단일 활성 인스턴스만 호출(LedgerActivation 게이트).

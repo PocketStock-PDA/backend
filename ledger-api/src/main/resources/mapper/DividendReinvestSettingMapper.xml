@@ -27,7 +27,7 @@
         FROM dividend_reinvest_settings d
         LEFT JOIN tradable_stocks s ON s.stock_code = d.stock_code
         WHERE d.user_id = #{userId}
-        ORDER BY d.id DESC
+        ORDER BY d.updated_at DESC, d.id DESC
     </select>
 
     <select id="isEnabled" resultType="java.lang.Boolean">

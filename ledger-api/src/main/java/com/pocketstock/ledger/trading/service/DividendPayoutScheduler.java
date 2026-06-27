@@ -1,6 +1,5 @@
 package com.pocketstock.ledger.trading.service;
 
-import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.ledger.client.CalendarFeignClient;
 import com.pocketstock.ledger.client.dto.DividendPayoutScheduleView;
 import com.pocketstock.ledger.lifecycle.LedgerActivation;
@@ -58,7 +57,14 @@ public class DividendPayoutScheduler {
         }
     }
 
-    /** 한 종목 보유자 전원에게 지급 + DRIP 재투자 — 보유자 단위 격리. */
+    /**
+     * 한 종목 보유자 전원에게 지급 + DRIP 재투자 — 보유자 단위 격리.
+     *
+     * <p><b>의식적 단순화</b>: 배당 권리는 본래 <b>기준일(record date)</b> 보유분으로 확정되지만, 여기서는
+     * <b>지급일(pay date) 현재 보유</b>로 지급한다(기준일 보유 스냅샷 테이블·배당락 배치는 미도입). 따라서
+     * 기준일 후 매도자는 미지급, 이후 매수자는 오지급될 수 있다. 시뮬·데모 전제로 의식적 비채택 —
+     * 정식 도입 시 (유저·종목·기준일·수량) 스냅샷을 DIVIDEND_EX일에 적재해 그걸 기준으로 지급해야 한다.
+     */
     private void payoutStock(DividendPayoutScheduleView schedule, LocalDate today) {
         List<Holding> holders = holdingMapper.findHoldersByStock(schedule.stockCode());
         for (Holding holder : holders) {
@@ -90,7 +96,10 @@ public class DividendPayoutScheduler {
             payoutService.reinvest(payout);
             log.info("[배당지급] 유저 {} {} {}원 지급 후 재투자 완료",
                     holder.getUserId(), schedule.stockCode(), payout.getGrossAmount());
-        } catch (BusinessException e) {
+        } catch (Exception e) {
+            // 지급은 이미 커밋(PAID)됐고 재투자만 실패 — 모든 예외를 REINVEST_FAILED로 남긴다.
+            // BusinessException만 잡으면 그 외 예외는 바깥 catch로 빠져 PAID로 남고, 다음 실행 때
+            // 멱등 스킵(UNIQUE)으로 재투자 재시도가 영구 차단된다(#리뷰). 배당금은 CMA 현금으로 잔류.
             payoutService.markReinvestFailed(payout.getId(), truncate(e.getMessage()));
             log.warn("[배당지급] 유저 {} {} 재투자 실패 — {} (배당금은 CMA 현금 잔류)",
                     holder.getUserId(), schedule.stockCode(), e.getMessage());

@@ -39,6 +39,7 @@ public class MaturityReservationService {
     private static final String MARKET_DOMESTIC = "DOMESTIC";
     private static final String CURRENCY_KRW = "KRW";
     private static final String STATUS_RESERVED = "RESERVED";
+    private static final String STATUS_EXECUTED = "EXECUTED";
     private static final String SOURCE_MATURITY = "MATURITY";
     private static final String SIDE_BUY = "BUY";
     private static final String ORDER_TYPE_AMOUNT = "AMOUNT";
@@ -67,6 +68,28 @@ public class MaturityReservationService {
                             + ", 매수 " + buyAmount + ")");
         }
 
+        // 같은 계좌·종목 기존 예약 처리 — 진행 중(RESERVED)·집행완료(EXECUTED)는 거부,
+        // 취소·실패(CANCELLED/FAILED)는 새 만기일·금액으로 되살린다(UNIQUE라 cancel 후 재예약이 막히지 않게, #11).
+        MaturityBuyReservation existing =
+                reservationMapper.findByUserAccountStock(userId, accountId, stock.getStockCode());
+        if (existing != null) {
+            if (STATUS_RESERVED.equals(existing.getStatus())) {
+                throw new BusinessException(ErrorCode.CONFLICT, "이미 같은 계좌·종목으로 예약된 매수가 있습니다.");
+            }
+            if (STATUS_EXECUTED.equals(existing.getStatus())) {
+                throw new BusinessException(ErrorCode.CONFLICT, "이미 집행된 예약입니다.");
+            }
+            reservationMapper.revive(existing.getId(), account.maturityDate(), buyAmount);
+            existing.setStatus(STATUS_RESERVED);
+            existing.setMaturityDate(account.maturityDate());
+            existing.setBuyAmount(buyAmount);
+            existing.setOrderId(null);
+            existing.setFailReason(null);
+            existing.setExecutedAt(null);
+            existing.setStockName(stock.getStockName());
+            return MaturityReservationResponse.from(existing);
+        }
+
         MaturityBuyReservation entity = MaturityBuyReservation.builder()
                 .userId(userId)
                 .linkedBankAccountId(accountId)
@@ -80,6 +103,7 @@ public class MaturityReservationService {
         try {
             reservationMapper.insert(entity);
         } catch (DuplicateKeyException e) {
+            // 동시 생성 경합(둘 다 위 조회를 통과) — UNIQUE가 두 번째를 막음.
             throw new BusinessException(ErrorCode.CONFLICT, "이미 같은 계좌·종목으로 예약된 매수가 있습니다.");
         }
         entity.setStockName(stock.getStockName());

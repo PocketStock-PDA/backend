@@ -50,6 +50,28 @@
         WHERE m.id = #{id} AND m.user_id = #{userId}
     </select>
 
+    <select id="findByUserAccountStock" resultMap="reservation">
+        SELECT m.id, m.user_id, m.linked_bank_account_id, m.maturity_date, m.stock_code, m.market,
+               m.currency, m.buy_amount, m.status, m.order_id, m.fail_reason, m.executed_at,
+               m.created_at, m.updated_at, s.stock_name
+        FROM maturity_buy_reservations m
+        LEFT JOIN tradable_stocks s ON s.stock_code = m.stock_code
+        WHERE m.user_id = #{userId}
+          AND m.linked_bank_account_id = #{linkedBankAccountId}
+          AND m.stock_code = #{stockCode}
+    </select>
+
+    <update id="revive">
+        UPDATE maturity_buy_reservations
+        SET status = 'RESERVED',
+            maturity_date = #{maturityDate},
+            buy_amount = #{buyAmount},
+            order_id = NULL,
+            fail_reason = NULL,
+            executed_at = NULL
+        WHERE id = #{id} AND status IN ('CANCELLED', 'FAILED')
+    </update>
+
     <select id="findDue" resultMap="reservation">
         SELECT m.id, m.user_id, m.linked_bank_account_id, m.maturity_date, m.stock_code, m.market,
                m.currency, m.buy_amount, m.status, m.order_id, m.fail_reason, m.executed_at,
