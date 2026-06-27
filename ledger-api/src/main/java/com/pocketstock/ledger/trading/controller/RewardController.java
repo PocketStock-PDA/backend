@@ -32,7 +32,7 @@ public class RewardController {
         return ApiResponse.ok("웰컴 보상 후보 조회 성공", welcomeRewardService.getCandidates(userId));
     }
 
-    /** 웰컴 보상 지급 (후보 중 1종목 선택 → 1,000원어치 소수점 지급) */
+    /** 웰컴 보상 지급 (후보 중 1종목 선택 → 국내 1,000원 / 해외 $1어치 소수점 지급) */
     @PostMapping("/welcome")
     public ApiResponse<WelcomeRewardResponse> claimWelcome(@CurrentUserId Long userId,
                                                            @RequestBody WelcomeRewardClaimRequest request) {

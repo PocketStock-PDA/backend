@@ -29,8 +29,8 @@ import java.util.List;
 /**
  * 웰컴 보상 — 온보딩(계좌개설+연동) 완료 후 1회성 첫 주식 선물.
  * 후보: 국내 거래대금 1·2위 + 해외(NASDAQ) 1·2위 = 최대 4종목.
- * 지급: 고른 1종목에 1,000원어치 소수점 주식을 무상으로 holdings에 적립(예수금 차감 없음).
- * 해외는 매매기준율(mid)로 1,000원 → USD 환산 후 수량 산정. 1인 1회(welcome_rewards.user_id UNIQUE).
+ * 지급: 고른 1종목에 소수점 최소주문단위(국내 1,000원 / 해외 $1)어치를 무상으로 holdings에 적립(예수금 차감 없음).
+ * 수량 산정은 종목 통화 그대로라 환율 불필요. 해외 원화 취득원가만 매매기준율(mid)로 1회 환산해 기록. 1인 1회(welcome_rewards.user_id UNIQUE).
  */
 @Slf4j
 @Service
@@ -49,11 +49,11 @@ public class WelcomeRewardService {
     private static final String SEC_TYPE_STOCK = "STOCK";
     /** LS t1463 value(백만원) → 원 환산(해외 KIS는 원 단위라 표시 스케일 맞춤). */
     private static final BigDecimal LS_VALUE_TO_KRW = BigDecimal.valueOf(1_000_000L);
-    /** 웰컴 보상 예산(원). */
-    private static final int BUDGET_KRW = 1_000;
+    /** 웰컴 보상 지급 단위 — 소수점 최소주문단위와 동일(국내 1,000원 / 해외 $1). */
+    private static final BigDecimal GRANT_KRW = BigDecimal.valueOf(1_000);
+    private static final BigDecimal GRANT_USD = BigDecimal.ONE;
     private static final int QTY_SCALE = 6;     // holdings.quantity DECIMAL(18,6)
     private static final int PRICE_SCALE = 4;   // holdings.avg_buy_price DECIMAL(18,4)
-    private static final int FX_SCALE = 8;      // KRW→USD 중간 환산 정밀도
 
     private final KisRankingClient rankingClient;          // 해외 거래대금 순위(KIS)
     private final LsRankingClient lsRankingClient;          // 국내 거래대금 순위(LS t1463)
@@ -123,7 +123,7 @@ public class WelcomeRewardService {
     // ===== 지급 =====
 
     /**
-     * 웰컴 보상 지급 — 고른 종목에 1,000원어치 소수점 주식을 holdings에 적립.
+     * 웰컴 보상 지급 — 고른 종목에 최소주문단위(국내 1,000원 / 해외 $1)어치 소수점 주식을 holdings에 적립.
      * holdings 적립 + 지급이력 INSERT를 같은 로컬 트랜잭션으로 처리(DB B). 1인 1회.
      */
     @Transactional
@@ -152,18 +152,19 @@ public class WelcomeRewardService {
         }
 
         BigDecimal price = currentPrice(userId, stockCode, domestic);
-        BigDecimal budgetInCcy = domestic
-                ? BigDecimal.valueOf(BUDGET_KRW)
-                : convertKrwToUsd(BUDGET_KRW);
-        BigDecimal quantity = budgetInCcy.divide(price, QTY_SCALE, RoundingMode.HALF_UP);
+        // 지급 단위는 종목 통화 그대로 — 수량 산정에 환율 불필요(국내 1,000원 / 해외 $1).
+        BigDecimal grantUnit = domestic ? GRANT_KRW : GRANT_USD;
+        // 지급 단위(예산) 초과 방지로 내림 — quantity×price가 1,000원/$1을 넘지 않게(소수점 주문 경로와 동일 관례).
+        BigDecimal quantity = grantUnit.divide(price, QTY_SCALE, RoundingMode.DOWN);
         if (quantity.signum() <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "지급 수량이 0입니다.");
         }
         BigDecimal grantPrice = price.setScale(PRICE_SCALE, RoundingMode.HALF_UP);
 
-        // 무상 지급 주식의 원화 취득원가 = 지급 예산(원). 국내·해외 공통.
+        // 무상 지급 주식의 원화 취득원가 = 회사 실비용. 국내는 1,000원, 해외는 $1×매매기준율(mid) 1회 환산.
+        int budgetKrw = domestic ? GRANT_KRW.intValueExact() : usdToKrw(grantUnit);
         upsertHolding(userId, account.getId(), stockCode, currency, quantity, grantPrice,
-                BigDecimal.valueOf(BUDGET_KRW));
+                BigDecimal.valueOf(budgetKrw));
 
         LocalDateTime now = LocalDateTime.now();
         WelcomeReward reward = WelcomeReward.builder()
@@ -173,14 +174,14 @@ public class WelcomeRewardService {
                 .market(market)
                 .quantity(quantity)
                 .grantPrice(grantPrice)
-                .budgetKrw(BUDGET_KRW)
+                .budgetKrw(budgetKrw)
                 .currency(currency)
                 .grantedAt(now)
                 .build();
         rewardMapper.insert(reward);
 
         return new WelcomeRewardResponse(stockCode, stock.getStockName(), market, currency,
-                quantity, grantPrice, BUDGET_KRW, now);
+                quantity, grantPrice, budgetKrw, now);
     }
 
     // ===== 내역 =====
@@ -223,10 +224,14 @@ public class WelcomeRewardService {
         return price;
     }
 
-    /** 1,000원 등 KRW 금액을 매매기준율(mid)로 USD 환산. 스프레드 미적용(무상 선물). 캐시 미스면 야후 폴백, 둘 다 비면 502. */
-    private BigDecimal convertKrwToUsd(int krw) {
+    /** $1 등 USD 금액을 매매기준율(mid)로 원화 환산 — 무상주의 원화 취득원가 기록용(회계). 캐시 미스면 야후 폴백, 둘 다 비면 502. */
+    private int usdToKrw(BigDecimal usd) {
         BigDecimal rate = currencyRateProvider.current().exchangeRate();
-        return BigDecimal.valueOf(krw).divide(rate, FX_SCALE, RoundingMode.HALF_UP);
+        // 잘못된 환율로 원화 취득원가가 0/음수로 박히는 것 방지(currentPrice와 동일 정책). multiply라 divide와 달리 0도 안 터짐.
+        if (rate == null || rate.signum() <= 0) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 조회 실패");
+        }
+        return usd.multiply(rate).setScale(0, RoundingMode.HALF_UP).intValueExact();
     }
 
     /** 보유 적립 — 기존 있으면 수량 합산·가중평균, 없으면 신규. */
