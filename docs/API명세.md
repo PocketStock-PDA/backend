@@ -132,6 +132,12 @@
 | 정기적립식 | 수익률 트리거 등록/수정(물타기 BUY·익절 SELL, 종목당 종류별 1·옵션) | POST | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 | ✅ #194 |
 | 정기적립식 | 수익률 트리거 목록 조회 | GET | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 | ✅ #194 |
 | 정기적립식 | 수익률 트리거 해제 | DELETE | `/api/trading/auto-invest/{id}/triggers/{triggerId}` |  | B·김준형 | ✅ #194 |
+| 만기예약 | 만기 후 배당주 매수 예약 생성(만기일·시장·통화는 서버 파생) | POST | `/api/trading/maturity-reservations` |  | B·김준형 | ✅ 만기일 09:10 집행·국내만 |
+| 만기예약 | 만기 매수 예약 목록 조회 | GET | `/api/trading/maturity-reservations` |  | B·김준형 | ✅ |
+| 만기예약 | 만기 매수 예약 취소(만기 전 RESERVED만) | DELETE | `/api/trading/maturity-reservations/{id}` |  | B·김준형 | ✅ |
+| 배당재투자 | 배당 자동 재투자(DRIP) 토글 ON/OFF(종목별) | PUT | `/api/trading/dividend-reinvest` |  | B·김준형 | ✅ ON=재투자·OFF=CMA 현금 |
+| 배당재투자 | 배당 재투자 설정 목록 조회 | GET | `/api/trading/dividend-reinvest` |  | B·김준형 | ✅ |
+| 배당재투자 | 배당 지급·재투자 내역 조회 | GET | `/api/trading/dividend-reinvest/history` |  | B·김준형 | ✅ 지급일 09:00 집행·소액은 CMA 충당 max(배당,1000) |
 | 퍼즐 | 퍼즐 진행률 조회(조각/완성) | GET | `/api/trading/puzzle/{stockCode}` |  | B·김준형 |  |
 | 웰컴보상 | 웰컴보상 후보 종목 조회(국내 거래대금 1·2위 + 해외 1·2위) | GET | `/api/trading/rewards/welcome/candidates` |  | B·김준형 | ✅ |
 | 웰컴보상 | 웰컴보상 종목 선택·지급(1,000원어치 소수점) | POST | `/api/trading/rewards/welcome` |  | B·김준형 | ✅ |
@@ -213,11 +219,12 @@
 | CMA | CMA 총 평가액(KRW 환산) 조회 — 자산 요약용 | GET | `/internal/cma/krw-total` |  | C·강문군 | ✅ |
 | CMA | 끝전 임계값·활성 적립 소스 조회 — 잔돈 스캔용 | GET | `/internal/cma/collection-settings` |  | C·강문군 | ✅ |
 | 환전 | 매매기준율 조회 — 외화 잔돈 KRW 환산용 | GET | `/internal/exchange/usd-krw-rate` |  | B·김준형 | ✅ |
-| 자산 | 연동 계좌(끝전 적립 대상) 잔액 요약 조회 | GET | `/internal/assets/accounts` |  | C·강문군 | ✅ |
+| 자산 | 연동 계좌(끝전 적립 대상) 잔액 요약 조회(+예적금 만기일 — 만기 매수 예약용) | GET | `/internal/assets/accounts` |  | C·강문군 | ✅ |
 | 자산 | 연동 USD 지갑 목록 조회 | GET | `/internal/assets/fx-wallets` |  | C·강문군 | ✅ |
 | 자산 | 카드 라운드업 대상·금액 조회 | GET | `/internal/assets/card-roundup` |  | C·강문군 | ✅ |
 | 자산 | 카드 라운드업 수집 완료 마킹 | PATCH | `/internal/assets/card-roundup/mark-collected` |  | C·강문군 | ✅ |
 | 자산 | 사용 가능 포인트 조회 | GET | `/internal/assets/points` |  | C·강문군 | ✅ |
 | 자산 | 계좌 끝전 차감 | PATCH | `/internal/assets/accounts/deduct` |  | C·강문군 | ✅ |
 | 자산 | 포인트 차감 | PATCH | `/internal/assets/points/deduct` |  | C·강문군 | ✅ |
-| 캘린더 | 종목 캘린더 이벤트(배당·실적) 일괄 upsert | POST | `/internal/calendar/stock-events` |  | D·김서현 | ✅ |
+| 캘린더 | 종목 캘린더 이벤트(배당·실적) 일괄 upsert(배당은 주당배당금 amount 포함) | POST | `/internal/calendar/stock-events` |  | D·김서현 | ✅ |
+| 캘린더 | 지급일 배당 일정(주당배당금) 조회 — 배당 지급 엔진용 | GET | `/internal/calendar/dividend-payouts` |  | B·김준형 | ✅ |

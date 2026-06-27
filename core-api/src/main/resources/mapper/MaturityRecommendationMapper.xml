@@ -6,7 +6,8 @@
 
     <select id="findUpcomingMaturityAccount"
             resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
-        SELECT account_name        AS accountName,
+        SELECT id                  AS accountId,
+               account_name        AS accountName,
                maturity_date       AS maturityDate,
                balance             AS principalAmount,
                interest_rate       AS interestRate,

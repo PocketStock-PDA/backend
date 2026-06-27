@@ -44,6 +44,7 @@
   <button data-tab="realtime" onclick="showTab('realtime')">실시간(WS)</button>
   <button data-tab="fx" onclick="showTab('fx')">환율·환전</button>
   <button data-tab="autoinvest" onclick="showTab('autoinvest')">자동모으기</button>
+  <button data-tab="maturity" onclick="showTab('maturity')">만기·배당</button>
   <button data-tab="valuation" onclick="showTab('valuation')">평가추이</button>
   <button data-tab="outbox" onclick="showTab('outbox')">알림(Kafka)</button>
 </div>
@@ -399,6 +400,46 @@
   <div class="muted">실시간 감지(#194): 운영은 <b>호가 틱마다 자동 평가</b>(AutoInvestTriggerEngine) — 물타기=최우선 매도호가·익절=최우선 매수호가로 수익률 계산.
     이 버튼은 장외 테스트용 <b>현재가(캐시/REST) 강제 1회 평가</b>(/dev/auto-invest-trigger-run?stockCode=). 먼저 그 종목에 트리거 등록 필요.
     결과는 거래 탭 보유종목/거래내역, 회차내역(DIP_BUY/TAKE_PROFIT)에서 확인.</div>
+</fieldset>
+</section>
+
+<section id="tab-maturity" class="tab">
+<fieldset>
+  <legend>16) 만기 후 매수 예약 (예적금 만기 → 배당주 자동매수)</legend>
+  은행계좌ID <input id="mrAccId" value="6" size="5" placeholder="linkedBankAccountId"/><span class="muted">(6=임혜진 신한 단기 정기예금·만기 2026-07-10)</span>
+  종목 <input id="mrCode" value="017800" size="8"/>
+  금액 <input id="mrAmount" value="100000" size="9"/>원
+  <button onclick="mrCreate()">예약 생성</button>
+  <span id="mrState" class="muted"></span>
+  <hr/>
+  <button onclick="mrList()">예약 목록</button>
+  예약ID <input id="mrId" value="" size="5"/>
+  <button onclick="mrCancel()">예약 취소(DELETE)</button>
+  <button onclick="mrRun()">지금 집행(dev)</button>
+  <div id="mrView"></div>
+  <pre id="mrRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">만기일·시장·통화는 서버가 계좌(예적금·소유·만기)와 종목(거래소)에서 파생. 국내(KRW) 배당주만.
+    집행 = 스케줄러 수동 트리거(/dev/maturity-run, cron 09:10 대체) → 만기 도래(maturity_date ≤ today) 예약을
+    "만기 원금 → CMA 충전 → 소수점 매수(source=MATURITY)"로 처리. 결과는 거래 탭 보유종목/거래내역에서 확인.
+    ※ 은행계좌ID는 예적금(DEPOSIT/SAVINGS) 계좌 id (core 추천 응답 accountId 또는 DB linked_bank_accounts).</div>
+</fieldset>
+
+<fieldset>
+  <legend>17) 배당 자동 재투자 DRIP (배당 지급 → 같은 종목 재매수)</legend>
+  종목 <input id="drCode" value="017800" size="8"/>
+  재투자 <select id="drEnabled"><option value="true">ON</option><option value="false">OFF</option></select>
+  <button onclick="drToggle()">토글 저장(PUT)</button>
+  <span id="drState" class="muted"></span>
+  <hr/>
+  <button onclick="drList()">설정 목록</button>
+  <button onclick="drHistory()">배당 내역</button>
+  <button onclick="drRun()">배당 지급·재투자 집행(dev)</button>
+  <div id="drView"></div>
+  <pre id="drRaw" class="muted">결과 raw JSON</pre>
+  <div class="muted">ON이면 배당 지급 시 받은 배당으로 같은 종목 재매수, OFF면 배당금이 CMA 원화풀에 현금으로 남음.
+    소액 배당(&lt;1,000원)은 CMA 잔돈으로 부족분을 채워 max(배당,1000)으로 매수.
+    집행 = 스케줄러 수동 트리거(/dev/dividend-payout-run, cron 09:00 대체) → 오늘 DIVIDEND_PAY 종목을 보유자에게 지급 후 DRIP ON이면 재투자.
+    ※ 전제: stock_events에 오늘자 DIVIDEND_PAY + 주당배당금(amount) 행 필요(/dev/dividend-batch 또는 seed).</div>
 </fieldset>
 </section>
 
@@ -1311,6 +1352,98 @@ async function aiExecutions() {
   }).join('');
   v.innerHTML = `<table><tr><th>회차</th><th>날짜</th><th>출처</th><th>side</th><th>상태</th><th>결과</th></tr>`
     + `${rows || '<tr><td colspan="6" class="muted">회차 내역 없음</td></tr>'}</table>`;
+}
+
+// ---- 16) 만기 후 매수 예약 ----
+async function mrCreate() {
+  const h = await authHeaders();
+  const body = {
+    linkedBankAccountId: Number(document.getElementById('mrAccId').value.trim()),
+    stockCode: document.getElementById('mrCode').value.trim(),
+    buyAmount: Number(document.getElementById('mrAmount').value.trim())
+  };
+  const res = await fetch('/api/trading/maturity-reservations', {
+    method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const b = await res.json();
+  document.getElementById('mrRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('mrState').textContent = b.success ? ('예약 #' + b.data.id) : ('실패: ' + b.message);
+  if (b.success) { document.getElementById('mrId').value = b.data.id; mrList(); }
+}
+
+async function mrList() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/maturity-reservations', { headers: h })).json();
+  document.getElementById('mrRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('mrView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.id}</td><td>${x.stockCode}</td><td>${x.stockName || ''}</td><td>${x.maturityDate}</td>`
+    + `<td>${won(x.buyAmount)}원</td><td>${x.status}</td><td>${x.orderId || ''}${x.failReason ? ' / ' + x.failReason : ''}</td></tr>`).join('');
+  v.innerHTML = `<table><tr><th>ID</th><th>종목</th><th>이름</th><th>만기</th><th>금액</th><th>상태</th><th>주문/사유</th></tr>`
+    + `${rows || '<tr><td colspan="7" class="muted">예약 없음</td></tr>'}</table>`;
+}
+
+async function mrCancel() {
+  const h = await authHeaders();
+  const id = document.getElementById('mrId').value.trim();
+  const b = await (await fetch('/api/trading/maturity-reservations/' + id, { method: 'DELETE', headers: h })).json();
+  document.getElementById('mrRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('mrState').textContent = b.success ? '취소 OK' : ('실패: ' + b.message);
+  if (b.success) mrList();
+}
+
+async function mrRun() {
+  const b = await (await fetch('/dev/maturity-run')).json();
+  document.getElementById('mrRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('mrState').textContent = b.success ? b.message : ('실패: ' + b.message);
+}
+
+// ---- 17) 배당 자동 재투자 DRIP ----
+async function drToggle() {
+  const h = await authHeaders();
+  const body = {
+    stockCode: document.getElementById('drCode').value.trim(),
+    enabled: document.getElementById('drEnabled').value === 'true'
+  };
+  const res = await fetch('/api/trading/dividend-reinvest', {
+    method: 'PUT', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const b = await res.json();
+  document.getElementById('drRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('drState').textContent = b.success ? (b.data.stockCode + ' = ' + (b.data.enabled ? 'ON' : 'OFF')) : ('실패: ' + b.message);
+  if (b.success) drList();
+}
+
+async function drList() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/dividend-reinvest', { headers: h })).json();
+  document.getElementById('drRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('drView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.stockCode}</td><td>${x.stockName || ''}</td><td>${x.enabled ? 'ON' : 'OFF'}</td></tr>`).join('');
+  v.innerHTML = `<table><tr><th>종목</th><th>이름</th><th>재투자</th></tr>`
+    + `${rows || '<tr><td colspan="3" class="muted">설정 없음</td></tr>'}</table>`;
+}
+
+async function drHistory() {
+  const h = await authHeaders();
+  const b = await (await fetch('/api/trading/dividend-reinvest/history', { headers: h })).json();
+  document.getElementById('drRaw').textContent = JSON.stringify(b, null, 2);
+  const v = document.getElementById('drView');
+  if (!b.success) { v.innerHTML = `<p class="down">실패: ${b.message}</p>`; return; }
+  const rows = (b.data || []).map(x =>
+    `<tr><td>${x.payDate}</td><td>${x.stockCode}</td><td>${won(x.grossAmount)}원</td><td>${x.status}</td>`
+    + `<td>${x.reinvestAmount ? won(x.reinvestAmount) + '원' : ''}</td><td>${x.reinvestOrderId || ''}${x.failReason ? ' / ' + x.failReason : ''}</td></tr>`).join('');
+  v.innerHTML = `<table><tr><th>지급일</th><th>종목</th><th>지급액</th><th>상태</th><th>재매수</th><th>주문/사유</th></tr>`
+    + `${rows || '<tr><td colspan="6" class="muted">배당 내역 없음</td></tr>'}</table>`;
+}
+
+async function drRun() {
+  const b = await (await fetch('/dev/dividend-payout-run')).json();
+  document.getElementById('drRaw').textContent = JSON.stringify(b, null, 2);
+  document.getElementById('drState').textContent = b.success ? b.message : ('실패: ' + b.message);
 }
 
 // ---- 15) 일별 평가·수익률 추이 (daily_valuations #125) ----

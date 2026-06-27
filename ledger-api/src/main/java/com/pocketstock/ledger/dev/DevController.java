@@ -16,6 +16,8 @@ import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.dto.OpenAccountRequest;
 import com.pocketstock.ledger.trading.mapper.SecuritiesAccountMapper;
 import com.pocketstock.ledger.trading.service.AutoInvestScheduler;
+import com.pocketstock.ledger.trading.service.DividendPayoutScheduler;
+import com.pocketstock.ledger.trading.service.MaturityReservationScheduler;
 import com.pocketstock.ledger.trading.matching.AutoInvestTriggerEngine;
 import com.pocketstock.ledger.trading.service.DailyValuationService;
 import com.pocketstock.ledger.trading.service.DepositService;
@@ -60,6 +62,8 @@ public class DevController {
     private final EarningsBatchService earningsBatchService;
     private final AutoInvestScheduler autoInvestScheduler;
     private final AutoInvestTriggerEngine autoInvestTriggerEngine;
+    private final MaturityReservationScheduler maturityReservationScheduler;
+    private final DividendPayoutScheduler dividendPayoutScheduler;
     private final DailyValuationService dailyValuationService;
     private final OutboxMapper outboxMapper;
     private final StringRedisTemplate redis;
@@ -172,6 +176,22 @@ public class DevController {
         log.info("[DEV] 자동모으기 수동 집행 트리거 — {}", market);
         autoInvestScheduler.run(market.toUpperCase());
         return ApiResponse.ok(market + " 자동모으기 집행 완료", null);
+    }
+
+    /** 만기 후 매수 예약 스케줄러 수동 트리거 — cron(9:10) 안 기다리고 도래 예약(maturity_date ≤ today) 즉시 집행. */
+    @GetMapping("/dev/maturity-run")
+    public ApiResponse<String> triggerMaturity() {
+        log.info("[DEV] 만기 매수 예약 수동 집행 트리거");
+        maturityReservationScheduler.run();
+        return ApiResponse.ok("만기 매수 예약 집행 완료", null);
+    }
+
+    /** 배당 지급·재투자 스케줄러 수동 트리거 — cron(9:00) 안 기다리고 오늘 DIVIDEND_PAY 지급+DRIP 재투자 즉시 집행. */
+    @GetMapping("/dev/dividend-payout-run")
+    public ApiResponse<String> triggerDividendPayout() {
+        log.info("[DEV] 배당 지급·재투자 수동 집행 트리거");
+        dividendPayoutScheduler.run();
+        return ApiResponse.ok("배당 지급·재투자 집행 완료", null);
     }
 
     /**

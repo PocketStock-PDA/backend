@@ -54,4 +54,15 @@ public interface CmaPoolPort {
      * CMA 통화풀 현재 잔액(읽기 전용) — 충당 필요분 계산·멱등 재요청 응답용. 풀이 없으면 0.
      */
     BigDecimal poolBalance(Long userId, String currency);
+
+    /**
+     * 배당 지급 — CMA {@code currency} 풀에 {@code amount} 입금(DIVIDEND, 양수 leg). 보유주식 현금배당을 CMA 원화풀로 적립한다.
+     * 주문과 무관한 외부 인플로우라 {@code refType='DIVIDEND'}, {@code refId=dividend_payouts.id}로 추적한다.
+     *
+     * @param payoutId 연계 배당지급 로그 id(원장 ref_id 추적용)
+     * @param idempotencyKey 결정적 멱등키(예: {@code DIV:{payoutId}}) — UNIQUE로 이중 입금 차단
+     * @return 입금 후 CMA 풀 잔액
+     */
+    BigDecimal creditDividend(Long userId, String currency, BigDecimal amount,
+                              Long payoutId, String idempotencyKey);
 }

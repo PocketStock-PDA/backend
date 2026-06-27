@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.DividendReinvestSettingMapper">
+
+    <resultMap id="setting" type="com.pocketstock.ledger.trading.domain.DividendReinvestSetting">
+        <id     property="id"        column="id"/>
+        <result property="userId"    column="user_id"/>
+        <result property="stockCode" column="stock_code"/>
+        <result property="isEnabled" column="is_enabled"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="stockName" column="stock_name"/>
+    </resultMap>
+
+    <insert id="upsert" parameterType="com.pocketstock.ledger.trading.domain.DividendReinvestSetting"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO dividend_reinvest_settings (user_id, stock_code, is_enabled)
+        VALUES (#{userId}, #{stockCode}, #{isEnabled})
+        ON DUPLICATE KEY UPDATE
+            is_enabled = VALUES(is_enabled),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <select id="findByUserId" resultMap="setting">
+        SELECT d.id, d.user_id, d.stock_code, d.is_enabled, d.created_at, d.updated_at, s.stock_name
+        FROM dividend_reinvest_settings d
+        LEFT JOIN tradable_stocks s ON s.stock_code = d.stock_code
+        WHERE d.user_id = #{userId}
+        ORDER BY d.id DESC
+    </select>
+
+    <select id="isEnabled" resultType="java.lang.Boolean">
+        SELECT is_enabled
+        FROM dividend_reinvest_settings
+        WHERE user_id = #{userId} AND stock_code = #{stockCode}
+    </select>
+
+</mapper>

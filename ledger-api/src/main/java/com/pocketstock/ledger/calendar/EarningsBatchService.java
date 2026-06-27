@@ -64,7 +64,7 @@ public class EarningsBatchService {
                     String reportNm = item.reportNm() == null ? "" : item.reportNm().trim();
                     String title  = item.corpName() + " " + normalizeReportName(reportNm);
                     String detail = reportNm;
-                    events.add(new StockEventUpsertRequest(stockCode, EVENT_TYPE, eventDate, title, detail));
+                    events.add(new StockEventUpsertRequest(stockCode, EVENT_TYPE, eventDate, title, detail, null));
                 } catch (DateTimeParseException e) {
                     log.warn("[실적배치] 날짜 파싱 실패 — skip stockCode={} rceptDt={}",
                             stockCode, item.rceptDt());
@@ -99,7 +99,7 @@ public class EarningsBatchService {
                 LocalDate eventDate = LocalDate.parse(item.rceptDt(), FMT);
                 String rNm   = item.reportNm() == null ? "" : item.reportNm().trim();
                 String title = item.corpName() + " " + normalizeReportName(rNm);
-                events.add(new StockEventUpsertRequest(stockCode, EVENT_TYPE, eventDate, title, rNm));
+                events.add(new StockEventUpsertRequest(stockCode, EVENT_TYPE, eventDate, title, rNm, null));
             } catch (DateTimeParseException e) {
                 log.warn("[실적배치] 날짜 파싱 실패 — skip stockCode={} rceptDt={}",
                         stockCode, item.rceptDt());
