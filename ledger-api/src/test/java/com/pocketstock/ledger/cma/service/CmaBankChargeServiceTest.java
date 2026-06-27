@@ -56,7 +56,7 @@ class CmaBankChargeServiceTest {
     }
 
     private LinkedAccountSummary bankAccount(String balance) {
-        return new LinkedAccountSummary(SRC_ACC_ID, "BANK", new BigDecimal(balance), "KRW");
+        return new LinkedAccountSummary(SRC_ACC_ID, "BANK", new BigDecimal(balance), "KRW", null);
     }
 
     @Test

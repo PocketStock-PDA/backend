@@ -58,7 +58,7 @@ class AssetQueryServiceScanTest {
                 new CollectionSettingView("POINT", 20L, true, null)
         ));
         when(internalAssetService.getLinkedAccounts(USER_ID, List.of(1L))).thenReturn(List.of(
-                new LinkedAccountSummary(1L, "DEMAND", BigDecimal.valueOf(12300), "KRW")));
+                new LinkedAccountSummary(1L, "DEMAND", BigDecimal.valueOf(12300), "KRW", null)));
         when(internalAssetService.getCardRoundup(USER_ID, 10L))
                 .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(700), List.of(5L)));
         when(internalAssetService.getAvailablePoints(USER_ID, 20L))
@@ -84,8 +84,8 @@ class AssetQueryServiceScanTest {
                 new CollectionSettingView("ACCOUNT", 2L, true, BigDecimal.valueOf(1000))
         ));
         when(internalAssetService.getLinkedAccounts(USER_ID, List.of(1L, 2L))).thenReturn(List.of(
-                new LinkedAccountSummary(1L, "DEMAND", BigDecimal.valueOf(12300), "KRW"),  // %5000 = 2300
-                new LinkedAccountSummary(2L, "DEMAND", BigDecimal.valueOf(85700), "KRW"))); // %1000 = 700
+                new LinkedAccountSummary(1L, "DEMAND", BigDecimal.valueOf(12300), "KRW", null),  // %5000 = 2300
+                new LinkedAccountSummary(2L, "DEMAND", BigDecimal.valueOf(85700), "KRW", null))); // %1000 = 700
         when(linkedAssetMapper.sumUsdWalletBalance(USER_ID)).thenReturn(BigDecimal.ZERO);
 
         ScanResponse res = service.getScan(USER_ID);

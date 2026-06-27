@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.ledger.trading.mapper.DividendPayoutMapper">
+
+    <resultMap id="payout" type="com.pocketstock.ledger.trading.domain.DividendPayout">
+        <id     property="id"               column="id"/>
+        <result property="userId"           column="user_id"/>
+        <result property="stockCode"        column="stock_code"/>
+        <result property="payDate"          column="pay_date"/>
+        <result property="holdingQty"       column="holding_qty"/>
+        <result property="perShare"         column="per_share"/>
+        <result property="grossAmount"      column="gross_amount"/>
+        <result property="status"           column="status"/>
+        <result property="reinvestOrderId"  column="reinvest_order_id"/>
+        <result property="reinvestAmount"   column="reinvest_amount"/>
+        <result property="failReason"       column="fail_reason"/>
+        <result property="createdAt"        column="created_at"/>
+        <result property="updatedAt"        column="updated_at"/>
+        <result property="stockName"        column="stock_name"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pocketstock.ledger.trading.domain.DividendPayout"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO dividend_payouts
+            (user_id, stock_code, pay_date, holding_qty, per_share, gross_amount, status)
+        VALUES
+            (#{userId}, #{stockCode}, #{payDate}, #{holdingQty}, #{perShare}, #{grossAmount}, #{status})
+    </insert>
+
+    <update id="markReinvested">
+        UPDATE dividend_payouts
+        SET status = 'REINVESTED',
+            reinvest_order_id = #{orderId},
+            reinvest_amount = #{reinvestAmount}
+        WHERE id = #{id}
+    </update>
+
+    <update id="markReinvestFailed">
+        UPDATE dividend_payouts
+        SET status = 'REINVEST_FAILED',
+            fail_reason = #{failReason}
+        WHERE id = #{id}
+    </update>
+
+    <select id="findByUserId" resultMap="payout">
+        SELECT d.id, d.user_id, d.stock_code, d.pay_date, d.holding_qty, d.per_share, d.gross_amount,
+               d.status, d.reinvest_order_id, d.reinvest_amount, d.fail_reason, d.created_at, d.updated_at,
+               s.stock_name
+        FROM dividend_payouts d
+        LEFT JOIN tradable_stocks s ON s.stock_code = d.stock_code
+        WHERE d.user_id = #{userId}
+        ORDER BY d.id DESC
+    </select>
+
+</mapper>

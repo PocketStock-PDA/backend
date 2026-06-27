@@ -29,8 +29,11 @@ public class CmaPoolAdapter implements CmaPoolPort {
     private static final String TX_BUY_TRANSFER = "BUY_TRANSFER";   // 매수 충당: CMA풀 출금(−)
     private static final String TX_SELL_RETURN = "SELL_RETURN";     // 매도 환류: CMA풀 입금(+)
     private static final String TX_REVERT = "REVERT";              // 충당 반납(취소·가격개선): CMA풀 입금(+), BUY_TRANSFER 보상
+    private static final String TX_DIVIDEND = "DIVIDEND";          // 배당 지급: CMA풀 입금(+), 주문 무관 외부 인플로우
     private static final String SOURCE_SYSTEM = "SYSTEM";           // 주문 연계 시스템 이동(수집 출처 아님)
+    private static final String SOURCE_DIVIDEND = "DIVIDEND";       // 배당 인플로우 출처
     private static final String REF_TYPE_ORDER = "ORDER";
+    private static final String REF_TYPE_DIVIDEND = "DIVIDEND";
 
     private final CmaAccountMapper accountMapper;
     private final CmaBalanceMapper balanceMapper;
@@ -59,6 +62,14 @@ public class CmaPoolAdapter implements CmaPoolPort {
         Long cmaAccountId = requireAccount(userId, currency, amount);
         return ledgerWriter.applyEntry(userId, cmaAccountId, currency,
                 TX_REVERT, SOURCE_SYSTEM, amount, REF_TYPE_ORDER, orderId, idempotencyKey);
+    }
+
+    @Override
+    public BigDecimal creditDividend(Long userId, String currency, BigDecimal amount,
+                                     Long payoutId, String idempotencyKey) {
+        Long cmaAccountId = requireAccount(userId, currency, amount);
+        return ledgerWriter.applyEntry(userId, cmaAccountId, currency,
+                TX_DIVIDEND, SOURCE_DIVIDEND, amount, REF_TYPE_DIVIDEND, payoutId, idempotencyKey);
     }
 
     @Override

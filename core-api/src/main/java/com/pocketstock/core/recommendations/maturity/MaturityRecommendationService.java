@@ -46,6 +46,7 @@ public class MaturityRecommendationService {
                 .toList();
 
         TriggerAccountDto triggerAccount = new TriggerAccountDto(
+                account.getAccountId(),
                 account.getAccountName(),
                 account.getMaturityDate(),
                 account.getPrincipalAmount(),

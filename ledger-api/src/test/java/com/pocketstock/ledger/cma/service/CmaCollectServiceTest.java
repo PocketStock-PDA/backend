@@ -77,7 +77,7 @@ class CmaCollectServiceTest {
         when(settingMapper.findByUserId(USER_ID))
                 .thenReturn(List.of(setting("ACCOUNT", 11L, true, "10000")));
         when(feign.getLinkedAccounts(eq(USER_ID), eq(List.of(11L))))
-                .thenReturn(List.of(new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("37500"), "KRW")));
+                .thenReturn(List.of(new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("37500"), "KRW", null)));
         when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("KRW"), eq("COLLECT"), eq("ACCOUNT"),
                 eq(new BigDecimal("7500")), eq("LINKED_BANK_ACCOUNT"), eq(11L), eq("key-1")))
                 .thenReturn(new BigDecimal("412990"));
@@ -99,8 +99,8 @@ class CmaCollectServiceTest {
                 setting("ACCOUNT", 11L, true, "10000"),
                 setting("ACCOUNT", 12L, true, "10000")));
         when(feign.getLinkedAccounts(eq(USER_ID), eq(List.of(11L, 12L)))).thenReturn(List.of(
-                new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("37500"), "KRW"),
-                new LinkedAccountSummary(12L, "CHECKING", new BigDecimal("12300"), "KRW")));
+                new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("37500"), "KRW", null),
+                new LinkedAccountSummary(12L, "CHECKING", new BigDecimal("12300"), "KRW", null)));
         when(ledgerWriter.applyEntry(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new BigDecimal("415290"));
 
@@ -119,8 +119,8 @@ class CmaCollectServiceTest {
                 setting("ACCOUNT", 11L, true, "10000"),
                 setting("ACCOUNT", 12L, true, "10000")));
         when(feign.getLinkedAccounts(eq(USER_ID), eq(List.of(11L, 12L)))).thenReturn(List.of(
-                new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("37500"), "KRW"),
-                new LinkedAccountSummary(12L, "CHECKING", new BigDecimal("12300"), "KRW")));
+                new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("37500"), "KRW", null),
+                new LinkedAccountSummary(12L, "CHECKING", new BigDecimal("12300"), "KRW", null)));
         when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("KRW"), eq("COLLECT"), eq("ACCOUNT"),
                 eq(new BigDecimal("9800")), eq("LINKED_BANK_ACCOUNT"), isNull(), eq("key-1")))
                 .thenReturn(new BigDecimal("415290"));
@@ -137,7 +137,7 @@ class CmaCollectServiceTest {
         when(settingMapper.findByUserId(USER_ID))
                 .thenReturn(List.of(setting("ACCOUNT", 11L, true, "10000")));
         when(feign.getLinkedAccounts(eq(USER_ID), eq(List.of(11L))))
-                .thenReturn(List.of(new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("30000"), "KRW")));
+                .thenReturn(List.of(new LinkedAccountSummary(11L, "CHECKING", new BigDecimal("30000"), "KRW", null)));
 
         assertThatThrownBy(() -> service(null).collectFromAccount(USER_ID, "key-1"))
                 .isInstanceOf(BusinessException.class)

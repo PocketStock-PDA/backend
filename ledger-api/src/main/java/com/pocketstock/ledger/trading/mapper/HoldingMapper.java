@@ -86,4 +86,7 @@ public interface HoldingMapper {
 
     /** 전체 유저 보유종목(수량>0) — 일별 평가 스냅샷 배치(BATCH-002)용. */
     List<Holding> findAllActive();
+
+    /** 특정 종목 보유자 전체(수량>0) — 배당 지급 엔진용. user_id·account_id·quantity·currency. */
+    List<Holding> findHoldersByStock(@Param("stockCode") String stockCode);
 }

@@ -289,6 +289,7 @@ CREATE TABLE IF NOT EXISTS stock_events (
   event_date DATE         NOT NULL,
   title      VARCHAR(200) NOT NULL,
   detail     VARCHAR(500) NULL,
+  amount     DECIMAL(18,4) NULL,            -- DIVIDEND_PAY: 주당 현금배당금(KRW). 배당 지급 엔진이 보유수량×amount로 지급. 그 외 NULL
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_se (stock_code, event_date, event_type),

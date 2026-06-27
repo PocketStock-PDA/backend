@@ -385,6 +385,60 @@ CREATE TABLE IF NOT EXISTS auto_invest_executions (
   UNIQUE KEY uq_aie (auto_invest_stock_id, round_no)
 );
 
+-- 만기 후 배당주 매수 예약 (MATURITY-001). 예적금 만기일 도래 시 추천 배당주를 자동 매수하는 사용자 예약.
+-- 자동모으기와 동형 구조(예약 1행 + 일배치 스케줄러 + 멱등). 트리거=만기일 스냅샷(생성 시 서버가 연동은행계좌에서 읽어 고정).
+-- 슬라이더의 "예금 재예치 X%"는 정보성(실 재예치는 시뮬 불가) → 배당주 매수분(buy_amount)만 처리. 국내(KRW)만, 해외는 추후.
+-- 집행=만기일 09:10 일배치(MaturityReservationScheduler): 만기계좌 → CMA 충전 → FractionalOrderService.place(source=MATURITY).
+CREATE TABLE IF NOT EXISTS maturity_buy_reservations (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  linked_bank_account_id BIGINT NOT NULL,         -- 만기 트리거 겸 자금 출처 연동은행계좌(DB A의 id, 교차DB라 FK 아님)
+  maturity_date DATE NOT NULL,                    -- 집행 트리거일(생성 시 서버가 계좌에서 읽은 스냅샷). 도래 시 매수
+  stock_code VARCHAR(20) NOT NULL,                -- 매수 배당주(국내, KRW)
+  market VARCHAR(10) NOT NULL,                    -- DOMESTIC (해외는 MVP 제외)
+  currency VARCHAR(3) NOT NULL,                   -- KRW
+  buy_amount DECIMAL(18,4) NOT NULL,              -- 이 종목 매수금액(KRW, 슬라이더 배당주 몫 스냅샷)
+  status VARCHAR(20) NOT NULL DEFAULT 'RESERVED', -- RESERVED(예약) / EXECUTED(집행완료) / FAILED(집행실패) / CANCELLED(취소)
+  order_id BIGINT NULL,                           -- 집행 성공 시 생성 주문(orders.id 역추적). 실패·미집행은 NULL
+  fail_reason VARCHAR(100) NULL,                  -- FAILED 사유(잔액부족 등)
+  executed_at DATETIME NULL,                      -- 집행 시각(성공/실패 모두)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_mbr (user_id, linked_bank_account_id, stock_code),  -- 같은 계좌·종목 중복예약 차단
+  INDEX idx_mbr_due (status, maturity_date)       -- 스케줄러 도래 조회(RESERVED & 만기 도래)
+);
+
+-- 배당 자동 재투자(DRIP) 토글 (DRIP-001). 종목별 ON/OFF — 배당 지급 시 그 종목 ON이면 받은 배당으로 같은 종목 재매수.
+-- OFF(기본)면 배당금이 CMA 원화풀에 현금으로 남음(현금 수령). 만기예약으로 진입한 배당주마다 켜는 그림.
+CREATE TABLE IF NOT EXISTS dividend_reinvest_settings (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  stock_code VARCHAR(20) NOT NULL,
+  is_enabled BOOLEAN NOT NULL DEFAULT TRUE,   -- 이 종목 배당 재투자 ON/OFF
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_drs (user_id, stock_code)
+);
+
+-- 배당 지급 멱등 로그 + 재투자 결과 추적 (DRIP-002). 보유자별 배당 지급 1행(=CMA 원화풀 입금) — 지급일·종목·유저 멱등.
+-- 지급은 항상(배당은 사용자 돈), 재투자는 DRIP ON일 때만. 소액(<최소주문 1,000원)은 CMA 잔돈으로 부족분 충당해 max(배당,1000) 매수.
+CREATE TABLE IF NOT EXISTS dividend_payouts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  stock_code VARCHAR(20) NOT NULL,
+  pay_date DATE NOT NULL,                     -- 배당 지급일(stock_events DIVIDEND_PAY)
+  holding_qty DECIMAL(18,6) NOT NULL,         -- 지급 시점 보유수량(온주+소수)
+  per_share DECIMAL(18,4) NOT NULL,           -- 주당 현금배당금(KRW)
+  gross_amount DECIMAL(18,4) NOT NULL,        -- 지급액 = holding_qty × per_share (KRW, 세금 무시). CMA 원화풀 입금액
+  status VARCHAR(20) NOT NULL DEFAULT 'PAID', -- PAID(지급·현금) / REINVESTED(재투자완료) / REINVEST_FAILED(재투자실패·현금잔류)
+  reinvest_order_id BIGINT NULL,              -- 재투자 성공 시 생성 주문(orders.id)
+  reinvest_amount DECIMAL(18,4) NULL,         -- 실제 재매수 금액 = max(gross_amount, 1000). 부족분은 CMA에서 충당
+  fail_reason VARCHAR(100) NULL,              -- REINVEST_FAILED 사유
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_dp (user_id, stock_code, pay_date)   -- 같은 지급일 중복 지급 차단(멱등)
+);
+
 -- 종목 마스터 (한투 .mst/.COD 파일 정제 → seed). 단축코드=LS API tr_key.
 -- stock_code 전역 UNIQUE: KR 단축코드(숫자6) vs US 심볼(알파벳) 충돌 불가 → 단일 FK 대상.
 -- NXT/주간/통합은 별도 행이 아니라 시세 venue 구분(LS unt_* 사용) → 마스터는 종목당 1행.

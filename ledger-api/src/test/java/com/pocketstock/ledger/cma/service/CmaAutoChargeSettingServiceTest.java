@@ -57,7 +57,7 @@ class CmaAutoChargeSettingServiceTest {
     @DisplayName("enabled=true: 본인 계좌·양수 한도면 정상 저장한다")
     void update_enabledSavesWhenOwnedAndValid() {
         when(assetFeignClient.getLinkedAccounts(eq(USER_ID), eq(List.of(ACCOUNT_ID))))
-                .thenReturn(List.of(new LinkedAccountSummary(ACCOUNT_ID, "BANK", BigDecimal.valueOf(50000), "KRW")));
+                .thenReturn(List.of(new LinkedAccountSummary(ACCOUNT_ID, "BANK", BigDecimal.valueOf(50000), "KRW", null)));
 
         service.update(USER_ID, new AutoChargeSettingRequest(true, ACCOUNT_ID, BigDecimal.valueOf(30000)));
 

@@ -23,12 +23,24 @@
     </select>
 
     <insert id="upsertEvent">
-        INSERT INTO stock_events (stock_code, event_type, event_date, title, detail)
-        VALUES (#{stockCode}, #{eventType}, #{eventDate}, #{title}, #{detail})
+        INSERT INTO stock_events (stock_code, event_type, event_date, title, detail, amount)
+        VALUES (#{stockCode}, #{eventType}, #{eventDate}, #{title}, #{detail}, #{amount})
         ON DUPLICATE KEY UPDATE
             title      = VALUES(title),
             detail     = VALUES(detail),
+            amount     = VALUES(amount),
             updated_at = CURRENT_TIMESTAMP
     </insert>
+
+    <select id="findDividendPayouts"
+            resultType="com.pocketstock.core.internal.calendar.dto.DividendPayoutScheduleRow">
+        SELECT stock_code AS stockCode,
+               amount     AS perShare
+        FROM stock_events
+        WHERE event_type = 'DIVIDEND_PAY'
+          AND event_date = #{date}
+          AND amount IS NOT NULL
+          AND amount &gt; 0
+    </select>
 
 </mapper>

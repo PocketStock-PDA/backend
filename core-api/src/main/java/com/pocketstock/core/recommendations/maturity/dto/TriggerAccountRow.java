@@ -7,6 +7,7 @@ import java.time.LocalDate;
 
 @Data
 public class TriggerAccountRow {
+    private Long accountId;
     private String accountName;
     private LocalDate maturityDate;
     private BigDecimal principalAmount;

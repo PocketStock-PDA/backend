@@ -5,7 +5,7 @@
 
     <select id="findLinkedAccountsByUserAndIds"
             resultType="com.pocketstock.core.internal.asset.dto.LinkedAccountSummary">
-        SELECT id, account_type, balance, currency
+        SELECT id, account_type, balance, currency, maturity_date
         FROM linked_bank_accounts
         WHERE user_id = #{userId}
           AND closed_at IS NULL
