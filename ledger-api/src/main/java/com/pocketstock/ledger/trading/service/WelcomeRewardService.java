@@ -154,7 +154,8 @@ public class WelcomeRewardService {
         BigDecimal price = currentPrice(userId, stockCode, domestic);
         // 지급 단위는 종목 통화 그대로 — 수량 산정에 환율 불필요(국내 1,000원 / 해외 $1).
         BigDecimal grantUnit = domestic ? GRANT_KRW : GRANT_USD;
-        BigDecimal quantity = grantUnit.divide(price, QTY_SCALE, RoundingMode.HALF_UP);
+        // 지급 단위(예산) 초과 방지로 내림 — quantity×price가 1,000원/$1을 넘지 않게(소수점 주문 경로와 동일 관례).
+        BigDecimal quantity = grantUnit.divide(price, QTY_SCALE, RoundingMode.DOWN);
         if (quantity.signum() <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "지급 수량이 0입니다.");
         }
@@ -226,6 +227,10 @@ public class WelcomeRewardService {
     /** $1 등 USD 금액을 매매기준율(mid)로 원화 환산 — 무상주의 원화 취득원가 기록용(회계). 캐시 미스면 야후 폴백, 둘 다 비면 502. */
     private int usdToKrw(BigDecimal usd) {
         BigDecimal rate = currencyRateProvider.current().exchangeRate();
+        // 잘못된 환율로 원화 취득원가가 0/음수로 박히는 것 방지(currentPrice와 동일 정책). multiply라 divide와 달리 0도 안 터짐.
+        if (rate == null || rate.signum() <= 0) {
+            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "환율 조회 실패");
+        }
         return usd.multiply(rate).setScale(0, RoundingMode.HALF_UP).intValueExact();
     }
 
