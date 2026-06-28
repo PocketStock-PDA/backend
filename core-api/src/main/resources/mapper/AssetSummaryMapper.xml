@@ -36,6 +36,19 @@
         WHERE user_id = #{userId}
     </select>
 
+    <!-- 연동 포인트를 출처(point_name)별 개별 행으로 조회(1P=1원).
+         같은 출처가 여러 행이면 합산. 잔액 0 제외. 합계는 서비스에서 파생. -->
+    <select id="findPoints" resultType="com.pocketstock.core.asset.dto.PointSource">
+        SELECT
+            point_name AS pointName,
+            SUM(balance) AS balance
+        FROM linked_points
+        WHERE user_id = #{userId}
+        GROUP BY point_name
+        HAVING balance > 0
+        ORDER BY balance DESC
+    </select>
+
     <!-- 이번 달 카드 지출을 고정비/변동비로 분류해 집계.
          고정비: 보험·통신·월세·교통·관리비
          변동비: 그 외 모든 카테고리

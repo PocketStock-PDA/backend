@@ -1,6 +1,7 @@
 package com.pocketstock.core.asset.mapper;
 
 import com.pocketstock.core.asset.dto.AssetCategoryRow;
+import com.pocketstock.core.asset.dto.PointSource;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -16,6 +17,9 @@ public interface AssetSummaryMapper {
 
     /** 타사 보유 종목 평가금액 합계 */
     BigDecimal sumExternalHoldings(@Param("userId") Long userId);
+
+    /** 연동 포인트를 출처(point_name)별 개별 행으로 조회(1P=1원). 합계는 서비스에서 파생. */
+    List<PointSource> findPoints(@Param("userId") Long userId);
 
     /** 고정비/변동비 분류별 지출 합계 */
     List<AssetCategoryRow> findSpendingByType(
