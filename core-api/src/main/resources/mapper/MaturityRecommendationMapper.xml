@@ -25,20 +25,41 @@
 
     <select id="findDividendStocksAboveRate"
             resultType="com.pocketstock.core.recommendations.maturity.dto.DividendStockRow">
-        SELECT ds.stock_code    AS stockCode,
-               ds.stock_name   AS stockName,
+        SELECT ds.stock_code      AS stockCode,
+               ds.stock_name      AS stockName,
                ds.category,
-               ds.dividend_yield AS dividendYield,
+               ds.dividend_yield  AS dividendYield,
                ds.tags,
-               se.event_date   AS exDividendDate
+               ex.event_date      AS exDividendDate,
+               pay.per_share      AS perShareDividend,
+               pay.pay_date       AS payDate
         FROM dividend_stocks ds
+        <!-- 다가오는 배당락일(날짜만) — DIVIDEND_EX -->
         LEFT JOIN (
             SELECT stock_code, MIN(event_date) AS event_date
             FROM stock_events
-            WHERE event_type = 'DIVIDEND'
+            WHERE event_type = 'DIVIDEND_EX'
               AND event_date >= CURDATE()
             GROUP BY stock_code
-        ) se ON ds.stock_code = se.stock_code
+        ) ex ON ds.stock_code = ex.stock_code
+        <!-- 다가오는 배당 지급(주당배당금 + 지급일) — DIVIDEND_PAY. 가장 가까운 1건의 amount·date를 함께 집는다 -->
+        LEFT JOIN (
+            SELECT p.stock_code,
+                   p.event_date AS pay_date,
+                   p.amount     AS per_share
+            FROM stock_events p
+            JOIN (
+                SELECT stock_code, MIN(event_date) AS md
+                FROM stock_events
+                WHERE event_type = 'DIVIDEND_PAY'
+                  AND event_date >= CURDATE()
+                  AND amount IS NOT NULL
+                  AND amount &gt; 0
+                GROUP BY stock_code
+            ) m ON p.stock_code = m.stock_code
+               AND p.event_date = m.md
+               AND p.event_type = 'DIVIDEND_PAY'
+        ) pay ON ds.stock_code = pay.stock_code
         WHERE ds.is_active = TRUE
           AND ds.dividend_yield > #{interestRatePct}
         ORDER BY ds.dividend_yield DESC

@@ -11,5 +11,7 @@ public record DividendStockItem(
         BigDecimal dividendYield,
         List<String> tags,
         LocalDate exDividendDate,
+        BigDecimal perShareDividend,
+        LocalDate payDate,
         String reason
 ) {}

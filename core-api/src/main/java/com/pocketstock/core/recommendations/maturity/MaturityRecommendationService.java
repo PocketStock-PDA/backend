@@ -41,6 +41,8 @@ public class MaturityRecommendationService {
                         r.getDividendYield(),
                         parseTags(r.getTags()),
                         r.getExDividendDate(),
+                        r.getPerShareDividend(),
+                        r.getPayDate(),
                         reason
                 ))
                 .toList();
