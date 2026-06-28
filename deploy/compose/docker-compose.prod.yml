@@ -70,7 +70,7 @@ x-ledger-base: &ledger-base
     test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
     interval: 10s
     timeout: 3s
-    retries: 20
+    retries: 32
     start_period: 40s
   restart: unless-stopped
   stop_grace_period: 30s   # graceful shutdown + 백그라운드 in-flight 틱 마무리 여유

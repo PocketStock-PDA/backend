@@ -26,7 +26,7 @@ PROJECT="pocketstock"
 NGINX_CTN="pocketstock-nginx"
 REDIS_CTN="pocketstock-redis"
 AWS_REGION="${AWS_REGION:-ap-northeast-2}"
-HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-240}"   # 서비스당 health 대기 한도(초) — ledger JVM 기동 실측 120~200s
+HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-360}"   # 서비스당 health 대기 한도(초) — ledger JVM 기동 실측 120~200s, 여유 충분히
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"      # 스위치 후 옛 색 in-flight(요청·틱) 드레인 대기
 
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
