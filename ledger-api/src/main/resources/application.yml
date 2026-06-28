@@ -36,6 +36,14 @@ spring:
         request.timeout.ms: 3000
         retry.backoff.ms: 1000
         max.block.ms: 3000                 # 메타데이터 조회 실패도 빠르게 실패시켜 다음 폴링에서 재시도
+    consumer:                              # 체결 이벤트 구독 — 매수 시 종목 일정 즉시 수집(trading.order.filled)
+      group-id: ledger-calendar-sync
+      auto-offset-reset: earliest          # 새 그룹은 처음부터(놓친 이벤트 흡수)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false            # 처리 후 컨테이너가 record 단위 커밋(at-least-once)
+    listener:
+      ack-mode: record
 
   jackson:
     serialization:

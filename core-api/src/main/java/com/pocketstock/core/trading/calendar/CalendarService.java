@@ -34,12 +34,24 @@ public class CalendarService {
                 .map(e -> new CalendarDayEntry(
                         e.getKey(),
                         e.getValue().stream()
-                                .map(r -> new CalendarEventSummary(r.getStockCode(), r.getEventType(), r.getTitle()))
+                                .map(r -> new CalendarEventSummary(r.getStockCode(), normalizeEventType(r.getEventType()), r.getTitle()))
                                 .toList()
                 ))
                 .toList();
 
         return new TradingCalendarResponse(year, month, days);
+    }
+
+    /**
+     * 저장된 세부 이벤트 타입을 프론트 표시용으로 정규화한다.
+     * 배당은 DB에 {@code DIVIDEND_EX}(배당락)·{@code DIVIDEND_PAY}(지급)로 저장되지만(지급 엔진이 PAY를 따로 조회),
+     * 캘린더는 둘 다 {@code DIVIDEND}(배당)로 보여준다. EARNINGS·RECOMMEND는 그대로.
+     */
+    private static String normalizeEventType(String raw) {
+        if (raw != null && raw.startsWith("DIVIDEND")) {
+            return "DIVIDEND";
+        }
+        return raw;
     }
 
     public CalendarEventsResponse getMonthlyEvents(Long userId, int year, int month) {
@@ -49,7 +61,7 @@ public class CalendarService {
 
         List<EventItem> events = calendarMapper
                 .findEventsByDateRange(userId, from, to).stream()
-                .map(r -> new EventItem(r.getStockCode(), r.getEventType(), r.getEventDate(), r.getTitle(), r.getDetail()))
+                .map(r -> new EventItem(r.getStockCode(), normalizeEventType(r.getEventType()), r.getEventDate(), r.getTitle(), r.getDetail()))
                 .toList();
 
         return new CalendarEventsResponse(events);
