@@ -23,11 +23,49 @@
         LIMIT 1
     </select>
 
+    <select id="findMaturityAccounts"
+            resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
+        SELECT id                  AS accountId,
+               account_name        AS accountName,
+               maturity_date       AS maturityDate,
+               balance             AS principalAmount,
+               interest_rate       AS interestRate,
+               DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND is_dormant = FALSE
+          AND account_type IN ('SAVINGS', 'DEPOSIT')
+          AND maturity_date IS NOT NULL
+          AND interest_rate IS NOT NULL
+          AND maturity_date >= CURDATE()
+        ORDER BY maturity_date ASC
+    </select>
+
+    <select id="findMaturityAccountById"
+            resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
+        SELECT id                  AS accountId,
+               account_name        AS accountName,
+               maturity_date       AS maturityDate,
+               balance             AS principalAmount,
+               interest_rate       AS interestRate,
+               DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND id = #{accountId}
+          AND is_dormant = FALSE
+          AND account_type IN ('SAVINGS', 'DEPOSIT')
+          AND maturity_date IS NOT NULL
+          AND interest_rate IS NOT NULL
+          AND maturity_date >= CURDATE()
+        LIMIT 1
+    </select>
+
     <select id="findDividendStocksAboveRate"
             resultType="com.pocketstock.core.recommendations.maturity.dto.DividendStockRow">
         SELECT ds.stock_code      AS stockCode,
                ds.stock_name      AS stockName,
                ds.category,
+               ds.market,
                ds.dividend_yield  AS dividendYield,
                ds.tags,
                ex.event_date      AS exDividendDate,

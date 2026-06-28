@@ -3,6 +3,7 @@ package com.pocketstock.ledger.dev;
 import com.pocketstock.common.response.ApiResponse;
 import com.pocketstock.ledger.calendar.DividendBatchService;
 import com.pocketstock.ledger.calendar.EarningsBatchService;
+import com.pocketstock.ledger.calendar.OverseasDividendBatchService;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
 import com.pocketstock.ledger.cma.service.CmaAccountService;
@@ -59,6 +60,7 @@ public class DevController {
     private final SecuritiesAccountMapper accountMapper;
     private final DepositService depositService;
     private final DividendBatchService dividendBatchService;
+    private final OverseasDividendBatchService overseasDividendBatchService;
     private final EarningsBatchService earningsBatchService;
     private final AutoInvestScheduler autoInvestScheduler;
     private final AutoInvestTriggerEngine autoInvestTriggerEngine;
@@ -160,6 +162,14 @@ public class DevController {
         log.info("[DEV] 배당배치 수동 트리거");
         dividendBatchService.syncDividendEvents();
         return ApiResponse.ok("배당 배치 완료", null);
+    }
+
+    /** 야후 해외 배당 배치 수동 트리거 — US 배당주 주당배당금·다음 배당락일 적재 확인용. */
+    @GetMapping("/dev/overseas-dividend-batch")
+    public ApiResponse<String> triggerOverseasDividendBatch() {
+        log.info("[DEV] 해외 배당배치 수동 트리거");
+        overseasDividendBatchService.syncOverseasDividends();
+        return ApiResponse.ok("해외 배당 배치 완료", null);
     }
 
     /** OpenDART 실적발표 배치 수동 트리거 — 배치 동작 확인용. */

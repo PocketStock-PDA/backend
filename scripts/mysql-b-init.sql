@@ -396,10 +396,11 @@ CREATE TABLE IF NOT EXISTS maturity_buy_reservations (
   user_id BIGINT NOT NULL,
   linked_bank_account_id BIGINT NOT NULL,         -- 만기 트리거 겸 자금 출처 연동은행계좌(DB A의 id, 교차DB라 FK 아님)
   maturity_date DATE NOT NULL,                    -- 집행 트리거일(생성 시 서버가 계좌에서 읽은 스냅샷). 도래 시 매수
-  stock_code VARCHAR(20) NOT NULL,                -- 매수 배당주(국내, KRW)
-  market VARCHAR(10) NOT NULL,                    -- DOMESTIC (해외는 MVP 제외)
-  currency VARCHAR(3) NOT NULL,                   -- KRW
-  buy_amount DECIMAL(18,4) NOT NULL,              -- 이 종목 매수금액(KRW, 슬라이더 배당주 몫 스냅샷)
+  stock_code VARCHAR(20) NOT NULL,                -- 매수 배당주(국내 KRW·해외 USD)
+  market VARCHAR(10) NOT NULL,                    -- DOMESTIC | OVERSEAS (거래소로 파생)
+  currency VARCHAR(3) NOT NULL,                   -- KRW | USD (종목 거래 통화)
+  buy_amount DECIMAL(18,4) NOT NULL,              -- 이 종목 매수금액(KRW, 슬라이더 배당주 몫 스냅샷). 해외는 집행 시 USD 환산
+
   status VARCHAR(20) NOT NULL DEFAULT 'RESERVED', -- RESERVED(예약) / EXECUTED(집행완료) / FAILED(집행실패) / CANCELLED(취소)
   order_id BIGINT NULL,                           -- 집행 성공 시 생성 주문(orders.id 역추적). 실패·미집행은 NULL
   fail_reason VARCHAR(100) NULL,                  -- FAILED 사유(잔액부족 등)
