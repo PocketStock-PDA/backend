@@ -14,6 +14,7 @@ import com.pocketstock.ledger.cma.mapper.CmaAccountMapper;
 import com.pocketstock.ledger.cma.mapper.CmaBalanceMapper;
 import com.pocketstock.ledger.cma.mapper.CmaTransactionMapper;
 import com.pocketstock.ledger.cma.mapper.CollectionSettingMapper;
+import com.pocketstock.ledger.cma.support.CmaAccountNoCipher;
 import com.pocketstock.ledger.exchange.service.ExchangeRateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -49,6 +50,7 @@ public class CmaQueryService {
     private final CollectionSettingMapper settingMapper;
     private final AssetFeignClient assetFeignClient;
     private final ExchangeRateService exchangeRateService;
+    private final CmaAccountNoCipher cipher;
 
     @Transactional(readOnly = true)
     public CmaHomeResponse getHome(Long userId) {
@@ -98,7 +100,10 @@ public class CmaQueryService {
         collectSources.addAll(fxSources);
         collectSources.add(new CmaHomeResponse.CollectSource("ACCOUNT", SOURCE_NAMES.get("ACCOUNT"), accountAmount, KRW));
 
+        String cmaAccountNo = cipher.decrypt(account.getAccountNoEnc());
+
         return new CmaHomeResponse(
+                cmaAccountNo,
                 cmaBalance, interestRate, todayInterest,
                 collectedSources, collectSources, totalCollectable, totalCollectableUsd
         );

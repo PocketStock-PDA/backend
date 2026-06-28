@@ -47,6 +47,10 @@ public interface HoldingMapper {
     java.math.BigDecimal findAvailableWhole(@Param("accountId") Long accountId,
                                             @Param("stockCode") String stockCode);
 
+    /** 매도 체결 직전 평단 스냅샷용 — avg_buy_price(종목 통화 기준). 보유행 없으면 null. */
+    java.math.BigDecimal findAvgBuyPriceByAccount(@Param("accountId") Long accountId,
+                                                  @Param("stockCode") String stockCode);
+
     /** 소수 매도가능(fractional_qty − held_fractional). 보유행 없으면 null. 소수점 매도 hold 산정용. */
     java.math.BigDecimal findAvailableFractional(@Param("accountId") Long accountId,
                                                  @Param("stockCode") String stockCode);

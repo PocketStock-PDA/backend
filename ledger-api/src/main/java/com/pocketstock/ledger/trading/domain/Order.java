@@ -40,6 +40,8 @@ public class Order {
     private Long batchId;             // 소수점 블록주문(batch_orders.id). 집행 전·온주는 NULL
     private String currency;          // KRW | USD
     private String failReason;        // REJECTED 사유(감사용). 정상 주문은 NULL
+    private BigDecimal avgBuyPriceAtSell; // 매도 체결 시 스냅샷 평단(판매수익 계산용). 매도 FILLED만 기록.
+    private BigDecimal fxRateAtFill;      // 해외 매도 체결 시 USD/KRW 환율. 국내·매수는 NULL.
     private LocalDateTime requestedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

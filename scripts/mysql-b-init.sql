@@ -222,6 +222,8 @@ CREATE TABLE IF NOT EXISTS orders (
   -- carried_over_count 제거(#101): 이월 폐기 — 1주 미달분은 회사 선부담(ceil)으로 즉시 체결.
   currency VARCHAR(3),
   fail_reason VARCHAR(255) NULL,   -- REJECTED 사유(감사용, H3). 정상 주문은 NULL
+  avg_buy_price_at_sell DECIMAL(18,4) NULL,  -- 매도 체결 시점 스냅샷 평단(판매수익 계산용). 매도 FILLED만 기록.
+  fx_rate_at_fill DECIMAL(18,6) NULL,        -- 해외 매도 체결 시점 USD/KRW 환율. 국내·매수는 NULL.
   requested_at DATETIME,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

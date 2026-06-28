@@ -4,6 +4,7 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.kis.KisAskingPriceResponse;
 import com.pocketstock.ledger.kis.KisMarketClient;
+import com.pocketstock.ledger.kis.KisPriceDetailResponse;
 import com.pocketstock.ledger.trading.client.LsMarketClient;
 import com.pocketstock.ledger.trading.client.LsT8450Response;
 import com.pocketstock.ledger.trading.domain.TradableStock;
@@ -39,6 +40,7 @@ public class OrderbookService {
     private static final int LEVELS = 10;
     private static final String TYPE_DOMESTIC = "orderbook";
     private static final String TYPE_FOREIGN = "orderbook-foreign";
+    private static final String TYPE_FOREIGN_PRICE = "price-foreign";
 
     private final LsMarketClient lsMarketClient;
     private final KisMarketClient kisMarketClient;
@@ -112,6 +114,48 @@ public class OrderbookService {
                 dec(o1.avol()),
                 dec(o1.bvol()),
                 Instant.now().toString());
+    }
+
+    /**
+     * 해외 예상가·체결가 산정용 기준가 — 최우선 호가(매수=매도호가·매도=매수호가) → (호가창 공백)
+     * KIS 현재가(last) → (last 공백, 주말 등) 전일종가(base) 순. 모두 없으면 null(호출측이 거부 처리).
+     * 현재가/전일종가도 스냅샷 캐시(#128)로 last-known 폴백 → 콜드+장외에도 동결가 산정 가능.
+     * 국내 {@code estPrice}의 호가→현재가 폴백과 대칭(해외엔 그간 폴백이 없어 장외/콜드 시 시세 미수신).
+     */
+    BigDecimal overseasReferencePrice(TradableStock stock, boolean buy) {
+        ForeignQuoteResponse q = overseasSnapshot(stock);
+        BigDecimal best = firstForeignPrice(buy ? q.asks() : q.bids());
+        if (best != null && best.signum() > 0) {
+            return best;
+        }
+        KisPriceDetailResponse.Output px = overseasPriceSnapshot(stock);
+        if (px != null) {
+            BigDecimal last = dec(px.last());
+            if (last != null && last.signum() > 0) {
+                return last;
+            }
+            BigDecimal base = dec(px.base());   // 주말 등 last=0 → 전일종가
+            if (base != null && base.signum() > 0) {
+                return base;
+            }
+        }
+        return null;
+    }
+
+    /** 해외 현재가상세(KIS HHDFS76200200) 스냅샷 — 빈/무효·실패 시 마지막 캐시(#128). 콜드면 null. */
+    private KisPriceDetailResponse.Output overseasPriceSnapshot(TradableStock stock) {
+        String excd = OverseasExchangeCode.of(marketSessionResolver.current(), stock);
+        return snapshotCache.readThrough(TYPE_FOREIGN_PRICE, stock.getStockCode(),
+                () -> kisMarketClient.getOverseasPriceDetail(excd, stock.getStockCode()),
+                OrderbookService::hasPrice, KisPriceDetailResponse.Output.class, "해외 현재가");
+    }
+
+    /** 현재가상세가 유효한가 — 현재가 또는 전일종가 중 하나라도 양수면 유효. */
+    private static boolean hasPrice(KisPriceDetailResponse.Output o) {
+        if (o == null) {
+            return false;
+        }
+        return firstPositive(dec(o.last())) || firstPositive(dec(o.base()));
     }
 
     /** 호가/잔량 배열(최우선=index 0) → rank 1~10 Level 목록. */

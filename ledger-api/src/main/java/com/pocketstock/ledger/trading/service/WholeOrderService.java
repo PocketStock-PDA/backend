@@ -199,6 +199,12 @@ public class WholeOrderService {
                 // 복식부기 주식 leg: 유저 holdings 증가의 짝으로 회사 옴니버스 재고 −qty. 같은 로컬 트랜잭션.
                 operatingInventoryService.record(req.stockCode(), -quantity.intValueExact());
             } else {
+                // 판매수익 스냅샷: applySell(수량 차감) 전에 평단·환율 캡처(차감 후도 avg_buy_price 불변이나 선방어).
+                BigDecimal avgBuyPriceAtSell = holdingMapper.findAvgBuyPriceByAccount(account.getId(), req.stockCode());
+                BigDecimal fxRateAtFill = null;
+                if (overseas) {
+                    try { fxRateAtFill = fxRateForKrwBasis(); } catch (Exception ignored) {}
+                }
                 applySell(account.getId(), req.stockCode(), quantity);
                 depositService.record(userId, account.getId(), "SELL",
                         totalAmount, currency, "order", order.getId(), idemKey);
@@ -209,6 +215,14 @@ public class WholeOrderService {
                 // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금에 매도대금 잔류 0. 같은 트랜잭션.
                 fundingService.returnFromSell(userId, account.getId(), currency, totalAmount, order.getId());
                 balanceAfter = depositService.getBalance(account.getId());   // 환류 후 예수금(매도대금 빠진 값)
+
+                // 전이 가드 ②: RECEIVED → FILLED 조건부 전이(같은 tx라 항상 1행, 0이면 정합성 오류).
+                if (orderMapper.transitionFill(order.getId(), OrderStatus.RECEIVED, OrderStatus.FILLED, fillPrice) == 0) {
+                    throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 상태 전이 실패(RECEIVED→FILLED)");
+                }
+                orderMapper.markSellSnapshot(order.getId(), avgBuyPriceAtSell, fxRateAtFill);
+                return new WholeOrderResponse(order.getId(), req.stockCode(), side, req.quantity(),
+                        fillPrice, totalAmount, OrderStatus.FILLED.name(), balanceAfter);
             }
 
             // 전이 가드 ②: RECEIVED → FILLED 조건부 전이(같은 tx라 항상 1행, 0이면 정합성 오류).
@@ -290,7 +304,8 @@ public class WholeOrderService {
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
                         o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
                         o.getStatus().name(), o.getCurrency(), o.getCreatedAt(),
-                        fracFilled.get(o.getId())))
+                        fracFilled.get(o.getId()),
+                        o.getAvgBuyPriceAtSell(), o.getFxRateAtFill()))
                 .toList();
     }
 
@@ -318,11 +333,11 @@ public class WholeOrderService {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        // 미체결(PENDING/QUEUED)은 체결금액 없음 → filledAmount=null.
+        // 미체결(PENDING/QUEUED)은 체결금액·판매수익 스냅샷 없음 → 모두 null.
         return orderMapper.findActiveByUserId(userId).stream()
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
                         o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
-                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt(), null))
+                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt(), null, null, null))
                 .toList();
     }
 

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 public record CmaHomeResponse(
+        String cmaAccountNo,
         Map<String, BigDecimal> cmaBalance,
         BigDecimal interestRate,
         BigDecimal todayInterest,
