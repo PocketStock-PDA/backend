@@ -1,7 +1,6 @@
 package com.pocketstock.ledger.calendar;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -15,10 +14,9 @@ import org.springframework.stereotype.Component;
  * 내부에서 skip한다.
  *
  * <p>{@code ApplicationReadyEvent} 리스너는 동기라, 보유 종목 수 × DART 호출(throttle 120ms)이 부팅
- * 완료를 잡아두지 않도록 데몬 스레드에서 비동기로 돌린다. core-api가 아직 안 떴으면 그 회차 upsert는
- * 실패해 로그만 남고(크래시 아님), 주간 크론이 백업한다.
+ * 완료를 잡아두지 않도록 {@link BootSyncRetry}가 데몬 스레드에서 비동기로 돌린다. ledger가 core-api보다
+ * 먼저 떠 첫 upsert가 실패하면 30초 간격으로 최대 10회(약 5분) 재시도한다.
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class EarningsBootSync {
@@ -27,15 +25,7 @@ public class EarningsBootSync {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
-        Thread t = new Thread(() -> {
-            try {
-                log.info("[실적배치] 부팅 동기화 시작");
-                earningsBatchService.syncEarningsEvents();
-            } catch (Exception e) {
-                log.error("[실적배치] 부팅 동기화 실패 — {}", e.getMessage(), e);
-            }
-        }, "earnings-boot-sync");
-        t.setDaemon(true);
-        t.start();
+        BootSyncRetry.runAsync("earnings-boot-sync", "[실적배치]", 10, 30_000L,
+                earningsBatchService::syncEarningsEvents);
     }
 }

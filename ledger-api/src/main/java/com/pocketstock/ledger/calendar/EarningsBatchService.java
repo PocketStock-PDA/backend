@@ -75,11 +75,9 @@ public class EarningsBatchService {
         }
 
         if (!events.isEmpty()) {
-            try {
-                calendarFeignClient.upsertStockEvents(events);
-            } catch (Exception e) {
-                log.error("[실적배치] core-api upsert 실패 — {}건 유실: {}", events.size(), e.getMessage());
-            }
+            // upsert 실패는 삼키지 않고 전파 — 부팅 동기화 재시도(BootSyncRetry)가 기동 레이스를 흡수하고,
+            // 주간 크론에선 스케줄러가 로깅한다. (이전엔 catch로 "유실" 로그만 남겨 재시도가 안 걸렸음)
+            calendarFeignClient.upsertStockEvents(events);
         }
         log.info("[실적배치] 완료 — {}건 처리", events.size());
     }
@@ -107,12 +105,9 @@ public class EarningsBatchService {
         }
 
         if (!events.isEmpty()) {
-            try {
-                calendarFeignClient.upsertStockEvents(events);
-            } catch (Exception e) {
-                log.error("[실적배치] core-api upsert 실패 stockCode={} — {}건 유실: {}",
-                        stockCode, events.size(), e.getMessage());
-            }
+            // upsert 실패 전파 — 체결 기반 수집(OrderFilledCalendarConsumer)이 상위에서 재시도/backfill로
+            // 처리하도록 삼키지 않는다. (배치 경로·배당 syncByStockCode와 동일 정책)
+            calendarFeignClient.upsertStockEvents(events);
         }
     }
 
