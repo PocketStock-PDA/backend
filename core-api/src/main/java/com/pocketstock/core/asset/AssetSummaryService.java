@@ -3,6 +3,7 @@ package com.pocketstock.core.asset;
 import com.pocketstock.core.asset.dto.AssetCategoryRow;
 import com.pocketstock.core.asset.dto.AssetPortfolioItem;
 import com.pocketstock.core.asset.dto.AssetSummaryResponse;
+import com.pocketstock.core.asset.dto.PointSource;
 import com.pocketstock.core.asset.mapper.AssetSummaryMapper;
 import com.pocketstock.core.client.LedgerFeignClient;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 public class AssetSummaryService {
 
     private static final String CATEGORY_SECURITIES = "증권";
+    private static final String CATEGORY_ETC = "기타";
     private static final String TYPE_FIXED = "FIXED";
     private static final String TYPE_VARIABLE = "VARIABLE";
 
@@ -34,11 +36,16 @@ public class AssetSummaryService {
 
     @Transactional(readOnly = true)
     public AssetSummaryResponse getSummary(Long userId) {
-        // 은행 계좌 카테고리별 집계
-        List<AssetCategoryRow> bankRows = mapper.findBankAssetsByCategory(userId);
+        // 은행 계좌 카테고리별 집계 + 연동 포인트(1P=1원)를 '기타'에 합산
+        List<AssetCategoryRow> bankRows = new ArrayList<>(mapper.findBankAssetsByCategory(userId));
+        List<PointSource> pointSources = mapper.findPoints(userId);
+        BigDecimal points = sumPoints(pointSources);
+        mergePointsIntoEtc(bankRows, points);
 
-        // 타사 증권 평가금액 + CMA 총 평가액(KRW 환산) → 증권 카테고리로 합산
-        BigDecimal securitiesAmount = mapper.sumExternalHoldings(userId).add(fetchCmaKrwTotal(userId));
+        // 증권 카테고리 = 타사 외부보유 + CMA 총평가(KRW) + 신투(자체 증권계좌) 보유 평가(KRW)
+        BigDecimal securitiesAmount = mapper.sumExternalHoldings(userId)
+                .add(fetchCmaKrwTotal(userId))
+                .add(fetchOwnHoldingsKrw(userId));
 
         // 이번 달 범위
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
@@ -73,8 +80,37 @@ public class AssetSummaryService {
                 0,                 // peerRankPercent: 인구통계 미구현
                 portfolio,
                 fixedExpenses,
-                variableExpenses
+                variableExpenses,
+                points,            // '기타'에 포함된 포인트 합계
+                pointSources       // 포인트 출처별 내역(드릴다운 표기용)
         );
+    }
+
+    /** 포인트 출처 목록의 잔액 합계. null 잔액은 0으로 처리. */
+    private BigDecimal sumPoints(List<PointSource> pointSources) {
+        return pointSources.stream()
+                .map(PointSource::getBalance)
+                .filter(b -> b != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** 연동 포인트를 '기타' 카테고리에 합산(없으면 행 추가). 이후 bankTotal·순자산에 자동 반영. */
+    private void mergePointsIntoEtc(List<AssetCategoryRow> bankRows, BigDecimal points) {
+        if (points.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        AssetCategoryRow etc = bankRows.stream()
+                .filter(r -> CATEGORY_ETC.equals(r.getCategory()))
+                .findFirst()
+                .orElse(null);
+        if (etc != null) {
+            etc.setAmount(etc.getAmount().add(points));
+        } else {
+            AssetCategoryRow row = new AssetCategoryRow();
+            row.setCategory(CATEGORY_ETC);
+            row.setAmount(points);
+            bankRows.add(row);
+        }
     }
 
     private List<AssetPortfolioItem> buildPortfolio(
@@ -110,6 +146,17 @@ public class AssetSummaryService {
             return total != null ? total : BigDecimal.ZERO;
         } catch (Exception e) {
             log.warn("CMA 잔액 조회 실패 (userId={}): {}", userId, e.getMessage());
+            return BigDecimal.ZERO;
+        }
+    }
+
+    /** 신투(자체 증권계좌) 보유 평가액(KRW 환산) — 보유 × 현재가, 해외는 환율 환산. 보유 없거나 실패 시 0. */
+    private BigDecimal fetchOwnHoldingsKrw(Long userId) {
+        try {
+            BigDecimal total = ledgerFeignClient.getPuzzleValuation(userId);
+            return total != null ? total : BigDecimal.ZERO;
+        } catch (Exception e) {
+            log.warn("신투 보유 평가액 조회 실패 (userId={}): {}", userId, e.getMessage());
             return BigDecimal.ZERO;
         }
     }
