@@ -23,22 +23,90 @@
         LIMIT 1
     </select>
 
+    <select id="findMaturityAccounts"
+            resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
+        SELECT id                  AS accountId,
+               account_name        AS accountName,
+               maturity_date       AS maturityDate,
+               balance             AS principalAmount,
+               interest_rate       AS interestRate,
+               DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND is_dormant = FALSE
+          AND account_type IN ('SAVINGS', 'DEPOSIT')
+          AND maturity_date IS NOT NULL
+          AND interest_rate IS NOT NULL
+          AND maturity_date >= CURDATE()
+        ORDER BY maturity_date ASC
+    </select>
+
+    <select id="findMaturityAccountById"
+            resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
+        SELECT id                  AS accountId,
+               account_name        AS accountName,
+               maturity_date       AS maturityDate,
+               balance             AS principalAmount,
+               interest_rate       AS interestRate,
+               DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
+        FROM linked_bank_accounts
+        WHERE user_id = #{userId}
+          AND id = #{accountId}
+          AND is_dormant = FALSE
+          AND account_type IN ('SAVINGS', 'DEPOSIT')
+          AND maturity_date IS NOT NULL
+          AND interest_rate IS NOT NULL
+          AND maturity_date >= CURDATE()
+        LIMIT 1
+    </select>
+
     <select id="findDividendStocksAboveRate"
             resultType="com.pocketstock.core.recommendations.maturity.dto.DividendStockRow">
-        SELECT ds.stock_code    AS stockCode,
-               ds.stock_name   AS stockName,
+        SELECT ds.stock_code      AS stockCode,
+               ds.stock_name      AS stockName,
                ds.category,
-               ds.dividend_yield AS dividendYield,
+               ds.market,
+               ds.dividend_yield  AS dividendYield,
                ds.tags,
-               se.event_date   AS exDividendDate
+               ex.ex_date         AS exDividendDate,
+               <!-- 국내=지급(PAY)의 주당배당금, 해외=지급일이 없어 배당락(EX)에 실린 주당배당금 -->
+               COALESCE(pay.per_share, ex.ex_amount) AS perShareDividend,
+               pay.pay_date       AS payDate
         FROM dividend_stocks ds
+        <!-- 다가오는 배당락일 — DIVIDEND_EX. 가장 가까운 1건의 날짜·amount(해외 주당배당금)를 함께 집는다 -->
         LEFT JOIN (
-            SELECT stock_code, MIN(event_date) AS event_date
-            FROM stock_events
-            WHERE event_type = 'DIVIDEND'
-              AND event_date >= CURDATE()
-            GROUP BY stock_code
-        ) se ON ds.stock_code = se.stock_code
+            SELECT e.stock_code,
+                   e.event_date AS ex_date,
+                   e.amount     AS ex_amount
+            FROM stock_events e
+            JOIN (
+                SELECT stock_code, MIN(event_date) AS md
+                FROM stock_events
+                WHERE event_type = 'DIVIDEND_EX'
+                  AND event_date >= CURDATE()
+                GROUP BY stock_code
+            ) m ON e.stock_code = m.stock_code
+               AND e.event_date = m.md
+               AND e.event_type = 'DIVIDEND_EX'
+        ) ex ON ds.stock_code = ex.stock_code
+        <!-- 다가오는 배당 지급(주당배당금 + 지급일) — DIVIDEND_PAY. 가장 가까운 1건의 amount·date를 함께 집는다 -->
+        LEFT JOIN (
+            SELECT p.stock_code,
+                   p.event_date AS pay_date,
+                   p.amount     AS per_share
+            FROM stock_events p
+            JOIN (
+                SELECT stock_code, MIN(event_date) AS md
+                FROM stock_events
+                WHERE event_type = 'DIVIDEND_PAY'
+                  AND event_date >= CURDATE()
+                  AND amount IS NOT NULL
+                  AND amount &gt; 0
+                GROUP BY stock_code
+            ) m ON p.stock_code = m.stock_code
+               AND p.event_date = m.md
+               AND p.event_type = 'DIVIDEND_PAY'
+        ) pay ON ds.stock_code = pay.stock_code
         WHERE ds.is_active = TRUE
           AND ds.dividend_yield > #{interestRatePct}
         ORDER BY ds.dividend_yield DESC

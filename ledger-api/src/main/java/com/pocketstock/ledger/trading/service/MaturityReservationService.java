@@ -5,6 +5,10 @@ import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.client.AssetFeignClient;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
 import com.pocketstock.ledger.cma.port.CmaChargePort;
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
+import com.pocketstock.ledger.exchange.ExchangeRatePolicy;
+import com.pocketstock.ledger.exchange.domain.FxAutoSetting;
+import com.pocketstock.ledger.exchange.mapper.FxAutoSettingMapper;
 import com.pocketstock.ledger.trading.domain.MaturityBuyReservation;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
@@ -19,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
@@ -28,28 +33,42 @@ import java.util.Set;
  * 실제 매수는 {@code MaturityReservationScheduler}가 만기일에 {@code place(source=MATURITY)}로 집행.
  *
  * <p>만기일·시장·통화는 서버가 정한다: {@code linkedBankAccountId}로 연동은행계좌(DB A, {@link AssetFeignClient})를
- * 조회해 예적금·소유·만기일을 검증·스냅샷하고, {@code stockCode}→거래소에서 국내(KRW)를 파생한다. 해외는 MVP 제외.
+ * 조회해 예적금·소유·만기일을 검증·스냅샷하고, {@code stockCode}→거래소에서 시장·통화(국내 KRW·해외 USD)를 파생한다.
+ *
+ * <p>해외(USD) 배당주는 집행 시 만기 원화를 CMA에 충전한 뒤 매수 엔진의 <b>자동환전(KRW→USD, #172)</b>이
+ * 달러풀을 채워 체결한다. 별도 환전 로직 없이 기존 매수 충당 체인을 그대로 탄다. 자동환전이 꺼져 있으면
+ * 집행이 "달러 부족"으로 실패하므로, 해외 예약은 <b>생성 시점에 자동환전 ON을 요구</b>한다.
  */
 @Service
 @RequiredArgsConstructor
 public class MaturityReservationService {
 
     private static final Set<String> DOMESTIC_EXCHANGES = Set.of("KOSPI", "KOSDAQ");
+    private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
     private static final Set<String> DEPOSIT_TYPES = Set.of("DEPOSIT", "SAVINGS");
     private static final String MARKET_DOMESTIC = "DOMESTIC";
+    private static final String MARKET_OVERSEAS = "OVERSEAS";
     private static final String CURRENCY_KRW = "KRW";
+    private static final String CURRENCY_USD = "USD";
     private static final String STATUS_RESERVED = "RESERVED";
     private static final String STATUS_EXECUTED = "EXECUTED";
     private static final String SOURCE_MATURITY = "MATURITY";
     private static final String SIDE_BUY = "BUY";
     private static final String ORDER_TYPE_AMOUNT = "AMOUNT";
     private static final BigDecimal MIN_ORDER_KRW = BigDecimal.valueOf(1000);
+    /** 해외 소수점 매수 최소 주문(USD) — FractionalOrderService와 동일. */
+    private static final BigDecimal MIN_ORDER_USD = BigDecimal.ONE;
+    /** USD 금액 소수 2자리(센트), 고객 불리 방향 절사 — 환전·주문 환산 공통. */
+    private static final int USD_SCALE = 2;
 
     private final MaturityReservationMapper reservationMapper;
     private final StockMapper stockMapper;
     private final AssetFeignClient assetFeignClient;
     private final CmaChargePort chargePort;
     private final FractionalOrderService fractionalOrderService;
+    private final FxAutoSettingMapper fxAutoSettingMapper;
+    private final CurrencyRateProvider currencyRateProvider;
+    private final ExchangeRatePolicy ratePolicy;
 
     /** 예약 생성 — 종목(국내)·계좌(예적금·만기) 검증 후 만기일 스냅샷으로 1행 INSERT. 같은 계좌·종목 중복 시 409. */
     @Transactional
@@ -57,7 +76,13 @@ public class MaturityReservationService {
         requireUser(userId);
         Long accountId = requireAccountId(req.linkedBankAccountId());
         BigDecimal buyAmount = requireBuyAmount(req.buyAmount());
-        TradableStock stock = resolveDomesticStock(req.stockCode());
+        TradableStock stock = resolveStock(req.stockCode());
+        String market = marketOf(stock);
+        String currency = MARKET_OVERSEAS.equals(market) ? CURRENCY_USD : CURRENCY_KRW;
+        // 해외(USD)는 집행 시 자동환전으로 달러를 채운다 — 꺼져 있으면 집행이 실패하므로 예약 단계에서 막는다.
+        if (MARKET_OVERSEAS.equals(market)) {
+            requireAutoFxEnabled(userId);
+        }
         LinkedAccountSummary account = resolveMaturityAccount(userId, accountId);
 
         // 원금(현재 잔액)이 매수금액을 못 덮으면 거부 — 만기 시 잔액부족으로 집행 실패할 예약을 미리 차단.
@@ -95,8 +120,8 @@ public class MaturityReservationService {
                 .linkedBankAccountId(accountId)
                 .maturityDate(account.maturityDate())
                 .stockCode(stock.getStockCode())
-                .market(MARKET_DOMESTIC)
-                .currency(CURRENCY_KRW)
+                .market(market)
+                .currency(currency)
                 .buyAmount(buyAmount)
                 .status(STATUS_RESERVED)
                 .build();
@@ -145,19 +170,37 @@ public class MaturityReservationService {
      */
     @Transactional
     public Long executeReservation(MaturityBuyReservation r) {
-        // ① 만기 원금 → CMA 원화풀 충전(정확히 매수금액). 출처=만기 연동계좌. 소유·잔액·멱등은 포트가 검증.
+        // ① 만기 원금 → CMA 원화풀 충전(정확히 매수금액 KRW). 출처=만기 연동계좌. 소유·잔액·멱등은 포트가 검증.
+        //    해외도 동일 — 충전된 원화를 매수 엔진의 자동환전(KRW→USD)이 끌어다 달러풀을 채운다.
         chargePort.charge(r.getUserId(), r.getLinkedBankAccountId(), r.getBuyAmount(),
                 SOURCE_MATURITY + "_" + r.getId() + ":charge");
-        // ② 소수점 매수 — 정수=온주 즉시·끝수=소수 차수(엔진 내부 split). orders.source=MATURITY로 추적.
+        // ② 주문금액 — 국내는 원화 그대로, 해외는 매수환율로 USD 환산(자동환전이 같은 환율로 달러를 채운다).
+        BigDecimal orderAmount = orderAmount(r);
+        // ③ 소수점 매수 — 정수=온주 즉시·끝수=소수 차수(엔진 내부 split). 시장·통화는 종목 거래소로 엔진이 파생.
         FractionalOrderRequest req = new FractionalOrderRequest(
                 SOURCE_MATURITY + "_" + r.getId(), r.getStockCode(), SIDE_BUY,
-                ORDER_TYPE_AMOUNT, r.getBuyAmount(), null);
+                ORDER_TYPE_AMOUNT, orderAmount, null);
         SplitOrderResponse resp = fractionalOrderService.place(r.getUserId(), req, SOURCE_MATURITY);
         return resp.wholeOrderId() != null ? resp.wholeOrderId() : resp.fractionalOrderId();
     }
 
-    /** 종목 해석 — 존재·거래가능·국내(KRW)만. 해외 배당주는 환전 경로라 MVP 제외. */
-    private TradableStock resolveDomesticStock(String stockCode) {
+    /** 주문 통화 금액 — 국내=원화 매수금액 그대로, 해외=원화 매수금액을 매수환율로 USD 환산(센트 절사). */
+    private BigDecimal orderAmount(MaturityBuyReservation r) {
+        if (!MARKET_OVERSEAS.equals(r.getMarket())) {
+            return r.getBuyAmount();
+        }
+        BigDecimal mid = currencyRateProvider.current().exchangeRate();
+        BigDecimal buyRate = ratePolicy.buyRate(CURRENCY_USD, mid);
+        BigDecimal usd = r.getBuyAmount().divide(buyRate, USD_SCALE, RoundingMode.DOWN);
+        if (usd.compareTo(MIN_ORDER_USD) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "환산 매수금액이 최소 주문(1달러) 미만입니다. (환산 " + usd + " USD)");
+        }
+        return usd;
+    }
+
+    /** 종목 해석 — 존재·거래가능·지원 거래소(국내 KOSPI/KOSDAQ·해외 NASDAQ/NYSE/AMEX). */
+    private TradableStock resolveStock(String stockCode) {
         if (stockCode == null || stockCode.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "종목코드를 입력해주세요.");
         }
@@ -168,10 +211,30 @@ public class MaturityReservationService {
         if (Boolean.FALSE.equals(stock.getIsActive())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "거래 정지 종목입니다: " + stockCode);
         }
-        if (!DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "만기 매수 예약은 현재 국내 배당주만 지원합니다.");
-        }
+        marketOf(stock);   // 지원 거래소 검증(미지원이면 예외)
         return stock;
+    }
+
+    /** 거래소 → 시장(DOMESTIC/OVERSEAS). 둘 다 아니면 미지원 거래소로 거부. */
+    private String marketOf(TradableStock stock) {
+        String exchange = stock.getExchange();
+        if (DOMESTIC_EXCHANGES.contains(exchange)) {
+            return MARKET_DOMESTIC;
+        }
+        if (OVERSEAS_EXCHANGES.contains(exchange)) {
+            return MARKET_OVERSEAS;
+        }
+        throw new BusinessException(ErrorCode.INVALID_INPUT,
+                "만기 매수 예약을 지원하지 않는 거래소입니다: " + exchange);
+    }
+
+    /** 해외 예약 가드 — 자동환전(KRW→USD)이 켜져 있어야 집행이 달러를 채울 수 있다. */
+    private void requireAutoFxEnabled(Long userId) {
+        FxAutoSetting setting = fxAutoSettingMapper.findByUserId(userId);
+        if (setting == null || !Boolean.TRUE.equals(setting.getIsAutoEnabled())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "해외 배당주 예약은 자동환전을 켜야 가능합니다. 환전 설정에서 자동환전을 켜주세요.");
+        }
     }
 
     /** 만기 계좌 해석 — 본인 소유 + 예적금(DEPOSIT/SAVINGS) + 만기일 존재 + 미래 만기. */

@@ -132,7 +132,7 @@
 | 정기적립식 | 수익률 트리거 등록/수정(물타기 BUY·익절 SELL, 종목당 종류별 1·옵션) | POST | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 | ✅ #194 |
 | 정기적립식 | 수익률 트리거 목록 조회 | GET | `/api/trading/auto-invest/{id}/triggers` |  | B·김준형 | ✅ #194 |
 | 정기적립식 | 수익률 트리거 해제 | DELETE | `/api/trading/auto-invest/{id}/triggers/{triggerId}` |  | B·김준형 | ✅ #194 |
-| 만기예약 | 만기 후 배당주 매수 예약 생성(만기일·시장·통화는 서버 파생) | POST | `/api/trading/maturity-reservations` |  | B·김준형 | ✅ 만기일 09:10 집행·국내만 |
+| 만기예약 | 만기 후 배당주 매수 예약 생성(만기일·시장·통화는 서버 파생) | POST | `/api/trading/maturity-reservations` |  | B·김준형 | ✅ 만기일 09:10 집행·국내(KRW)+해외(USD 자동환전) |
 | 만기예약 | 만기 매수 예약 목록 조회 | GET | `/api/trading/maturity-reservations` |  | B·김준형 | ✅ |
 | 만기예약 | 만기 매수 예약 취소(만기 전 RESERVED만) | DELETE | `/api/trading/maturity-reservations/{id}` |  | B·김준형 | ✅ |
 | 배당재투자 | 배당 자동 재투자(DRIP) 토글 ON/OFF(종목별) | PUT | `/api/trading/dividend-reinvest` |  | B·김준형 | ✅ ON=재투자·OFF=CMA 현금 |

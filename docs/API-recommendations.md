@@ -72,12 +72,14 @@
     },
     "recommendations": [
       {
-        "stockCode": "017800",
-        "stockName": "현대엘리베이터",
-        "category": "건설장비",
-        "dividendYield": 18.08,
-        "tags": ["고배당주", "이익 초과 배당"],
-        "exDividendDate": null,
+        "stockCode": "096530",
+        "stockName": "씨젠",
+        "category": "의료기기",
+        "dividendYield": 5.01,
+        "tags": ["배당이 쏠쏠해요", "번 돈 절반 나눠요"],
+        "exDividendDate": "2026-09-29",
+        "perShareDividend": 600,
+        "payDate": "2026-11-20",
         "reason": "현재 예금 이율(2.5%)보다 높은 배당 수익률"
       },
       {
@@ -87,6 +89,8 @@
         "dividendYield": 6.44,
         "tags": ["배당이 쏠쏠해요", "번 돈 절반 나눠요"],
         "exDividendDate": null,
+        "perShareDividend": null,
+        "payDate": null,
         "reason": "현재 예금 이율(2.5%)보다 높은 배당 수익률"
       }
     ]
@@ -95,6 +99,7 @@
 ```
 
 > 만기 30일 이내 예적금이 없으면 `data: null` 반환.
+> `exDividendDate`(가장 가까운 배당락일)·`perShareDividend`(주당 현금배당금 KRW)·`payDate`(배당금 지급일)는 `stock_events`(`DIVIDEND_EX`/`DIVIDEND_PAY`, KIS 예탁원 배당일정 배치 적재)에서 파생하며, 해당 일정이 없으면 `null`.
 
 ---
 
