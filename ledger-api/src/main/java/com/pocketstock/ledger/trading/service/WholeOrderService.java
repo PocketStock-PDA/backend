@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -303,12 +304,50 @@ public class WholeOrderService {
         List<Order> orders = orderMapper.findByUserId(userId);
         Map<Long, BigDecimal> fracFilled = fractionalFilledAmounts(orders);
         return orders.stream()
-                .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
-                        o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
-                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt(),
-                        fracFilled.get(o.getId()),
-                        o.getAvgBuyPriceAtSell(), o.getFxRateAtFill()))
+                .map(o -> {
+                    BigDecimal filled = fracFilled.get(o.getId());
+                    RealizedPnl pnl = realizedPnl(o, filled);
+                    return new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
+                            o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
+                            o.getStatus().name(), o.getCurrency(), o.getCreatedAt(),
+                            filled, o.getAvgBuyPriceAtSell(), o.getFxRateAtFill(),
+                            pnl.amount(), pnl.krw());
+                })
                 .toList();
+    }
+
+    /** 실현손익 한 쌍 — native 통화 + 환산 KRW. 매도 FILLED가 아니면 둘 다 null. */
+    private record RealizedPnl(BigDecimal amount, BigDecimal krw) {
+        private static final RealizedPnl NONE = new RealizedPnl(null, null);
+    }
+
+    /**
+     * 실현손익(판매수익) 산출 — 매도 체결 스냅샷(평단·체결금액·체결환율)에서 단일 정책으로 계산.
+     * native = 체결금액 − 평단×수량(USD 2·KRW 0자리 HALF_UP). 체결금액은 소수점=allocations 합(filled),
+     * 온주=price×수량. 환산 KRW는 raw(반올림 전) native에 체결환율을 곱해 0자리 HALF_UP(이중반올림 방지).
+     * 평단·수량·체결금액 중 하나라도 없으면(미체결·매수·미배분) 손익 없음(null).
+     */
+    private RealizedPnl realizedPnl(Order o, BigDecimal filledAmount) {
+        if (o.getAvgBuyPriceAtSell() == null || o.getOrderQuantity() == null) {
+            return RealizedPnl.NONE;
+        }
+        BigDecimal fill = filledAmount != null ? filledAmount
+                : (o.getPrice() != null ? o.getPrice().multiply(o.getOrderQuantity()) : null);
+        if (fill == null) {
+            return RealizedPnl.NONE;
+        }
+        BigDecimal pnlRaw = fill.subtract(o.getAvgBuyPriceAtSell().multiply(o.getOrderQuantity()));
+        boolean usd = CURRENCY_USD.equals(o.getCurrency());
+        BigDecimal amount = pnlRaw.setScale(usd ? 2 : 0, RoundingMode.HALF_UP);
+        BigDecimal krw;
+        if (usd) {
+            krw = o.getFxRateAtFill() != null
+                    ? pnlRaw.multiply(o.getFxRateAtFill()).setScale(0, RoundingMode.HALF_UP)
+                    : null;
+        } else {
+            krw = pnlRaw.setScale(0, RoundingMode.HALF_UP);
+        }
+        return new RealizedPnl(amount, krw);
     }
 
     /**
@@ -339,7 +378,8 @@ public class WholeOrderService {
         return orderMapper.findActiveByUserId(userId).stream()
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
                         o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
-                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt(), null, null, null))
+                        o.getStatus().name(), o.getCurrency(), o.getCreatedAt(),
+                        null, null, null, null, null))
                 .toList();
     }
 
