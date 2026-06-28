@@ -25,7 +25,8 @@ import java.util.List;
  * 배당락/지급일·정확한 지급일. 그래서 다음 배당락일은 과거 배당 주기(분기)로 투영하고, 지급일은
  * 따로 두지 않는다(quoteSummary가 줄 수 있으나 crumb 차단으로 미사용).
  *
- * <p>실패(타임아웃·형식 변경·차단)는 예외 대신 {@code null} — 배치가 종목 단위로 건너뛴다.
+ * <p>조회 실패(타임아웃·차단·형식 변경)는 <b>예외</b>로 올려 배치가 재시도하게 하고, 배당 이력이
+ * 없을 때만 {@code null}을 돌려 건너뛴다(실패와 결손을 구분).
  */
 @Slf4j
 @Component
@@ -43,56 +44,57 @@ public class YahooDividendClient {
     private final RestClient yahooRestClient;
 
     /**
-     * 종목 1개의 배당 스냅샷 조회. 배당 이력이 없으면 {@code null}.
+     * 종목 1개의 배당 스냅샷 조회. 배당 이력이 없으면 {@code null}을 돌려준다.
+     *
+     * <p>조회 실패(타임아웃·4xx/5xx·차단·응답 형식 변경)는 <b>예외를 던진다</b> — 배치가 이력 없음(null)과
+     * 구분해 재시도(BootSyncRetry)할 수 있게. 삼키면 부팅 시 일시 장애가 영구 결손으로 굳는다.
      *
      * @param symbol 해외 종목코드(예 {@code VZ})
      */
     public YahooDividend fetch(String symbol) {
-        try {
-            JsonNode root = yahooRestClient.get()
-                    .uri(URI.create(CHART_BASE + symbol + QUERY))
-                    .retrieve()
-                    .body(JsonNode.class);
+        JsonNode root = yahooRestClient.get()
+                .uri(URI.create(CHART_BASE + symbol + QUERY))
+                .retrieve()
+                .body(JsonNode.class);   // 4xx/5xx·타임아웃은 RestClient가 예외 전파
 
-            JsonNode result = root.path("chart").path("result").path(0);
-            JsonNode meta = result.path("meta");
-            String currency = meta.path("currency").asText(null);
-
-            JsonNode divs = result.path("events").path("dividends");
-            if (divs.isMissingNode() || !divs.fields().hasNext()) {
-                log.warn("[해외배당] {} 배당 이력 없음 — skip", symbol);
-                return null;
-            }
-
-            // {ts -> {amount, date}} → 날짜 오름차순 정렬
-            List<long[]> dates = new ArrayList<>();   // [epochSec]
-            List<BigDecimal> amounts = new ArrayList<>();
-            divs.fields().forEachRemaining(e -> {
-                JsonNode v = e.getValue();
-                if (v.path("amount").isNumber() && v.path("date").isNumber()) {
-                    dates.add(new long[]{v.path("date").asLong()});
-                    amounts.add(new BigDecimal(v.path("amount").asText()));
-                }
-            });
-            if (dates.isEmpty()) {
-                return null;
-            }
-            // 정렬 인덱스
-            List<Integer> idx = new ArrayList<>();
-            for (int i = 0; i < dates.size(); i++) idx.add(i);
-            idx.sort((a, b) -> Long.compare(dates.get(a)[0], dates.get(b)[0]));
-
-            int lastI = idx.get(idx.size() - 1);
-            LocalDate recentExDate = toDate(dates.get(lastI)[0]);
-            BigDecimal recentAmount = amounts.get(lastI);
-
-            LocalDate nextExDate = projectNextExDate(recentExDate, cadenceDays(idx, dates));
-
-            return new YahooDividend(symbol, currency, recentAmount, recentExDate, nextExDate);
-        } catch (Exception e) {
-            log.warn("[해외배당] {} 조회 실패: {}", symbol, e.getMessage());
-            return null;
+        JsonNode result = root == null ? null : root.path("chart").path("result").path(0);
+        if (result == null || result.isMissingNode() || result.path("meta").isMissingNode()) {
+            // 유효 JSON이지만 기대 구조가 아님 = 차단/포맷 변경 → 실패로 보고 예외(이력 없음과 구분)
+            throw new IllegalStateException("야후 차트 응답 형식 예상 밖: " + symbol);
         }
+        String currency = result.path("meta").path("currency").asText(null);
+
+        JsonNode divs = result.path("events").path("dividends");
+        if (divs.isMissingNode() || !divs.fields().hasNext()) {
+            log.info("[해외배당] {} 배당 이력 없음 — skip", symbol);
+            return null;   // 정상 응답이나 배당 이력 없음 = 건너뜀(실패 아님)
+        }
+
+        // {ts -> {amount, date}} → 날짜 오름차순 정렬
+        List<long[]> dates = new ArrayList<>();   // [epochSec]
+        List<BigDecimal> amounts = new ArrayList<>();
+        divs.fields().forEachRemaining(e -> {
+            JsonNode v = e.getValue();
+            if (v.path("amount").isNumber() && v.path("date").isNumber()) {
+                dates.add(new long[]{v.path("date").asLong()});
+                amounts.add(new BigDecimal(v.path("amount").asText()));
+            }
+        });
+        if (dates.isEmpty()) {
+            return null;   // 이력 노드는 있으나 유효 항목 없음 = 건너뜀
+        }
+        // 정렬 인덱스
+        List<Integer> idx = new ArrayList<>();
+        for (int i = 0; i < dates.size(); i++) idx.add(i);
+        idx.sort((a, b) -> Long.compare(dates.get(a)[0], dates.get(b)[0]));
+
+        int lastI = idx.get(idx.size() - 1);
+        LocalDate recentExDate = toDate(dates.get(lastI)[0]);
+        BigDecimal recentAmount = amounts.get(lastI);
+
+        LocalDate nextExDate = projectNextExDate(recentExDate, cadenceDays(idx, dates));
+
+        return new YahooDividend(symbol, currency, recentAmount, recentExDate, nextExDate);
     }
 
     /** 연속 배당락일 간격의 중앙값(일). 1건뿐이면 기본 분기값. */

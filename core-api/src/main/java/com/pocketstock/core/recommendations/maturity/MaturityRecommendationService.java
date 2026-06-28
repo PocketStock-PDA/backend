@@ -2,6 +2,8 @@ package com.pocketstock.core.recommendations.maturity;
 
 import com.pocketstock.core.recommendations.maturity.dto.DividendStockItem;
 import com.pocketstock.core.recommendations.maturity.dto.DividendStockRow;
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.core.recommendations.maturity.dto.MaturityRecommendationResponse;
 import com.pocketstock.core.recommendations.maturity.dto.TriggerAccountDto;
 import com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow;
@@ -38,10 +40,19 @@ public class MaturityRecommendationService {
      * 없으면 가장 가까운 만기 계좌를 자동 선택(자산 페이지 알림 호환).
      */
     public MaturityRecommendationResponse recommend(Long userId, Long accountId) {
-        TriggerAccountRow account = accountId != null
-                ? mapper.findMaturityAccountById(userId, accountId)
-                : mapper.findUpcomingMaturityAccount(userId);
-        if (account == null) return null;
+        TriggerAccountRow account;
+        if (accountId != null) {
+            // 사용자가 고른 계좌 — 없거나(만료·미소유·예적금 아님) 대상 아님은 명시적 404로(200+null 금지).
+            account = mapper.findMaturityAccountById(userId, accountId);
+            if (account == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND,
+                        "선택한 예적금을 찾을 수 없거나 만기 굴리기 대상이 아닙니다.");
+            }
+        } else {
+            // 자동 선택 — 도래 계좌가 없으면 빈 상태(정상)로 null 반환.
+            account = mapper.findUpcomingMaturityAccount(userId);
+            if (account == null) return null;
+        }
 
         BigDecimal interestRatePct = account.getInterestRate()
                 .multiply(BigDecimal.valueOf(100))

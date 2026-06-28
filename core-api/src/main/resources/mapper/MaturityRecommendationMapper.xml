@@ -68,17 +68,26 @@
                ds.market,
                ds.dividend_yield  AS dividendYield,
                ds.tags,
-               ex.event_date      AS exDividendDate,
-               pay.per_share      AS perShareDividend,
+               ex.ex_date         AS exDividendDate,
+               <!-- 국내=지급(PAY)의 주당배당금, 해외=지급일이 없어 배당락(EX)에 실린 주당배당금 -->
+               COALESCE(pay.per_share, ex.ex_amount) AS perShareDividend,
                pay.pay_date       AS payDate
         FROM dividend_stocks ds
-        <!-- 다가오는 배당락일(날짜만) — DIVIDEND_EX -->
+        <!-- 다가오는 배당락일 — DIVIDEND_EX. 가장 가까운 1건의 날짜·amount(해외 주당배당금)를 함께 집는다 -->
         LEFT JOIN (
-            SELECT stock_code, MIN(event_date) AS event_date
-            FROM stock_events
-            WHERE event_type = 'DIVIDEND_EX'
-              AND event_date >= CURDATE()
-            GROUP BY stock_code
+            SELECT e.stock_code,
+                   e.event_date AS ex_date,
+                   e.amount     AS ex_amount
+            FROM stock_events e
+            JOIN (
+                SELECT stock_code, MIN(event_date) AS md
+                FROM stock_events
+                WHERE event_type = 'DIVIDEND_EX'
+                  AND event_date >= CURDATE()
+                GROUP BY stock_code
+            ) m ON e.stock_code = m.stock_code
+               AND e.event_date = m.md
+               AND e.event_type = 'DIVIDEND_EX'
         ) ex ON ds.stock_code = ex.stock_code
         <!-- 다가오는 배당 지급(주당배당금 + 지급일) — DIVIDEND_PAY. 가장 가까운 1건의 amount·date를 함께 집는다 -->
         LEFT JOIN (

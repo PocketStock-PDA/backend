@@ -27,9 +27,9 @@ import java.util.List;
  * 종목이 늘면 core 내부 API로 목록을 받아오게 바꾼다.
  *
  * <p><b>chart 한계 반영</b>: 야후 chart는 과거 배당의 <b>배당락일</b>·금액만 줘서, 다음 배당락일은 주기
- * 투영으로 잡고 정확한 <b>지급일은 없다</b>. 그래서 DIVIDEND_PAY의 날짜도 (지급일이 아니라) 다음
- * 배당락일을 쓴다 — 카드의 "1주당 배당금"을 채우는 게 목적이고, 날짜는 배당락 기준임을 detail에 남긴다.
- * 금액은 USD라 현재 환율로 KRW 환산해 적재(국내 배당과 동일하게 amount=원화).
+ * 투영으로 잡고 정확한 <b>지급일은 없다</b>. 그래서 가짜 지급일로 추천·DRIP을 오염시키지 않도록
+ * {@code DIVIDEND_PAY}는 만들지 않고, 주당배당금을 {@code DIVIDEND_EX}에 실어 추천 카드의 "1주당 배당금"만
+ * 채운다(지급일 미노출). 금액은 USD라 현재 환율로 KRW 환산해 적재(국내 배당과 동일하게 amount=원화).
  */
 @Slf4j
 @Service
@@ -37,7 +37,6 @@ import java.util.List;
 public class OverseasDividendBatchService {
 
     private static final String EVENT_TYPE_EX  = "DIVIDEND_EX";
-    private static final String EVENT_TYPE_PAY = "DIVIDEND_PAY";
     private static final String CURRENCY_USD   = "USD";
 
     /** 만기추천 해외 배당주 카탈로그(dividend_stocks market='US')와 동일. */
@@ -62,10 +61,18 @@ public class OverseasDividendBatchService {
 
         List<StockEventUpsertRequest> events = new ArrayList<>();
         int filled = 0;
+        int failed = 0;
         for (String symbol : US_DIVIDEND_SYMBOLS) {
-            YahooDividend div = yahooDividendClient.fetch(symbol);
+            YahooDividend div;
+            try {
+                div = yahooDividendClient.fetch(symbol);   // 실패는 예외, 이력 없음은 null
+            } catch (Exception e) {
+                failed++;                                   // 조회 실패 — 마지막에 예외로 올려 재시도
+                log.warn("[해외배당] {} 조회 실패 — {}", symbol, e.getMessage());
+                continue;
+            }
             if (div == null || div.perShareAmount() == null || div.nextExDate() == null) {
-                continue;   // 이력 없음·조회 실패 — 건너뜀
+                continue;   // 배당 이력 없음 — 실패 아님
             }
 
             String name = stockName(symbol);
@@ -77,19 +84,25 @@ public class OverseasDividendBatchService {
                     div.currency() == null ? CURRENCY_USD : div.currency(),
                     perShareKrw.toPlainString());
 
+            // chart는 정확한 지급일을 못 줘 DIVIDEND_PAY를 만들지 않는다(가짜 지급일이 추천·DRIP을 오염).
+            // 주당배당금을 배당락(DIVIDEND_EX) 이벤트에 실어 추천 카드의 '1주당 배당금'을 채운다(지급일은 미노출).
             events.add(new StockEventUpsertRequest(
-                    symbol, EVENT_TYPE_EX, div.nextExDate(), name + " 배당락", detail, null));
-            // chart에 지급일이 없어 PAY 날짜도 배당락일을 쓴다(카드 주당배당금 노출이 목적).
-            events.add(new StockEventUpsertRequest(
-                    symbol, EVENT_TYPE_PAY, div.nextExDate(), name + " 배당", detail, perShareKrw));
+                    symbol, EVENT_TYPE_EX, div.nextExDate(), name + " 배당락", detail, perShareKrw));
             filled++;
         }
 
         if (!events.isEmpty()) {
             calendarFeignClient.upsertStockEvents(events);
         }
-        log.info("[해외배당] 완료 — {}/{}종목 적재(환율 {})",
-                filled, US_DIVIDEND_SYMBOLS.size(), usdKrw);
+        log.info("[해외배당] 완료 — {}/{}종목 적재(실패 {}, 환율 {})",
+                filled, US_DIVIDEND_SYMBOLS.size(), failed, usdKrw);
+
+        // 적재 성공분은 위에서 이미 멱등 upsert. 조회 '실패'가 있었으면 예외로 올려 부팅 재시도
+        // (BootSyncRetry)가 다시 돌게 한다 — 일시 장애가 다음 크론까지 결손으로 굳지 않도록.
+        if (failed > 0) {
+            throw new IllegalStateException(
+                    "해외 배당 조회 실패 " + failed + "종목 — 재시도 필요");
+        }
     }
 
     /** tradable_stocks의 한글종목명 — 없으면 심볼 그대로. */

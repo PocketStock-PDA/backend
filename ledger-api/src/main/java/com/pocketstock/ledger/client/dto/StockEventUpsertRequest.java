@@ -9,5 +9,5 @@ public record StockEventUpsertRequest(
         LocalDate eventDate,
         String title,
         String detail,
-        BigDecimal amount   // DIVIDEND_PAY: 주당 현금배당금(KRW). 그 외 null
+        BigDecimal amount   // 주당 현금배당금(KRW): 국내=DIVIDEND_PAY, 해외=DIVIDEND_EX. 그 외 null
 ) {}
