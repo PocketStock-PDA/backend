@@ -43,9 +43,13 @@ public class AssetSummaryService {
         mergePointsIntoEtc(bankRows, points);
 
         // 증권 카테고리 = 타사 외부보유 + CMA 총평가(KRW) + 신투(자체 증권계좌) 보유 평가(KRW)
+        // CMA·신투는 ledger feign 의존 — 조회 실패 시 0으로 폴백하되 partial로 표시해 과소계상을 드러낸다.
+        Valuation cma = fetchCmaKrwTotal(userId);
+        Valuation own = fetchOwnHoldingsKrw(userId);
+        boolean partial = cma.failed() || own.failed();
         BigDecimal securitiesAmount = mapper.sumExternalHoldings(userId)
-                .add(fetchCmaKrwTotal(userId))
-                .add(fetchOwnHoldingsKrw(userId));
+                .add(cma.amount())
+                .add(own.amount());
 
         // 이번 달 범위
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
@@ -82,7 +86,8 @@ public class AssetSummaryService {
                 fixedExpenses,
                 variableExpenses,
                 points,            // '기타'에 포함된 포인트 합계
-                pointSources       // 포인트 출처별 내역(드릴다운 표기용)
+                pointSources,      // 포인트 출처별 내역(드릴다운 표기용)
+                partial            // CMA·신투 일부 미조회 → 증권·순자산 과소계상 가능
         );
     }
 
@@ -140,24 +145,34 @@ public class AssetSummaryService {
         return items;
     }
 
-    private BigDecimal fetchCmaKrwTotal(Long userId) {
+    private Valuation fetchCmaKrwTotal(Long userId) {
         try {
             BigDecimal total = ledgerFeignClient.getCmaTotalKrw(userId);
-            return total != null ? total : BigDecimal.ZERO;
+            return Valuation.ok(total != null ? total : BigDecimal.ZERO);
         } catch (Exception e) {
             log.warn("CMA 잔액 조회 실패 (userId={}): {}", userId, e.getMessage());
-            return BigDecimal.ZERO;
+            return Valuation.failure();
         }
     }
 
-    /** 신투(자체 증권계좌) 보유 평가액(KRW 환산) — 보유 × 현재가, 해외는 환율 환산. 보유 없거나 실패 시 0. */
-    private BigDecimal fetchOwnHoldingsKrw(Long userId) {
+    /** 신투(자체 증권계좌) 보유 평가액(KRW 환산) — 보유 × 현재가, 해외는 환율 환산. 보유 없으면 0(ok), 조회 실패면 failed. */
+    private Valuation fetchOwnHoldingsKrw(Long userId) {
         try {
             BigDecimal total = ledgerFeignClient.getPuzzleValuation(userId);
-            return total != null ? total : BigDecimal.ZERO;
+            return Valuation.ok(total != null ? total : BigDecimal.ZERO);
         } catch (Exception e) {
             log.warn("신투 보유 평가액 조회 실패 (userId={}): {}", userId, e.getMessage());
-            return BigDecimal.ZERO;
+            return Valuation.failure();
+        }
+    }
+
+    /** 외부(ledger) 평가 조회 결과 — 금액과 실패 여부. 실패 시 금액 0으로 폴백하되 partial 신호로 사용. */
+    private record Valuation(BigDecimal amount, boolean failed) {
+        static Valuation ok(BigDecimal amount) {
+            return new Valuation(amount, false);
+        }
+        static Valuation failure() {
+            return new Valuation(BigDecimal.ZERO, true);
         }
     }
 
