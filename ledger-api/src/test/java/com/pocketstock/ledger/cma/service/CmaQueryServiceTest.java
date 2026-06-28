@@ -12,6 +12,7 @@ import com.pocketstock.ledger.cma.mapper.CmaTransactionMapper;
 import com.pocketstock.ledger.cma.mapper.CollectionSettingMapper;
 import com.pocketstock.ledger.exchange.dto.response.ExchangeRateResponse;
 import com.pocketstock.ledger.exchange.service.ExchangeRateService;
+import com.pocketstock.ledger.cma.support.CmaAccountNoCipher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,13 +42,14 @@ class CmaQueryServiceTest {
     @Mock private CollectionSettingMapper settingMapper;
     @Mock private AssetFeignClient assetFeignClient;
     @Mock private ExchangeRateService exchangeRateService;
+    @Mock private CmaAccountNoCipher cipher;
 
     private static final Long USER_ID = 1L;
     private static final Long CMA_ACC_ID = 100L;
 
     private CmaQueryService service() {
         return new CmaQueryService(accountMapper, balanceMapper, transactionMapper,
-                settingMapper, assetFeignClient, exchangeRateService);
+                settingMapper, assetFeignClient, exchangeRateService, cipher);
     }
 
     private CmaAccount cmaAccount() {

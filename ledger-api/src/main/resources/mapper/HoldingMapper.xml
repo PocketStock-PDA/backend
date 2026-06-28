@@ -60,6 +60,13 @@
           AND held_whole &gt;= #{qty}
     </update>
 
+    <!-- 매도 체결 직전 평단 스냅샷 — avg_buy_price(종목 통화 기준). 보유행 없으면 NULL. -->
+    <select id="findAvgBuyPriceByAccount" resultType="java.math.BigDecimal">
+        SELECT avg_buy_price
+        FROM holdings
+        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+    </select>
+
     <!-- 온주 매도가능 = (quantity−fractional_qty) − held_whole. 보유행 없으면 NULL. -->
     <select id="findAvailableWhole" resultType="java.math.BigDecimal">
         SELECT quantity - fractional_qty - held_whole

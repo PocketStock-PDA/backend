@@ -49,6 +49,11 @@ public interface OrderMapper {
     /** 소수점 전이: SENT→FILLED(배분 완료). 0행이면 정합성 오류(같은 tx라 항상 1). */
     int markFilledFractional(@Param("id") Long id);
 
+    /** 매도 체결 스냅샷 기록 — avg_buy_price_at_sell·fx_rate_at_fill(해외만 non-null). 체결 전이 직후 같은 tx. 0이면 중복·정합성 오류. */
+    int markSellSnapshot(@Param("id") Long id,
+                         @Param("avgBuyPriceAtSell") BigDecimal avgBuyPriceAtSell,
+                         @Param("fxRateAtFill") BigDecimal fxRateAtFill);
+
     /** 소수점 전이: 활성(QUEUED/SENT)→REJECTED + 사유. 자금 원복과 함께 호출(FRAC-014). 0행이면 이미 종결. */
     int rejectActive(@Param("id") Long id, @Param("reason") String reason);
 

@@ -7,7 +7,6 @@ import com.pocketstock.ledger.trading.domain.OrderStatus;
 import com.pocketstock.ledger.trading.domain.SecuritiesAccount;
 import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.domain.TradingRound;
-import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.dto.SplitOrderResponse;
@@ -470,8 +469,7 @@ public class FractionalOrderService {
      */
     private BigDecimal estPrice(Ctx ctx, boolean buy) {
         if (ctx.spec().overseas()) {
-            ForeignQuoteResponse q = orderbookService.overseasSnapshot(ctx.stock());
-            BigDecimal best = firstForeignPrice(buy ? q.asks() : q.bids());
+            BigDecimal best = orderbookService.overseasReferencePrice(ctx.stock(), buy);
             if (best != null && best.signum() > 0) {
                 return best;
             }
@@ -494,10 +492,6 @@ public class FractionalOrderService {
     }
 
     private static BigDecimal firstPrice(List<OrderbookResponse.Level> levels) {
-        return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
-    }
-
-    private static BigDecimal firstForeignPrice(List<ForeignQuoteResponse.Level> levels) {
         return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
     }
 

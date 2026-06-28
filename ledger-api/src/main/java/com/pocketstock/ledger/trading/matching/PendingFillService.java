@@ -77,6 +77,12 @@ public class PendingFillService {
             // 가격개선분 반납(#174): 체결 후 예수금 주문가능(지정가−체결가 잔류분)을 CMA로 sweep(REVERT). 같은 트랜잭션.
             fundingService.revertUnusedFunding(cmd.userId(), cmd.accountId(), cmd.currency(), cmd.orderId(), "improve");
         } else {
+            // 판매수익 스냅샷: 수량 차감 전에 평단·환율 캡처.
+            BigDecimal avgBuyPriceAtSell = holdingMapper.findAvgBuyPriceByAccount(cmd.accountId(), cmd.stockCode());
+            BigDecimal fxRateAtFill = null;
+            if (CURRENCY_USD.equals(cmd.currency())) {
+                try { fxRateAtFill = fxRateForKrwBasis(); } catch (Exception ignored) {}
+            }
             // 묶은 온주 수량 해제 → 보유 수량 실차감(release 후 온주 매도가능 복원돼 가드 통과).
             holdingMapper.releaseWholeReserve(cmd.accountId(), cmd.stockCode(), cmd.quantity());
             if (holdingMapper.reduceWholeForSell(cmd.accountId(), cmd.stockCode(), cmd.quantity()) == 0) {
@@ -90,6 +96,9 @@ public class PendingFillService {
             operatingInventoryService.record(cmd.stockCode(), cmd.quantity().intValueExact());
             // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금 잔류 0. 같은 트랜잭션.
             fundingService.returnFromSell(cmd.userId(), cmd.accountId(), cmd.currency(), total, cmd.orderId());
+            if (orderMapper.markSellSnapshot(cmd.orderId(), avgBuyPriceAtSell, fxRateAtFill) == 0) {
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR, "매도 스냅샷 기록 실패 orderId=" + cmd.orderId());
+            }
         }
         // 비동기 체결 알림(#204) — 온주 지정가 체결은 화면 떠난 뒤 확정이라 통보 대상. 같은 커밋에 outbox 기록.
         String eventId = "order:" + cmd.orderId() + ":filled";

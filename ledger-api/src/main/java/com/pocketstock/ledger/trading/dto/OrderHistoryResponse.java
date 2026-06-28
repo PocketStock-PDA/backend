@@ -18,6 +18,10 @@ public record OrderHistoryResponse(
         String currency,
         LocalDateTime createdAt,
         /** 체결금액 — 소수점은 allocations.gross_amount 합, 온주는 null(프론트가 체결가×수량). 미체결은 null. */
-        BigDecimal filledAmount
+        BigDecimal filledAmount,
+        /** 매도 체결 시점 평단(판매수익 계산용). 매도 FILLED만 non-null. */
+        BigDecimal avgBuyPriceAtSell,
+        /** 해외 매도 체결 시점 USD/KRW 환율. 국내·매수·환율 취득 실패 시 null. */
+        BigDecimal fxRateAtFill
 ) {
 }

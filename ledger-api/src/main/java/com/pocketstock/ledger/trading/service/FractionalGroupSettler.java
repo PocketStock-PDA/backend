@@ -12,7 +12,6 @@ import com.pocketstock.ledger.trading.domain.Allocation;
 import com.pocketstock.ledger.trading.domain.BatchOrder;
 import com.pocketstock.ledger.trading.domain.Order;
 import com.pocketstock.ledger.trading.domain.TradableStock;
-import com.pocketstock.ledger.trading.dto.ForeignQuoteResponse;
 import com.pocketstock.ledger.trading.dto.OrderbookResponse;
 import com.pocketstock.ledger.trading.mapper.AllocationMapper;
 import com.pocketstock.ledger.trading.mapper.BatchOrderMapper;
@@ -80,8 +79,18 @@ public class FractionalGroupSettler {
         boolean overseas = OVERSEAS_EXCHANGES.contains(exchange);
         String currency = overseas ? CURRENCY_USD : CURRENCY_KRW;
         BigDecimal fillPrice = resolveFillPrice(stockCode, overseas, buy, pricingMethod);
-        // 해외 매수만 취득원가(KRW) 환산용 환율 1회 확보 — 콜드스타트면 502(스케줄러가 선제 보류하나 2차 가드).
-        BigDecimal fxRate = (buy && overseas) ? fxRateForKrwBasis() : null;
+        // 해외 매수: 취득원가(KRW) 환산용 환율 1회 확보 — 콜드스타트면 502(스케줄러가 선제 보류하나 2차 가드).
+        // 해외 매도: 판매수익 스냅샷용으로 최선 노력 취득(실패해도 정산 중단 안 함 — null 허용).
+        BigDecimal fxRate;
+        if (buy && overseas) {
+            fxRate = fxRateForKrwBasis();
+        } else if (!buy && overseas) {
+            BigDecimal rate = null;
+            try { rate = fxRateForKrwBasis(); } catch (Exception ignored) {}
+            fxRate = rate;
+        } else {
+            fxRate = null;
+        }
 
         // 1) 자금 가능분 선별 — 수량매수만 버퍼 초과 급등 시 부족 가능(FRAC-015). 금액매수·매도는 항상 가능.
         List<Funded> funded = new ArrayList<>();
@@ -130,6 +139,7 @@ public class FractionalGroupSettler {
         // 5) 배분 + 고객 정산. 집행 중 취소된 주문(sendForBatch=0)은 건너뛰고 firm이 흡수(0-sum 유지).
         BigDecimal allocatedTotal = BigDecimal.ZERO;
         for (Funded f : funded) {
+            BigDecimal sellAvgBuyPrice = null;  // 매도 체결 스냅샷용(주문별 평단), BUY는 null 유지
             Order o = f.order();
             if (orderMapper.sendForBatch(o.getId(), batchId) == 0) {
                 continue;   // 그 사이 취소됨 — 제외(취소가 hold 환원 처리). firm이 끝수로 흡수.
@@ -156,6 +166,8 @@ public class FractionalGroupSettler {
                 // 충당 버퍼 반납(#174): 정산 후 예수금 주문가능(held−gross 버퍼)을 CMA로 sweep(REVERT). 같은 tx.
                 fundingService.revertUnusedFunding(o.getUserId(), o.getAccountId(), currency, o.getId(), "fracbuf");
             } else {
+                // 판매수익 스냅샷: 수량 차감 전에 평단 캡처(차감 후도 avg_buy_price 불변이나 선방어).
+                sellAvgBuyPrice = holdingMapper.findAvgBuyPriceByAccount(o.getAccountId(), stockCode);
                 // 접수 소수 수량 hold 해제 → 소수 보유 실인도(quantity·fractional_qty 동시 차감).
                 holdingMapper.releaseFractionalReserve(o.getAccountId(), stockCode, f.qty());
                 if (holdingMapper.reduceFractionalForSell(o.getAccountId(), stockCode, f.qty()) == 0) {
@@ -169,6 +181,11 @@ public class FractionalGroupSettler {
             }
             if (orderMapper.markFilledFractional(o.getId()) == 0) {
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 전이 실패(SENT→FILLED) orderId=" + o.getId());
+            }
+            if (!buy) {
+                if (orderMapper.markSellSnapshot(o.getId(), sellAvgBuyPrice, fxRate) == 0) {
+                    throw new BusinessException(ErrorCode.INTERNAL_ERROR, "매도 스냅샷 기록 실패 orderId=" + o.getId());
+                }
             }
             // 비동기 체결 알림(#204) — 소수점 배치체결은 화면 떠난 뒤 확정이라 통보. 같은 커밋에 outbox 기록.
             // 자동모으기 주문(AUTO)은 autoinvest.executed로 이미 알림 → 중복 방지로 skip.
@@ -285,8 +302,7 @@ public class FractionalGroupSettler {
             if (stock == null) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
             }
-            ForeignQuoteResponse q = orderbookService.overseasSnapshot(stock);
-            BigDecimal best = positive(firstForeignPrice(buy ? q.asks() : q.bids()));
+            BigDecimal best = positive(orderbookService.overseasReferencePrice(stock, buy));
             if (best == null) {
                 throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "체결가 산정 실패(시세 없음): " + stockCode);
             }
@@ -331,10 +347,6 @@ public class FractionalGroupSettler {
     }
 
     private static BigDecimal firstPrice(List<OrderbookResponse.Level> levels) {
-        return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
-    }
-
-    private static BigDecimal firstForeignPrice(List<ForeignQuoteResponse.Level> levels) {
         return (levels == null || levels.isEmpty()) ? null : levels.get(0).price();
     }
 
