@@ -220,7 +220,9 @@ public class WholeOrderService {
                 if (orderMapper.transitionFill(order.getId(), OrderStatus.RECEIVED, OrderStatus.FILLED, fillPrice) == 0) {
                     throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 상태 전이 실패(RECEIVED→FILLED)");
                 }
-                orderMapper.markSellSnapshot(order.getId(), avgBuyPriceAtSell, fxRateAtFill);
+                if (orderMapper.markSellSnapshot(order.getId(), avgBuyPriceAtSell, fxRateAtFill) == 0) {
+                    throw new BusinessException(ErrorCode.INTERNAL_ERROR, "매도 스냅샷 기록 실패 orderId=" + order.getId());
+                }
                 return new WholeOrderResponse(order.getId(), req.stockCode(), side, req.quantity(),
                         fillPrice, totalAmount, OrderStatus.FILLED.name(), balanceAfter);
             }

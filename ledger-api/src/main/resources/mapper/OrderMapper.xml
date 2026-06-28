@@ -66,11 +66,15 @@
     </update>
 
     <!-- 매도 체결 스냅샷: avg_buy_price_at_sell·fx_rate_at_fill 기록(체결 전이와 같은 tx). -->
+    <!-- write-once: SELL·FILLED 상태이고 스냅샷 미기록 행만 갱신. 0행이면 중복 호출 or 정합성 오류. -->
     <update id="markSellSnapshot">
         UPDATE orders
         SET avg_buy_price_at_sell = #{avgBuyPriceAtSell},
             fx_rate_at_fill       = #{fxRateAtFill}
         WHERE id = #{id}
+          AND side = 'SELL'
+          AND status = 'FILLED'
+          AND avg_buy_price_at_sell IS NULL
     </update>
 
     <!-- 소수점 SENT→FILLED(배분 완료). -->

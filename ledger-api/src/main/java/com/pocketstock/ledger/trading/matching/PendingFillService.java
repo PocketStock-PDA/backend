@@ -96,7 +96,9 @@ public class PendingFillService {
             operatingInventoryService.record(cmd.stockCode(), cmd.quantity().intValueExact());
             // 매도대금 즉시 환류(#174, A안): 예수금 → CMA풀(SELL_RETURN). 예수금 잔류 0. 같은 트랜잭션.
             fundingService.returnFromSell(cmd.userId(), cmd.accountId(), cmd.currency(), total, cmd.orderId());
-            orderMapper.markSellSnapshot(cmd.orderId(), avgBuyPriceAtSell, fxRateAtFill);
+            if (orderMapper.markSellSnapshot(cmd.orderId(), avgBuyPriceAtSell, fxRateAtFill) == 0) {
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR, "매도 스냅샷 기록 실패 orderId=" + cmd.orderId());
+            }
         }
         // 비동기 체결 알림(#204) — 온주 지정가 체결은 화면 떠난 뒤 확정이라 통보 대상. 같은 커밋에 outbox 기록.
         String eventId = "order:" + cmd.orderId() + ":filled";

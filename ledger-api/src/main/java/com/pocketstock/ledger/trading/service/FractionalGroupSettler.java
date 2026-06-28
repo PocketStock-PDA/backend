@@ -183,7 +183,9 @@ public class FractionalGroupSettler {
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "주문 전이 실패(SENT→FILLED) orderId=" + o.getId());
             }
             if (!buy) {
-                orderMapper.markSellSnapshot(o.getId(), sellAvgBuyPrice, fxRate);
+                if (orderMapper.markSellSnapshot(o.getId(), sellAvgBuyPrice, fxRate) == 0) {
+                    throw new BusinessException(ErrorCode.INTERNAL_ERROR, "매도 스냅샷 기록 실패 orderId=" + o.getId());
+                }
             }
             // 비동기 체결 알림(#204) — 소수점 배치체결은 화면 떠난 뒤 확정이라 통보. 같은 커밋에 outbox 기록.
             // 자동모으기 주문(AUTO)은 autoinvest.executed로 이미 알림 → 중복 방지로 skip.
