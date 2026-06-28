@@ -1,7 +1,6 @@
 package com.pocketstock.ledger.calendar;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -14,10 +13,9 @@ import org.springframework.stereotype.Component;
  * 실행하고 비활성 색은 skip한다(중복 upsert 없음).
  *
  * <p>{@code ApplicationReadyEvent} 리스너는 동기라, 전체 종목 1년치 배당 조회가 부팅 완료를 잡아두지
- * 않도록 데몬 스레드에서 비동기로 돌린다. core-api가 아직 안 떴으면 그 회차 upsert는 실패해 로그만 남고
- * (크래시 아님), 다음 부팅이나 연간 크론이 백업한다.
+ * 않도록 {@link BootSyncRetry}가 데몬 스레드에서 비동기로 돌린다. ledger가 core-api보다 먼저 떠 첫 upsert가
+ * 실패하면 30초 간격으로 최대 10회(약 5분) 재시도하므로, 기동 순서와 무관하게 core-api가 그 안에 뜨면 채워진다.
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DividendBootSync {
@@ -26,15 +24,7 @@ public class DividendBootSync {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
-        Thread t = new Thread(() -> {
-            try {
-                log.info("[배당배치] 부팅 동기화 시작");
-                dividendBatchService.syncDividendEvents();
-            } catch (Exception e) {
-                log.error("[배당배치] 부팅 동기화 실패 — {}", e.getMessage(), e);
-            }
-        }, "dividend-boot-sync");
-        t.setDaemon(true);
-        t.start();
+        BootSyncRetry.runAsync("dividend-boot-sync", "[배당배치]", 10, 30_000L,
+                dividendBatchService::syncDividendEvents);
     }
 }
