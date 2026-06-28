@@ -16,9 +16,10 @@ import java.util.List;
  * 보유 스냅샷을 core-api {@code holdings_replica}로 동기화한다 — 증권 캘린더가 보유 종목으로
  * 일정을 필터하는 근거. ledger(DB B) holdings → core-api(DB A) holdings_replica upsert(비파괴).
  *
- * <p>전체 활성 보유를 통째로 upsert한다(삭제 없음). 매도로 보유가 0이 된 종목의 복제행은 남지만,
- * 캘린더 표시상 무해(있는 종목으로 한정해 일정만 더 보일 뿐)하고 시드 데이터를 지우지 않는다.
- * 단일활성 게이트({@code LedgerActivation.isActive()})로 Blue-Green 비활성 색은 skip한다.
+ * <p>주기/부팅 동기화는 전체 활성 보유를 통째로 upsert한다(스냅샷에 없는 행 삭제 안 함 → 시드 보존).
+ * 전량 매도로 더는 안 가진 종목은 {@link #removeIfSoldOut}가 매도 체결 이벤트를 받아 정밀 삭제한다
+ * (안 가진 종목 일정이 캘린더에 남지 않도록). 단일활성 게이트({@code LedgerActivation.isActive()})로
+ * Blue-Green 비활성 색은 skip한다.
  */
 @Slf4j
 @Service
@@ -54,5 +55,25 @@ public class HoldingReplicaSyncService {
         } catch (Exception e) {
             log.error("[보유복제] core-api 동기화 실패 — {}건: {}", rows.size(), e.getMessage());
         }
+    }
+
+    /**
+     * 전량 매도된 종목을 core-api {@code holdings_replica}에서 제거한다 — 매도 체결 이벤트가 호출.
+     * upsert는 스냅샷에 없는 행을 안 지우므로(시드 보존), 안 가진 종목 일정이 캘린더에 남는 걸 이 경로가 정밀 삭제로 막는다.
+     *
+     * <p>잔량 판정은 ledger 보유(DB B)를 직접 조회: 행이 없거나 quantity ≤ 0이면 전량 매도. 일부 매도(잔량 남음)는 무시.
+     * Feign 삭제 실패는 호출자(체결 컨슈머)가 재시도하도록 전파한다. 비활성 색은 skip.
+     */
+    public void removeIfSoldOut(Long userId, String stockCode) {
+        if (!activation.isActive()) {
+            return;
+        }
+        Holding h = holdingMapper.findByUserIdAndStock(userId, stockCode);
+        boolean soldOut = h == null || h.getQuantity() == null || h.getQuantity().signum() <= 0;
+        if (!soldOut) {
+            return;   // 잔량 남음 — 유지
+        }
+        replicaClient.deleteReplica(userId, stockCode);   // 실패 전파 → 상위 재시도
+        log.info("[보유복제] 전량매도 — user={} {} replica 제거", userId, stockCode);
     }
 }

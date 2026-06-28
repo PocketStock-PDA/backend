@@ -14,4 +14,7 @@ public interface HoldingReplicaMapper {
                        @Param("quantity") BigDecimal quantity,
                        @Param("avgBuyPrice") BigDecimal avgBuyPrice,
                        @Param("currency") String currency);
+
+    /** 보유 복제 1건 삭제 — 전량 매도 시 호출(안 가진 종목 일정이 캘린더에 남지 않도록). @return 삭제 행 수. */
+    int deleteReplica(@Param("userId") Long userId, @Param("stockCode") String stockCode);
 }

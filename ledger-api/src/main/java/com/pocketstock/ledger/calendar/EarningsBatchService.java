@@ -105,12 +105,9 @@ public class EarningsBatchService {
         }
 
         if (!events.isEmpty()) {
-            try {
-                calendarFeignClient.upsertStockEvents(events);
-            } catch (Exception e) {
-                log.error("[실적배치] core-api upsert 실패 stockCode={} — {}건 유실: {}",
-                        stockCode, events.size(), e.getMessage());
-            }
+            // upsert 실패 전파 — 체결 기반 수집(OrderFilledCalendarConsumer)이 상위에서 재시도/backfill로
+            // 처리하도록 삼키지 않는다. (배치 경로·배당 syncByStockCode와 동일 정책)
+            calendarFeignClient.upsertStockEvents(events);
         }
     }
 
