@@ -12,3 +12,6 @@ management:
   health:
     kafka:
       enabled: false
+webpush:
+  test-endpoint:
+    enabled: true   # 개발용 푸시 검수 엔드포인트(POST /api/notifications/test) — 검수 후 제거
