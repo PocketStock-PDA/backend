@@ -193,7 +193,7 @@ class CmaCollectServiceTest {
         when(settingMapper.findByUserId(USER_ID))
                 .thenReturn(List.of(setting("POINT", 33L, true, null)));
         when(feign.getAvailablePoints(USER_ID, 33L))
-                .thenReturn(new PointSummary(33L, new BigDecimal("5000")));
+                .thenReturn(new PointSummary(33L, "마이신한포인트", new BigDecimal("5000")));
         when(ledgerWriter.applyEntry(eq(USER_ID), eq(CMA_ACC_ID), eq("KRW"), eq("COLLECT"), eq("POINT"),
                 eq(new BigDecimal("5000")), eq("LINKED_POINT"), eq(33L), eq("key-p")))
                 .thenReturn(new BigDecimal("105000"));

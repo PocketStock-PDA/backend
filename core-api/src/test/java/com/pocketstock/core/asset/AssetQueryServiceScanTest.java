@@ -62,7 +62,7 @@ class AssetQueryServiceScanTest {
         when(internalAssetService.getCardRoundup(USER_ID, 10L))
                 .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(700), List.of(5L)));
         when(internalAssetService.getAvailablePoints(USER_ID, 20L))
-                .thenReturn(new PointSummary(20L, BigDecimal.valueOf(28000)));
+                .thenReturn(new PointSummary(20L, "마이신한포인트", BigDecimal.valueOf(28000)));
         // FX: 4.50 USD × 1378 = 6201
         when(linkedAssetMapper.sumUsdWalletBalance(USER_ID)).thenReturn(new BigDecimal("4.5000"));
         when(ledgerFeignClient.getUsdKrwRate()).thenReturn(new UsdKrwRateView(new BigDecimal("1378")));
@@ -107,9 +107,9 @@ class AssetQueryServiceScanTest {
         when(internalAssetService.getCardRoundup(USER_ID, 11L))
                 .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(520), List.of(2L)));
         when(internalAssetService.getAvailablePoints(USER_ID, 20L))
-                .thenReturn(new PointSummary(20L, BigDecimal.valueOf(28000)));
+                .thenReturn(new PointSummary(20L, "마이신한포인트", BigDecimal.valueOf(28000)));
         when(internalAssetService.getAvailablePoints(USER_ID, 21L))
-                .thenReturn(new PointSummary(21L, BigDecimal.valueOf(5000)));
+                .thenReturn(new PointSummary(21L, "네이버페이 포인트", BigDecimal.valueOf(5000)));
         when(linkedAssetMapper.sumUsdWalletBalance(USER_ID)).thenReturn(BigDecimal.ZERO);
 
         ScanResponse res = service.getScan(USER_ID);
