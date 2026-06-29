@@ -333,6 +333,7 @@ public class AssetLinkService {
             case "POINT" -> {
                 PointTpl t = POINT_TPL.getOrDefault(companyCode, DEFAULT_POINT);
                 mapper.insertPoint(userId, institutionId, t.pointName(), t.balance());
+                enablePointCollection(userId, institutionId);
             }
             case "SECURITIES" -> {
                 SecTpl t = SEC_TPL.getOrDefault(companyCode, DEFAULT_SEC);
@@ -343,6 +344,22 @@ public class AssetLinkService {
                 }
             }
             default -> { /* 알 수 없는 카테고리: 커넥션만 두고 자산 미적재 */ }
+        }
+    }
+
+    /**
+     * 연동된 포인트를 잔돈 수집 소스로 기본 활성화(enabled=TRUE)한다 — 유저는 이후 수집설정에서 끌 수 있다.
+     * 수집설정은 ledger(DB B) 소관이라 Feign으로 위임한다. best-effort: ledger 장애 시에도 연동 자체는 성공시킨다
+     * (linkFx의 환율 호출과 동일 패턴). 실패 시 유저가 수집설정 화면에서 직접 켤 수 있어 치명적이지 않다.
+     */
+    private void enablePointCollection(Long userId, Long institutionId) {
+        try {
+            Long pointId = mapper.findPointId(userId, institutionId);
+            if (pointId != null) {
+                ledgerFeignClient.upsertCollectionSetting(userId, "POINT", pointId, true);
+            }
+        } catch (Exception e) {
+            // 수집설정 생성 실패는 연동을 막지 않는다.
         }
     }
 

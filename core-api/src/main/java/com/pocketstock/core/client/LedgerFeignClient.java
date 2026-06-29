@@ -28,6 +28,14 @@ public interface LedgerFeignClient {
     @GetMapping("/internal/cma/collection-settings")
     List<CollectionSettingView> getCollectionSettings(@RequestParam("userId") Long userId);
 
+    /** 소스 연동 시 수집설정 upsert — 포인트 연동 시 기본 활성(enabled=TRUE). source_ref_id는 연동 자산 행 id. */
+    @PostMapping("/internal/cma/collection-settings")
+    void upsertCollectionSetting(
+            @RequestParam("userId") Long userId,
+            @RequestParam("sourceType") String sourceType,
+            @RequestParam("sourceRefId") Long sourceRefId,
+            @RequestParam("enabled") boolean enabled);
+
     @GetMapping("/internal/exchange/usd-krw-rate")
     UsdKrwRateView getUsdKrwRate();
 

@@ -2,6 +2,7 @@ package com.pocketstock.ledger.cma.controller;
 
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
+import com.pocketstock.ledger.cma.domain.CollectionSetting;
 import com.pocketstock.ledger.cma.dto.request.InternalCmaCreditRequest;
 import com.pocketstock.ledger.cma.dto.response.CmaBalanceResponse;
 import com.pocketstock.ledger.cma.dto.response.CmaCreditResponse;
@@ -39,6 +40,25 @@ public class InternalCmaController {
         return collectionSettingMapper.findByUserId(userId).stream()
                 .map(CollectionSettingView::from)
                 .toList();
+    }
+
+    /**
+     * 단일 수집 소스 설정 upsert — 자산 연동(core) 시 포인트 등을 잔돈 수집 소스로 기본 등록(enabled=TRUE)한다.
+     * threshold는 끝전(ACCOUNT)에만 쓰이므로 기본값(10000)으로 둔다. (user_id, source_type, source_ref_id) 유니크.
+     */
+    @PostMapping("/collection-settings")
+    public void upsertCollectionSetting(
+            @RequestParam Long userId,
+            @RequestParam String sourceType,
+            @RequestParam(required = false) Long sourceRefId,
+            @RequestParam boolean enabled) {
+        CollectionSetting setting = new CollectionSetting();
+        setting.setUserId(userId);
+        setting.setSourceType(sourceType);
+        setting.setSourceRefId(sourceRefId);
+        setting.setIsEnabled(enabled);
+        setting.setThreshold(BigDecimal.valueOf(10000));
+        collectionSettingMapper.upsert(setting);
     }
 
     /**

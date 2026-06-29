@@ -69,7 +69,8 @@ public class InternalAssetService {
     @Transactional(readOnly = true)
     public PointSummary getAvailablePoints(Long userId, Long linkedAccountId) {
         BigDecimal balance = mapper.findPointBalance(userId, linkedAccountId);
-        return new PointSummary(linkedAccountId, balance != null ? balance : BigDecimal.ZERO);
+        String name = mapper.findPointName(userId, linkedAccountId);
+        return new PointSummary(linkedAccountId, name, balance != null ? balance : BigDecimal.ZERO);
     }
 
     /**
