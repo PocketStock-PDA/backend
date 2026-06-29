@@ -13,6 +13,7 @@ import com.pocketstock.user.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -81,6 +82,30 @@ public class NotificationController {
 
         notificationService.registerToken(userId, request);
         return ResponseEntity.ok(ApiResponse.ok("푸시 토큰 등록 성공", null));
+    }
+
+    @DeleteMapping("/token")
+    public ResponseEntity<ApiResponse<Void>> clearToken(
+            @CurrentUserId Long userId) {
+
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        notificationService.clearToken(userId);
+        return ResponseEntity.ok(ApiResponse.ok("푸시 토큰 제거 성공", null));
+    }
+
+    @GetMapping("/settings")
+    public ResponseEntity<ApiResponse<NotificationSettingsResponse>> getSettings(
+            @CurrentUserId Long userId) {
+
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        NotificationSettingsResponse data = notificationService.getSettings(userId);
+        return ResponseEntity.ok(ApiResponse.ok("알림 수신 설정 조회 성공", data));
     }
 
     @PutMapping("/settings")
