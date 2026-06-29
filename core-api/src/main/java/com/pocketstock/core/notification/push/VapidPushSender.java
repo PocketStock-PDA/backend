@@ -41,10 +41,19 @@ public class VapidPushSender implements PushSender {
     @Override
     public PushResult send(String subscriptionJson, PushPayload payload) {
         try {
-            Subscription subscription = objectMapper.readValue(subscriptionJson, Subscription.class);
-            String json = objectMapper.writeValueAsString(payload);
+            return sendRaw(subscriptionJson, objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            log.warn("웹푸시 직렬화 실패: {}", e.getMessage());
+            return PushResult.FAILED;
+        }
+    }
 
-            HttpResponse response = pushService.send(new Notification(subscription, json));
+    @Override
+    public PushResult sendRaw(String subscriptionJson, String rawJsonPayload) {
+        try {
+            Subscription subscription = objectMapper.readValue(subscriptionJson, Subscription.class);
+
+            HttpResponse response = pushService.send(new Notification(subscription, rawJsonPayload));
             int status = response.getStatusLine().getStatusCode();
 
             if (status == 404 || status == 410) {
