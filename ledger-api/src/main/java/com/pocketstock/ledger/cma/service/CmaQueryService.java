@@ -54,6 +54,7 @@ public class CmaQueryService {
 
     @Transactional(readOnly = true)
     public CmaHomeResponse getHome(Long userId) {
+        requireUser(userId);
         CmaAccount account = accountMapper.findByUserId(userId);
         if (account == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌를 찾을 수 없습니다.");
@@ -112,6 +113,7 @@ public class CmaQueryService {
     @Transactional(readOnly = true)
     public List<CmaTransactionResponse> getTransactions(
             Long userId, String txType, LocalDate from, LocalDate to, int page, int size) {
+        requireUser(userId);
         LocalDateTime fromDt = (from != null) ? from.atStartOfDay() : null;
         LocalDateTime toDt   = (to   != null) ? to.plusDays(1).atStartOfDay() : null;
 
@@ -124,6 +126,7 @@ public class CmaQueryService {
 
     @Transactional(readOnly = true)
     public CmaBalanceResponse getBalance(Long userId) {
+        requireUser(userId);
         CmaAccount account = accountMapper.findByUserId(userId);
         if (account == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌를 찾을 수 없습니다.");
@@ -170,6 +173,7 @@ public class CmaQueryService {
 
     @Transactional(readOnly = true)
     public List<CmaTransactionResponse> getCollectHistory(Long userId, int page, int size) {
+        requireUser(userId);
         return transactionMapper.findCollectHistory(userId, page * size, size)
                 .stream()
                 .map(CmaTransactionResponse::from)
@@ -178,6 +182,7 @@ public class CmaQueryService {
 
     @Transactional(readOnly = true)
     public List<CmaTransactionResponse> getTransfers(Long userId, int page, int size) {
+        requireUser(userId);
         return transactionMapper.findTransfers(userId, page * size, size)
                 .stream()
                 .map(CmaTransactionResponse::from)
@@ -232,5 +237,16 @@ public class CmaQueryService {
                 .filter(s -> "POINT".equals(s.getSourceType()) && Boolean.TRUE.equals(s.getIsEnabled()))
                 .map(s -> assetFeignClient.getAvailablePoints(userId, s.getSourceRefId()).availablePoints())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * 미인증(토큰 없음/만료/무효) 요청은 401로 차단 — 다른 CMA 서비스(requireUser)와 동일 컨벤션.
+     * 이 가드가 없으면 userId=null이 findByUserId까지 내려가 404가 되어, 프론트가 인증 실패를 "CMA 미보유(신규회원)"로 오독한다.
+     * 인증됐지만 계좌가 없는 진짜 신규회원은 userId가 살아있어 여기를 통과하고 계좌 조회 단계에서 404로 분기된다.
+     */
+    private void requireUser(Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
     }
 }
