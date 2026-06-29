@@ -218,6 +218,7 @@ MYSQL_DEFAULT_FILES+=("$LEDGER_DEFAULTS_FILE")
 
 CORE_SQL_FILES=(
   "$APP_DIR/scripts/mysql-a-init.sql"
+  "$APP_DIR/scripts/mysql-a-notification-structured-migration.sql"
   "$APP_DIR/scripts/stock-master/cards_seed.sql"
   "$APP_DIR/scripts/stock-master/card_benefits_seed.sql"
   "$APP_DIR/scripts/stock-master/dividend_stocks_seed.sql"
