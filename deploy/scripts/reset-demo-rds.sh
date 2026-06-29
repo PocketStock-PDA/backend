@@ -224,6 +224,7 @@ CORE_SQL_FILES=(
   "$APP_DIR/scripts/mysql-a-persona-seed.sql"
   "$APP_DIR/scripts/mysql-a-persona-seed-extra.sql"
   "$APP_DIR/scripts/mysql-a-persona-seed-suhyun.sql"
+  "$APP_DIR/scripts/mysql-a-persona-seed-jiyoung.sql"
 )
 
 LEDGER_SQL_FILES=(
