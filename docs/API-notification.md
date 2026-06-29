@@ -212,6 +212,55 @@ curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKE
 
 ---
 
+### DELETE `/api/notifications/token` ✅ 구현완료
+
+푸시 토큰 제거 (마스터 OFF/구독 해제 시 서버의 `push_token`을 NULL 처리 — 무효 구독으로의 발송 시도 차단)
+
+> FE가 브라우저 구독을 해제(`unsubscribe`)할 때 함께 호출. row가 없어도 200(멱등).
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "푸시 토큰 제거 성공",
+  "data": null
+ }
+```
+
+---
+
+### GET `/api/notifications/settings` ✅ 구현완료
+
+현재 알림 수신 설정 조회 (토글 4개 초기 상태용)
+
+> 설정 row가 없는 신규 유저는 DB 기본값(전부 `true`)으로 응답한다. GET은 읽기 전용이라 row를 만들지 않으며, 실제 row는 최초 `POST /token` 또는 `PUT /settings` 시 생성된다.
+
+- **Request Headers**: Authorization: Bearer {accessToken}
+- **HTTP Status Code**: 200 OK / 401 Unauthorized
+
+**Response Body**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "알림 수신 설정 조회 성공",
+  "data": {
+  "tradeFilled": true,
+  "priceAlert": true,
+  "goalNudge": true,
+  "marketing": false
+ }
+ }
+```
+
+---
+
 ### PUT `/api/notifications/settings` ✅ 구현완료
 
 알림 수신 설정 (`priceAlert` ↔ `notify_unfilled`(미체결) 컬럼 매핑)

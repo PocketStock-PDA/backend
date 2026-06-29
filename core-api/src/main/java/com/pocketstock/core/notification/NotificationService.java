@@ -146,6 +146,18 @@ public class NotificationService {
         notificationSettingMapper.upsertToken(userId, request.token(), request.deviceType());
     }
 
+    /** 마스터 OFF(구독 해제) — 서버에 남은 push_token 제거. 무효 구독으로의 발송 시도 차단. */
+    @Transactional
+    public void clearToken(Long userId) {
+        notificationSettingMapper.clearToken(userId);
+    }
+
+    /** 현재 알림 수신 설정 조회. row 없는 신규 유저는 DB 기본값(전부 ON)으로 응답(읽기 전용, row 미생성). */
+    public NotificationSettingsResponse getSettings(Long userId) {
+        NotificationSettingRow row = notificationSettingMapper.findByUserId(userId);
+        return row == null ? NotificationSettingsResponse.defaults() : NotificationSettingsResponse.from(row);
+    }
+
     private String dataJson(PushPayload push) {
         if (push == null || push.data() == null) {
             return null;
