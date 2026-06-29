@@ -14,6 +14,12 @@ public enum NotificationType {
     UNFILLED {       // 미체결 (priceAlert)
         @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyUnfilled(); }
     },
+    AUTO_INVEST_EXECUTED {   // 자동매매 접수/집행
+        @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyTrade(); }
+    },
+    AUTO_INVEST_FAILED {     // 자동매매 실패
+        @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyUnfilled(); }
+    },
     GOAL_NUDGE {     // 목표 알림
         @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyGoal(); }
     },

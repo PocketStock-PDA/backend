@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
@@ -95,23 +96,59 @@ public class NotificationConsumer {
             return;
         }
         Long userId = e.path("userId").asLong();
+        String eventId = e.path("eventId").asText("");
         String stockCode = e.path("stockCode").asText();
         String trigger = e.path("trigger").asText();
-        Long stockId = refIdFromEventId(e.path("eventId").asText(""), 2);   // autoinvest:exec:{stockId}:{roundNo}
-        boolean failed = "FAILED".equals(e.path("status").asText());
+        String stockName = fallback(e.path("stockName").asText(null), stockCode);
+        String side = e.path("side").asText(null);
+        String status = e.path("status").asText();
+        String currency = e.path("currency").asText(null);
+        Long settingId = e.path("settingId").isNumber()
+                ? e.path("settingId").asLong()
+                : refIdFromEventId(eventId, 2);   // autoinvest:exec:{stockId}:{roundNo}
+        Long parsedRoundNo = refIdFromEventId(eventId, 3);
+        Integer roundNo = e.path("roundNo").isNumber()
+                ? e.path("roundNo").asInt()
+                : (parsedRoundNo == null ? null : parsedRoundNo.intValue());
+        String occurredAt = toUtc(e.path("occurredAt").asText(""));
+        String tag = autoInvestTag(settingId, roundNo, eventId);
+        String url = stockCode.isBlank() ? null : "/portfolio/detail?stockCode=" + stockCode + "&view=collect";
+        boolean failed = "FAILED".equals(status);
         String triggerLabel = triggerLabel(trigger);
+        BigDecimal amount = dec(e.path("amount"));
+        BigDecimal quantity = dec(e.path("quantity"));
+        String reason = fallback(e.path("failReason").asText(null), null);
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("trigger", trigger);
+        data.put("side", side);
+        data.put("stockCode", stockCode);
+        data.put("stockName", stockName);
+        data.put("amount", amount);
+        data.put("quantity", quantity);
+        data.put("currency", currency);
+        data.put("status", status);
+        data.put("reason", reason);
+        data.put("settingId", settingId);
+        data.put("roundNo", roundNo);
+
         if (failed) {
-            String reason = e.path("failReason").asText("");
-            notificationService.create(userId, NotificationType.UNFILLED,
-                    triggerLabel + " 실패",
-                    stockCode + " " + triggerLabel + "이(가) 실패했어요" + (reason.isBlank() ? "" : " (" + reason + ")"),
-                    "AUTO_INVEST", stockId);
+            String title = triggerLabel + " 실패";
+            String body = stockName + " " + triggerLabel + " 실패" + (reason == null ? "" : " (" + reason + ")");
+            PushPayload push = new PushPayload(NotificationType.AUTO_INVEST_FAILED.name(),
+                    title, body, tag, url, occurredAt, data);
+            notificationService.create(userId, NotificationType.AUTO_INVEST_FAILED, title, body,
+                    "AUTO_INVEST", settingId, push);
         } else {
-            String amount = num(e.path("amount").asText(""));
-            notificationService.create(userId, NotificationType.TRADE_FILLED,
-                    triggerLabel + " 완료",
-                    stockCode + " " + (amount.isBlank() ? "" : amount + "원 ") + triggerLabel + " 접수되었어요",
-                    "AUTO_INVEST", stockId);
+            String statusLabel = autoInvestStatusLabel(status);
+            String detail = amountOrQuantityText(amount, quantity, currency);
+            String title = triggerLabel + " " + statusLabel;
+            String body = stockName + " " + (detail.isBlank() ? "" : detail + " ")
+                    + triggerLabel + " " + autoInvestBodySuffix(status);
+            PushPayload push = new PushPayload(NotificationType.AUTO_INVEST_EXECUTED.name(),
+                    title, body, tag, url, occurredAt, data);
+            notificationService.create(userId, NotificationType.AUTO_INVEST_EXECUTED, title, body,
+                    "AUTO_INVEST", settingId, push);
         }
     }
 
@@ -155,6 +192,21 @@ public class NotificationConsumer {
         };
     }
 
+    private String autoInvestStatusLabel(String status) {
+        return switch (status) {
+            case "FILLED" -> "완료";
+            case "FAILED" -> "실패";
+            default -> "접수";
+        };
+    }
+
+    private String autoInvestBodySuffix(String status) {
+        return switch (status) {
+            case "FILLED" -> "완료되었어요";
+            default -> "접수되었어요";
+        };
+    }
+
     /** JSON 숫자 노드 → BigDecimal(없거나 null이면 null — payload에서 직렬화 제외). */
     private BigDecimal dec(JsonNode node) {
         return node != null && node.isNumber() ? node.decimalValue() : null;
@@ -165,27 +217,50 @@ public class NotificationConsumer {
         return v == null ? "" : v.stripTrailingZeros().toPlainString();
     }
 
-    /** 이벤트 occurredAt(KST, 오프셋 없음) → UTC ISO-8601(Z). 파싱 실패 시 null(알림은 정상 발송). */
-    private String toUtc(String kstLocal) {
-        if (kstLocal == null || kstLocal.isBlank()) {
+    /** 이벤트 occurredAt(UTC Z 또는 KST 로컬) → UTC ISO-8601(Z). 파싱 실패 시 null(알림은 정상 발송). */
+    private String toUtc(String value) {
+        if (value == null || value.isBlank()) {
             return null;
         }
         try {
-            return LocalDateTime.parse(kstLocal).atZone(KST).toInstant().toString();
+            return Instant.parse(value).toString();
         } catch (Exception ex) {
-            return null;
+            try {
+                return LocalDateTime.parse(value).atZone(KST).toInstant().toString();
+            } catch (Exception ignored) {
+                return null;
+            }
         }
     }
 
-    /** 숫자 천단위 콤마(파싱 실패 시 원문). */
-    private String num(String v) {
-        if (v == null || v.isBlank()) {
-            return "";
+    private String amountOrQuantityText(BigDecimal amount, BigDecimal quantity, String currency) {
+        if (amount != null) {
+            String v = plain(amount);
+            if ("KRW".equals(currency)) {
+                return v + "원";
+            }
+            if ("USD".equals(currency)) {
+                return "$" + v;
+            }
+            return v + (currency == null || currency.isBlank() ? "" : " " + currency);
         }
-        try {
-            return new BigDecimal(v).stripTrailingZeros().toPlainString();
-        } catch (NumberFormatException ex) {
-            return v;
+        if (quantity != null) {
+            return plain(quantity) + "주";
         }
+        return "";
+    }
+
+    private String autoInvestTag(Long settingId, Integer roundNo, String eventId) {
+        if (settingId != null && roundNo != null) {
+            return "autoinvest-" + settingId + "-" + roundNo;
+        }
+        return eventId == null || eventId.isBlank() ? null : eventId.replace(':', '-');
+    }
+
+    private String fallback(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
     }
 }
