@@ -57,11 +57,6 @@ public class AssetLinkService {
     private record HoldingTpl(String stockCode, String stockName, BigDecimal quantity, BigDecimal evalAmount) {}
     private record SecTpl(BigDecimal depositCash, String currency, List<HoldingTpl> holdings) {}
 
-    private static final List<BankTpl> DEFAULT_BANK =
-            List.of(new BankTpl("DEMAND", "입출금 통장", new BigDecimal("500000"), "KRW"));
-    private static final PointTpl DEFAULT_POINT = new PointTpl("연동 포인트", 5000);
-    private static final SecTpl DEFAULT_SEC = new SecTpl(new BigDecimal("10000"), "KRW", List.of());
-
     /** 끝전(1,253,400 % 10,000 = 3,400)이 남도록 잔액 구성 — 연동 후 잔돈 스캔 데모 정합. */
     private static final Map<String, List<BankTpl>> BANK_TPL = Map.of(
             "SHINHAN_BANK", List.of(new BankTpl("DEMAND", "신한 주거래 통장", new BigDecimal("1253400"), "KRW")),
@@ -311,15 +306,18 @@ public class AssetLinkService {
     private void insertTemplateAssets(Long userId, Long institutionId, String category, String companyCode) {
         switch (category) {
             case "BANK" -> {
-                for (BankTpl t : BANK_TPL.getOrDefault(companyCode, DEFAULT_BANK)) {
-                    LinkedBankAccountInsert a = new LinkedBankAccountInsert();
-                    a.setUserId(userId);
-                    a.setInstitutionId(institutionId);
-                    a.setAccountType(t.accountType());
-                    a.setAccountName(t.accountName());
-                    a.setBalance(t.balance());
-                    a.setCurrency(t.currency());
-                    mapper.insertBankAccount(a);
+                List<BankTpl> tpls = BANK_TPL.get(companyCode);
+                if (tpls != null) {
+                    for (BankTpl t : tpls) {
+                        LinkedBankAccountInsert a = new LinkedBankAccountInsert();
+                        a.setUserId(userId);
+                        a.setInstitutionId(institutionId);
+                        a.setAccountType(t.accountType());
+                        a.setAccountName(t.accountName());
+                        a.setBalance(t.balance());
+                        a.setCurrency(t.currency());
+                        mapper.insertBankAccount(a);
+                    }
                 }
             }
             case "CARD" -> {
@@ -331,16 +329,20 @@ public class AssetLinkService {
                 }
             }
             case "POINT" -> {
-                PointTpl t = POINT_TPL.getOrDefault(companyCode, DEFAULT_POINT);
-                mapper.insertPoint(userId, institutionId, t.pointName(), t.balance());
-                enablePointCollection(userId, institutionId);
+                PointTpl t = POINT_TPL.get(companyCode);
+                if (t != null) {
+                    mapper.insertPoint(userId, institutionId, t.pointName(), t.balance());
+                    enablePointCollection(userId, institutionId);
+                }
             }
             case "SECURITIES" -> {
-                SecTpl t = SEC_TPL.getOrDefault(companyCode, DEFAULT_SEC);
-                mapper.insertSecurities(userId, institutionId, t.depositCash(), t.currency());
-                for (HoldingTpl h : t.holdings()) {
-                    mapper.insertHolding(userId, institutionId,
-                            h.stockCode(), h.stockName(), h.quantity(), h.evalAmount());
+                SecTpl t = SEC_TPL.get(companyCode);
+                if (t != null) {
+                    mapper.insertSecurities(userId, institutionId, t.depositCash(), t.currency());
+                    for (HoldingTpl h : t.holdings()) {
+                        mapper.insertHolding(userId, institutionId,
+                                h.stockCode(), h.stockName(), h.quantity(), h.evalAmount());
+                    }
                 }
             }
             default -> { /* 알 수 없는 카테고리: 커넥션만 두고 자산 미적재 */ }
