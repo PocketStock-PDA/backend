@@ -37,7 +37,7 @@
     "orderId": 1
   },
   "isRead": false,
-  "createdAt": "2025-06-15T10:30:05"
+  "createdAt": "2026-06-29T02:08:05"
   }
   ],
   "unreadCount": 3,
@@ -61,6 +61,7 @@
 - `occurredAt`: ISO-8601 UTC `Z`
 - `url`: `/portfolio/detail?stockCode={stockCode}&view=collect`
 - 금액/수량 숫자는 raw 값이며 포맷은 FE 담당
+- `settingId`: 종목별 자동모으기 설정 ID(`auto_invest_stocks.id`)
 
 ```json
 {
@@ -112,7 +113,9 @@
 
 ### 운영 푸시 검증용 샘플
 
-운영 서버의 `/api/notifications/test`는 요청 본문을 가공 없이 본인 WEB 구독으로 전송한다. `$API`, `$TOKEN`을 운영 값으로 준비한 뒤 한 줄씩 발송한다.
+운영 서버의 `/api/notifications/test`는 요청 본문을 가공 없이 본인 WEB 구독으로 전송한다.
+이 엔드포인트는 `webpush.test-endpoint.enabled=true`일 때만 활성화된다. 현재 운영 데모 프로파일에서는 검수용으로 활성화되어 있으며, 비활성 환경에서는 404가 반환된다.
+`$API`, `$TOKEN`을 운영 값으로 준비한 뒤 한 줄씩 발송한다.
 
 ```bash
 curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_EXECUTED","title":"자동모으기 접수","body":"삼성전자 10000원 자동모으기 접수되었어요","tag":"autoinvest-12-1","url":"/portfolio/detail?stockCode=005930&view=collect","occurredAt":"2026-06-29T02:08:00Z","data":{"trigger":"PERIODIC","side":"BUY","stockCode":"005930","stockName":"삼성전자","amount":10000,"quantity":null,"currency":"KRW","status":"ACCEPTED","settingId":12,"roundNo":1}}' | head -8

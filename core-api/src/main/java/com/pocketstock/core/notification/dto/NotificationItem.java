@@ -1,6 +1,7 @@
 package com.pocketstock.core.notification.dto;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
@@ -38,7 +39,10 @@ public record NotificationItem(
             return null;
         }
         try {
-            return objectMapper.readValue(dataJson, new TypeReference<Map<String, Object>>() {});
+            return objectMapper.reader()
+                    .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                    .forType(new TypeReference<Map<String, Object>>() {})
+                    .readValue(dataJson);
         } catch (Exception e) {
             return null;
         }

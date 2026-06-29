@@ -103,9 +103,10 @@ public class NotificationConsumer {
         String side = e.path("side").asText(null);
         String status = e.path("status").asText();
         String currency = e.path("currency").asText(null);
+        Long legacyAutoInvestStockId = refIdFromEventId(eventId, 2);   // autoinvest:exec:{autoInvestStockId}:{roundNo}
         Long settingId = e.path("settingId").isNumber()
                 ? e.path("settingId").asLong()
-                : refIdFromEventId(eventId, 2);   // autoinvest:exec:{stockId}:{roundNo}
+                : legacyAutoInvestStockId;   // legacy fallback: settingId == auto_invest_stocks.id
         Long parsedRoundNo = refIdFromEventId(eventId, 3);
         Integer roundNo = e.path("roundNo").isNumber()
                 ? e.path("roundNo").asInt()
