@@ -9,7 +9,10 @@ import java.math.BigDecimal;
 public record AutoInvestExecutedEvent(
         String eventId,
         Long userId,
+        Long settingId,
+        Integer roundNo,
         String stockCode,
+        String stockName,
         String trigger,       // PERIODIC | DIP_BUY | TAKE_PROFIT
         String side,          // BUY | SELL
         String status,        // ACCEPTED(접수·체결 대기) | QUEUED | FILLED | FAILED
@@ -17,7 +20,7 @@ public record AutoInvestExecutedEvent(
         BigDecimal quantity,  // 수량(없으면 null)
         String failReason,    // FAILED 사유(없으면 null)
         String currency,
-        String occurredAt     // ISO-8601 (KST)
+        String occurredAt     // ISO-8601 UTC (예: 2026-06-29T02:08:00Z)
 ) {
     public static final String TOPIC = "autoinvest.executed";
     public static final String AGGREGATE = "AUTO_INVEST";

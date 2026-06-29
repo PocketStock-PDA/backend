@@ -12,9 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 /**
  * 자동모으기 회차 로그(auto_invest_executions) 적재 공용 — 정기매수(스케줄러)·트리거(평가기)가 함께 쓴다.
@@ -31,7 +30,6 @@ public class AutoInvestExecutionRecorder {
     public static final String STATUS_FAILED = "FAILED";
     private static final String STATUS_ACCEPTED = "ACCEPTED";
     private static final int REASON_MAX = 50;
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final AutoInvestExecutionMapper executionMapper;
     private final OutboxEventPublisher outboxPublisher;
@@ -44,7 +42,7 @@ public class AutoInvestExecutionRecorder {
 
     /** 접수 성공 — 회차 로그 + 자동모으기 알림 이벤트(같은 커밋, #204). 소수부=QUEUED·온주즉시=FILLED. */
     @Transactional
-    public void recordAccepted(Long userId, Long stockId, String stockCode, int roundNo, LocalDate today,
+    public void recordAccepted(Long userId, Long stockId, String stockCode, String stockName, int roundNo, LocalDate today,
                                String triggerSource, String side, String currency, SplitOrderResponse resp) {
         String status = resp.fractionalOrderId() != null ? STATUS_QUEUED : STATUS_FILLED;
         BigDecimal qty = nz(resp.wholeQty() == null ? null : BigDecimal.valueOf(resp.wholeQty()))
@@ -55,29 +53,30 @@ public class AutoInvestExecutionRecorder {
                 .autoInvestStockId(stockId).roundNo(roundNo).triggerSource(triggerSource).side(side)
                 .execDate(today).status(status).orderId(orderId).execAmount(amount).execQuantity(qty)
                 .currency(currency).build());
-        publishEvent(userId, stockId, stockCode, roundNo, triggerSource, side,
+        publishEvent(userId, stockId, stockCode, stockName, roundNo, triggerSource, side,
                 STATUS_ACCEPTED, amount, qty, null, currency);
     }
 
     /** 접수 실패(잔액부족 등) — 회차 로그(FAILED) + 실패 알림 이벤트(같은 커밋). */
     @Transactional
-    public void recordFailed(Long userId, Long stockId, String stockCode, int roundNo, LocalDate today,
+    public void recordFailed(Long userId, Long stockId, String stockCode, String stockName, int roundNo, LocalDate today,
                              String triggerSource, String side, String currency, String reason) {
         String trimmed = reason == null ? "" : (reason.length() > REASON_MAX ? reason.substring(0, REASON_MAX) : reason);
         save(AutoInvestExecution.builder()
                 .autoInvestStockId(stockId).roundNo(roundNo).triggerSource(triggerSource).side(side)
                 .execDate(today).status(STATUS_FAILED).failReason(trimmed).currency(currency).build());
-        publishEvent(userId, stockId, stockCode, roundNo, triggerSource, side,
+        publishEvent(userId, stockId, stockCode, stockName, roundNo, triggerSource, side,
                 STATUS_FAILED, null, null, trimmed, currency);
     }
 
     /** 자동모으기 알림 이벤트 — outbox(autoinvest.executed). 회차당 1건(eventId=autoinvest:exec:{stockId}:{roundNo}). */
-    private void publishEvent(Long userId, Long stockId, String stockCode, int roundNo, String triggerSource,
+    private void publishEvent(Long userId, Long stockId, String stockCode, String stockName, int roundNo, String triggerSource,
                               String side, String status, BigDecimal amount, BigDecimal qty, String failReason,
                               String currency) {
         String eventId = "autoinvest:exec:" + stockId + ":" + roundNo;
-        AutoInvestExecutedEvent event = new AutoInvestExecutedEvent(eventId, userId, stockCode, triggerSource,
-                side, status, amount, qty, failReason, currency, LocalDateTime.now(KST).toString());
+        String displayName = (stockName == null || stockName.isBlank()) ? stockCode : stockName;
+        AutoInvestExecutedEvent event = new AutoInvestExecutedEvent(eventId, userId, stockId, roundNo, stockCode,
+                displayName, triggerSource, side, status, amount, qty, failReason, currency, Instant.now().toString());
         outboxPublisher.publish(AutoInvestExecutedEvent.TOPIC, eventId, AutoInvestExecutedEvent.AGGREGATE,
                 stockId, event);
     }

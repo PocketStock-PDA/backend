@@ -38,6 +38,7 @@ public class AutoInvestTrigger {
     // ---- 평가 join 전용(테이블 컬럼 아님) — auto_invest_stocks 조인 ----
     private Long userId;
     private String stockCode;
+    private String stockName;
     private String market;
     private Long accountId;
     private String currency;
