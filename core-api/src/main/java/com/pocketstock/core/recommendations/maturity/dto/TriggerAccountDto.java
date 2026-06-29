@@ -8,6 +8,7 @@ public record TriggerAccountDto(
         String accountName,
         LocalDate maturityDate,
         BigDecimal principalAmount,
+        BigDecimal maturityAmount,   // 총 수령액 = 원금 + 만기 이자(만기일에 입금 후 굴리기 집행)
         int daysUntilMaturity,
         BigDecimal interestRate,
         boolean reserved           // 이미 자금 굴리기로 예약(활성)한 계좌 — 선택 탭에선 숨기고 전환내역에만 노출

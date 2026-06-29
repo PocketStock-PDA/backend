@@ -27,4 +27,10 @@ public interface CalendarMapper {
 
     /** 지급일 DIVIDEND_PAY 일정(주당배당금 있는 종목만) — 배당 지급 엔진용. */
     List<DividendPayoutScheduleRow> findDividendPayouts(@Param("date") LocalDate date);
+
+    /**
+     * 배당락일 DIVIDEND_EX 중 주당배당금(amount)이 실린 일정 — 해외(US) 배당 지급 엔진용.
+     * 해외는 정확한 지급일이 없어 PAY 대신 EX에 주당배당금(원화 환산)을 싣는다. 국내 EX는 amount가 없어 제외된다.
+     */
+    List<DividendPayoutScheduleRow> findDividendExPayouts(@Param("date") LocalDate date);
 }

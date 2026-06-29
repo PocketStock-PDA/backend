@@ -31,6 +31,7 @@ public class DividendPayoutScheduler {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final String CURRENCY_KRW = "KRW";
+    private static final String CURRENCY_USD = "USD";
     private static final int FAIL_REASON_MAX = 100;
 
     private final CalendarFeignClient calendarFeignClient;
@@ -46,13 +47,24 @@ public class DividendPayoutScheduler {
             return;   // 비활성 색 — 활성 색이 집행.
         }
         LocalDate today = LocalDate.now(KST);
-        List<DividendPayoutScheduleView> schedules = calendarFeignClient.getDividendPayouts(today);
-        log.info("[배당지급] 집행 시작 — 지급 예정 {}종목 ({})", schedules.size(), today);
-        for (DividendPayoutScheduleView schedule : schedules) {
+        // 국내: DIVIDEND_PAY(지급일) 기준 — KRW 보유자에게 지급.
+        List<DividendPayoutScheduleView> domestic = calendarFeignClient.getDividendPayouts(today);
+        // 해외(US): 정확한 지급일이 없어 DIVIDEND_EX(배당락일)에 실린 주당배당금으로 지급 — USD 보유자에게.
+        List<DividendPayoutScheduleView> overseas = calendarFeignClient.getDividendExPayouts(today);
+        log.info("[배당지급] 집행 시작 — 국내 {}종목 / 해외 {}종목 ({})",
+                domestic.size(), overseas.size(), today);
+        for (DividendPayoutScheduleView schedule : domestic) {
             try {
-                payoutStock(schedule, today);
+                payoutStock(schedule, today, CURRENCY_KRW);
             } catch (Exception e) {
                 log.error("[배당지급] 종목 {} 지급 실패", schedule.stockCode(), e);
+            }
+        }
+        for (DividendPayoutScheduleView schedule : overseas) {
+            try {
+                payoutStock(schedule, today, CURRENCY_USD);
+            } catch (Exception e) {
+                log.error("[배당지급] 해외 종목 {} 지급 실패", schedule.stockCode(), e);
             }
         }
     }
@@ -65,11 +77,11 @@ public class DividendPayoutScheduler {
      * 기준일 후 매도자는 미지급, 이후 매수자는 오지급될 수 있다. 시뮬·데모 전제로 의식적 비채택 —
      * 정식 도입 시 (유저·종목·기준일·수량) 스냅샷을 DIVIDEND_EX일에 적재해 그걸 기준으로 지급해야 한다.
      */
-    private void payoutStock(DividendPayoutScheduleView schedule, LocalDate today) {
+    private void payoutStock(DividendPayoutScheduleView schedule, LocalDate today, String currency) {
         List<Holding> holders = holdingMapper.findHoldersByStock(schedule.stockCode());
         for (Holding holder : holders) {
-            if (!CURRENCY_KRW.equals(holder.getCurrency())) {
-                continue;   // 배당 지급은 국내(KRW)만 — 해외는 추후.
+            if (!currency.equals(holder.getCurrency())) {
+                continue;   // 통화 불일치 보유분은 이 경로에서 제외(국내=KRW·해외=USD 분리 집행).
             }
             try {
                 payoutOne(schedule, today, holder);

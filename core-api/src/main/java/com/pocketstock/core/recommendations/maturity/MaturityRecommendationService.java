@@ -39,6 +39,7 @@ public class MaturityRecommendationService {
                         a.getAccountName(),
                         a.getMaturityDate(),
                         a.getPrincipalAmount(),
+                        a.getMaturityAmount(),
                         a.getDaysUntilMaturity(),
                         toPct(a.getInterestRate()),
                         reserved.contains(a.getAccountId())))
@@ -101,6 +102,7 @@ public class MaturityRecommendationService {
                 account.getAccountName(),
                 account.getMaturityDate(),
                 account.getPrincipalAmount(),
+                account.getMaturityAmount(),
                 account.getDaysUntilMaturity(),
                 interestRatePct,
                 false   // 추천 진입 계좌는 미예약(예약된 계좌는 recommend 진입 시 CONFLICT로 차단)

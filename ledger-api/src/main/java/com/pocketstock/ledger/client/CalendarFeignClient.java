@@ -18,8 +18,13 @@ public interface CalendarFeignClient {
     @PostMapping("/internal/calendar/stock-events")
     void upsertStockEvents(@RequestBody List<StockEventUpsertRequest> events);
 
-    /** 지급일 배당 일정(주당배당금) — 배당 지급 엔진이 보유자와 조인. */
+    /** 지급일 배당 일정(주당배당금) — 배당 지급 엔진이 보유자와 조인. 국내(KRW). */
     @GetMapping("/internal/calendar/dividend-payouts")
     List<DividendPayoutScheduleView> getDividendPayouts(
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date);
+
+    /** 배당락일(EX) 기준 배당 일정 — 해외(US, 정확한 지급일 없어 EX에 주당배당금 적재). */
+    @GetMapping("/internal/calendar/dividend-ex-payouts")
+    List<DividendPayoutScheduleView> getDividendExPayouts(
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date);
 }

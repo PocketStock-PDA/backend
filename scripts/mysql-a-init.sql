@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS linked_bank_accounts (
   interest_rate DECIMAL(7,4) NULL,           -- 예적금만 (계약 약정 금리, 가입기간별 상이)
   start_date DATE NULL,                      -- 예적금만 (가입일)
   maturity_date DATE NULL,                   -- 예적금만 (만기일)
+  interest_credited_at DATETIME NULL,        -- 예적금만 (만기 자금 굴리기: 만기 이자 입금 시각 — 1회만, 멱등)
   is_dormant BOOLEAN DEFAULT FALSE,
   closed_at DATETIME NULL,                    -- 소프트 해지 시각 (NULL=미해지, #140 휴면계좌 해지). is_dormant는 이력으로 보존
   closed_amount DECIMAL(18,4) NULL,           -- 해지 시 CMA로 이체된 잔액 (감사 추적)
@@ -314,6 +315,39 @@ CREATE TABLE IF NOT EXISTS dividend_tag_criteria (
   tag_name VARCHAR(40) NOT NULL,
   condition_desc VARCHAR(200),
   UNIQUE KEY uq_dtc (tag_name)
+);
+
+-- 만기 굴리기 '예금 재예치'용 예적금 상품 카탈로그(추천 목록). dividend_stocks와 동일 컨벤션.
+CREATE TABLE IF NOT EXISTS deposit_products (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  product_name VARCHAR(100) NOT NULL,
+  product_type VARCHAR(20) NOT NULL,          -- 정기예금 / 정기적금
+  period_months INT NOT NULL,                 -- 가입기간(개월)
+  base_rate DECIMAL(5,2) NOT NULL,            -- 기본금리(%)
+  max_rate DECIMAL(5,2) NOT NULL,             -- 최고금리(우대 포함, %)
+  min_amount BIGINT NOT NULL DEFAULT 0,       -- 최소 가입금액(적금=월 납입한도 하한)
+  max_amount BIGINT NULL,                      -- 최대 한도 — 없으면 NULL
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_dp (product_name)
+);
+
+-- 만기 굴리기 '예금 재예치' 기록 — 전환내역에서 배당주 예약(ledger)과 계좌ID로 병합 표시.
+CREATE TABLE IF NOT EXISTS maturity_deposit_rollovers (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  linked_bank_account_id BIGINT NOT NULL,     -- 원천 만기 예적금(전환내역 그룹 키)
+  maturity_date DATE NULL,
+  product_name VARCHAR(100) NOT NULL,
+  product_type VARCHAR(20) NOT NULL,
+  amount BIGINT NOT NULL,
+  base_rate DECIMAL(5,2) NOT NULL,
+  max_rate DECIMAL(5,2) NOT NULL,
+  period_months INT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'RESERVED',   -- RESERVED(만기일 집행 대기) / EXECUTED / FAILED. 재예치는 집행 없이 RESERVED 유지
+  executed_at DATETIME NULL,                         -- CMA 이체 만기일 집행 시각
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_mdr_user (user_id)
 );
 
 CREATE TABLE IF NOT EXISTS calendar_recommendations (
