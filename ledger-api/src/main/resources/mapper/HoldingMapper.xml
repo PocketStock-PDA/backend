@@ -81,6 +81,13 @@
         WHERE account_id = #{accountId} AND stock_code = #{stockCode}
     </select>
 
+    <!-- 퍼즐 완성 판정용 fractional_qty 단순 조회. 보유행 없으면 NULL. -->
+    <select id="findFractionalQtyByAccount" resultType="java.math.BigDecimal">
+        SELECT fractional_qty
+        FROM holdings
+        WHERE account_id = #{accountId} AND stock_code = #{stockCode}
+    </select>
+
     <!-- 소수점 매도 hold: held_fractional += qty, 소수 매도가능(fractional_qty − held_fractional) ≥ qty 가드.
          온주→소수 분할 금지(FRAC-010) — 소수부를 초과하는 소수 매도를 0행으로 차단. -->
     <update id="reserveFractionalForSell">

@@ -20,6 +20,9 @@ public enum NotificationType {
     AUTO_INVEST_FAILED {     // 자동매매 실패
         @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyUnfilled(); }
     },
+    PUZZLE_COMPLETE {  // 퍼즐 100조각 달성 → 온주 전환 안내
+        @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyTrade(); }
+    },
     GOAL_NUDGE {     // 목표 알림
         @Override public boolean enabledFor(NotificationSettingRow s) { return s.isNotifyGoal(); }
     },
