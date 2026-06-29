@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -206,13 +207,19 @@ public class CmaCollectService {
     public CollectResult collectFromFx(Long userId, String idempotencyKey) {
         CmaAccount account = getAccountOrThrow(userId);
 
+        // FX 수집설정으로 끈(is_enabled=FALSE) 지갑은 수집에서 제외(기본은 설정 없음=ON) — 홈 표시(calcFxSources)와 동일 기준.
+        Set<Long> disabled = settingMapper.findByUserId(userId).stream()
+                .filter(s -> SRC_FX.equals(s.getSourceType()) && Boolean.FALSE.equals(s.getIsEnabled()))
+                .map(CollectionSetting::getSourceRefId)
+                .collect(Collectors.toSet());
+
         // 적립액(amount)과 차감액(deductions)이 일치하도록, 잔액 있는(>0) 지갑만 양쪽·ref_id 후보에 함께 반영한다.
         BigDecimal amount = BigDecimal.ZERO;
         List<Long> walletIds = new ArrayList<>();
         List<SourceDeduction> deductions = new ArrayList<>();
         for (UsdWalletSummary wallet : assetFeignClient.getUsdWallets(userId)) {
             BigDecimal balance = wallet.balance();
-            if (balance != null && balance.signum() > 0) {
+            if (balance != null && balance.signum() > 0 && !disabled.contains(wallet.id())) {
                 amount = amount.add(balance);
                 walletIds.add(wallet.id());
                 deductions.add(new SourceDeduction(wallet.id(), balance));

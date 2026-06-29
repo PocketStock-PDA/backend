@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -92,7 +93,7 @@ public class CmaQueryService {
         // 끝전(ACCOUNT)은 원화 전용 개념이라 외화는 끼지 않고, 외화 입출금 지갑은 전부 FX로 노출한다.
         BigDecimal accountAmount = calcAccountAmount(userId, settings);
         PointBreakdown points    = calcPointBreakdown(userId, settings);   // 신한 / 제휴 분리
-        List<CmaHomeResponse.CollectSource> fxSources = calcFxSources(userId);
+        List<CmaHomeResponse.CollectSource> fxSources = calcFxSources(userId, settings);
 
         BigDecimal pointAmount = points.shinhan().add(points.affiliate());
         BigDecimal totalCollectable = accountAmount.add(pointAmount);   // KRW 소스 합
@@ -234,12 +235,23 @@ public class CmaQueryService {
      * 줄 이름은 실제 계좌명(account_name)을 쓰고, 금액은 그 계좌의 USD 잔액이다(currency=USD).
      * 현재 모집단은 SOL트래블 외화예금 한 계좌. 다은행 외화지갑 분리 표시는 후속(고도화).
      */
-    private List<CmaHomeResponse.CollectSource> calcFxSources(Long userId) {
+    private List<CmaHomeResponse.CollectSource> calcFxSources(Long userId, List<CollectionSetting> settings) {
         // 실제 수집(collectFromFx)과 동일하게 잔액 있는(>0) 지갑만 노출 — 빈 지갑이 "수집 가능"에 뜨지 않게 한다.
+        // FX 수집설정으로 끈(is_enabled=FALSE) 지갑은 제외(기본은 설정 없음=ON). 토글은 collection_settings(FX)로 관리.
+        Set<Long> disabled = disabledFxWalletIds(settings);
         return assetFeignClient.getUsdWallets(userId).stream()
                 .filter(w -> w.balance() != null && w.balance().signum() > 0)
+                .filter(w -> !disabled.contains(w.id()))
                 .map(w -> new CmaHomeResponse.CollectSource("FX", w.accountName(), w.balance(), USD))
                 .toList();
+    }
+
+    /** FX 수집을 명시적으로 끈(is_enabled=FALSE) USD 지갑 id 집합. 설정이 없으면 기본 ON이라 비어 있다. */
+    private Set<Long> disabledFxWalletIds(List<CollectionSetting> settings) {
+        return settings.stream()
+                .filter(s -> "FX".equals(s.getSourceType()) && Boolean.FALSE.equals(s.getIsEnabled()))
+                .map(CollectionSetting::getSourceRefId)
+                .collect(Collectors.toSet());
     }
 
     /**
