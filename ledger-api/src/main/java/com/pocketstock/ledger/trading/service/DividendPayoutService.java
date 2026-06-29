@@ -1,11 +1,15 @@
 package com.pocketstock.ledger.trading.service;
 
+import com.pocketstock.ledger.exchange.CurrencyRateProvider;
+import com.pocketstock.ledger.exchange.ExchangeRatePolicy;
 import com.pocketstock.ledger.trading.domain.DividendPayout;
 import com.pocketstock.ledger.trading.domain.Holding;
+import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.dto.DividendPayoutResponse;
 import com.pocketstock.ledger.trading.dto.FractionalOrderRequest;
 import com.pocketstock.ledger.trading.dto.SplitOrderResponse;
 import com.pocketstock.ledger.trading.mapper.DividendPayoutMapper;
+import com.pocketstock.ledger.trading.mapper.StockMapper;
 import com.pocketstock.ledger.trading.port.CmaPoolPort;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
@@ -18,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 배당 지급 엔진 — 보유자별로 {@code 보유수량 × 주당배당금}을 CMA 원화풀에 입금하고(항상), DRIP ON이면 재투자한다.
@@ -35,12 +40,21 @@ public class DividendPayoutService {
     private static final String SOURCE_DRIP = "DRIP";
     private static final String SIDE_BUY = "BUY";
     private static final String ORDER_TYPE_AMOUNT = "AMOUNT";
+    private static final String CURRENCY_USD = "USD";
     /** 소수점 금액매수 최소(국내). 소액 배당은 CMA 잔돈으로 여기까지 채워 재매수. */
     private static final BigDecimal MIN_ORDER_KRW = BigDecimal.valueOf(1000);
+    /** 해외 소수점 매수 최소 주문(USD) — FractionalOrderService와 동일. */
+    private static final BigDecimal MIN_ORDER_USD = BigDecimal.ONE;
+    /** USD 금액 소수 2자리(센트), 고객 불리 방향 절사 — 만기예약 환산과 공통. */
+    private static final int USD_SCALE = 2;
+    private static final Set<String> OVERSEAS_EXCHANGES = Set.of("NASDAQ", "NYSE", "AMEX");
 
     private final DividendPayoutMapper payoutMapper;
     private final CmaPoolPort cmaPoolPort;
     private final FractionalOrderService fractionalOrderService;
+    private final StockMapper stockMapper;
+    private final CurrencyRateProvider currencyRateProvider;
+    private final ExchangeRatePolicy ratePolicy;
 
     /**
      * 보유자 1명 배당 지급 — 지급액 계산 → 지급 로그(PAID) → CMA 원화풀 입금. 한 트랜잭션.
@@ -76,18 +90,39 @@ public class DividendPayoutService {
     }
 
     /**
-     * 배당 재투자 — 받은 배당으로 같은 종목 소수점 매수 후 REINVESTED 마킹. 한 트랜잭션(매수+마킹).
-     * 매수금액 = {@code max(배당금, 1,000원)} — 소액은 CMA 잔돈(+자동충전)으로 부족분 충당. 실패는 호출자가 잡아 FAILED 마킹.
+     * 배당 재투자 — 받은 배당(KRW)으로 같은 종목 소수점 매수 후 REINVESTED 마킹. 한 트랜잭션(매수+마킹).
+     *
+     * <p>국내: 매수금액 = {@code max(배당금, 1,000원)}, 원화 그대로 주문. 해외(US): 배당금(원화)을 매수환율로
+     * USD 환산해 USD 주문 — 매수 충당 체인의 자동환전(KRW→USD)이 달러풀을 채운다(만기예약 집행과 동형).
+     * 소액은 CMA 잔돈(+자동충전)으로 최소주문(국내 1,000원·해외 $1)까지 채워 재매수. 실패는 호출자가 FAILED 마킹.
      */
     @Transactional
     public void reinvest(DividendPayout payout) {
-        BigDecimal reinvestAmount = payout.getGrossAmount().max(MIN_ORDER_KRW);
+        TradableStock stock = stockMapper.findByCode(payout.getStockCode());
+        boolean overseas = stock != null && OVERSEAS_EXCHANGES.contains(stock.getExchange());
+
+        BigDecimal reinvestKrw;   // 히스토리에 남길 원화 재투자액
+        BigDecimal orderAmount;   // 주문 통화 금액(국내 KRW·해외 USD)
+        if (overseas) {
+            BigDecimal mid = currencyRateProvider.current().exchangeRate();
+            BigDecimal buyRate = ratePolicy.buyRate(CURRENCY_USD, mid);
+            BigDecimal minKrw = buyRate.setScale(0, RoundingMode.CEILING);   // ≈ $1어치
+            reinvestKrw = payout.getGrossAmount().max(minKrw);
+            orderAmount = reinvestKrw.divide(buyRate, USD_SCALE, RoundingMode.DOWN);
+            if (orderAmount.compareTo(MIN_ORDER_USD) < 0) {
+                orderAmount = MIN_ORDER_USD;
+            }
+        } else {
+            reinvestKrw = payout.getGrossAmount().max(MIN_ORDER_KRW);
+            orderAmount = reinvestKrw;
+        }
+
         FractionalOrderRequest req = new FractionalOrderRequest(
                 SOURCE_DRIP + "_" + payout.getId(), payout.getStockCode(), SIDE_BUY,
-                ORDER_TYPE_AMOUNT, reinvestAmount, null);
+                ORDER_TYPE_AMOUNT, orderAmount, null);
         SplitOrderResponse resp = fractionalOrderService.place(payout.getUserId(), req, SOURCE_DRIP);
         Long orderId = resp.wholeOrderId() != null ? resp.wholeOrderId() : resp.fractionalOrderId();
-        payoutMapper.markReinvested(payout.getId(), orderId, reinvestAmount);
+        payoutMapper.markReinvested(payout.getId(), orderId, reinvestKrw);
     }
 
     /** 재투자 실패 마킹 — 매수 트랜잭션이 롤백된 뒤 별도 tx로 사유 기록(배당금은 CMA 현금 잔류). */

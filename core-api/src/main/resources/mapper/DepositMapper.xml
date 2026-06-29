@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pocketstock.core.recommendations.deposit.mapper.DepositMapper">
+
+    <select id="findActiveProducts"
+            resultType="com.pocketstock.core.recommendations.deposit.dto.DepositProductDto">
+        SELECT id,
+               product_name  AS productName,
+               product_type  AS productType,
+               period_months AS periodMonths,
+               base_rate     AS baseRate,
+               max_rate      AS maxRate,
+               min_amount    AS minAmount,
+               max_amount    AS maxAmount
+        FROM deposit_products
+        WHERE is_active = TRUE
+        ORDER BY max_rate DESC, base_rate DESC
+    </select>
+
+    <select id="findProductById"
+            resultType="com.pocketstock.core.recommendations.deposit.dto.DepositProductDto">
+        SELECT id,
+               product_name  AS productName,
+               product_type  AS productType,
+               period_months AS periodMonths,
+               base_rate     AS baseRate,
+               max_rate      AS maxRate,
+               min_amount    AS minAmount,
+               max_amount    AS maxAmount
+        FROM deposit_products
+        WHERE id = #{id}
+    </select>
+
+    <select id="countAccount" resultType="int">
+        SELECT COUNT(*)
+        FROM linked_bank_accounts
+        WHERE id = #{accountId} AND user_id = #{userId}
+    </select>
+
+    <select id="findRolloverSource"
+            resultType="com.pocketstock.core.recommendations.deposit.dto.RolloverSourceAccount">
+        SELECT account_name  AS accountName,
+               account_type  AS accountType,
+               interest_rate AS interestRate,
+               start_date    AS startDate,
+               maturity_date AS maturityDate
+        FROM linked_bank_accounts
+        WHERE id = #{accountId} AND user_id = #{userId}
+    </select>
+
+    <select id="countActiveRolloversByAccount" resultType="int">
+        SELECT COUNT(*)
+        FROM maturity_deposit_rollovers
+        WHERE user_id = #{userId}
+          AND linked_bank_account_id = #{accountId}
+          AND status = 'RESERVED'
+    </select>
+
+    <!-- 만기 이자 입금(멱등): 잔액 += 단리 이자(원금 × 약정금리 × 가입개월/12, 반올림), interest_credited_at 기록.
+         interest_credited_at IS NULL 가드로 1회만 — 재시도/멀티인스턴스 중복 입금 차단. 집행(차감) 전에 호출돼야 함. -->
+    <update id="creditMaturityInterestOnce">
+        UPDATE linked_bank_accounts
+        SET balance = balance + CASE
+                WHEN account_type = 'SAVINGS'
+                THEN ROUND(balance * interest_rate
+                           * (GREATEST(COALESCE(TIMESTAMPDIFF(MONTH, start_date, maturity_date), 12), 1) + 1) / 24)
+                ELSE ROUND(balance * interest_rate
+                           * GREATEST(COALESCE(TIMESTAMPDIFF(MONTH, start_date, maturity_date), 12), 1) / 12)
+            END,
+            interest_credited_at = NOW()
+        WHERE id = #{accountId}
+          AND user_id = #{userId}
+          AND account_type IN ('DEPOSIT', 'SAVINGS')
+          AND interest_rate IS NOT NULL
+          AND maturity_date IS NOT NULL
+          AND interest_credited_at IS NULL
+    </update>
+
+    <insert id="insertRollover">
+        INSERT INTO maturity_deposit_rollovers
+            (user_id, linked_bank_account_id, maturity_date, product_name, product_type,
+             amount, base_rate, max_rate, period_months)
+        VALUES
+            (#{userId}, #{linkedBankAccountId}, #{maturityDate}, #{productName}, #{productType},
+             #{amount}, #{baseRate}, #{maxRate}, #{periodMonths})
+    </insert>
+
+    <select id="findRolloversByUser"
+            resultType="com.pocketstock.core.recommendations.deposit.dto.DepositRolloverDto">
+        SELECT id,
+               linked_bank_account_id AS linkedBankAccountId,
+               maturity_date          AS maturityDate,
+               product_name           AS productName,
+               product_type           AS productType,
+               amount,
+               base_rate              AS baseRate,
+               max_rate               AS maxRate,
+               period_months          AS periodMonths,
+               created_at             AS createdAt
+        FROM maturity_deposit_rollovers
+        WHERE user_id = #{userId}
+        ORDER BY id DESC
+    </select>
+
+    <select id="findDueCmaTransfers"
+            resultType="com.pocketstock.core.recommendations.deposit.dto.DueCmaTransfer">
+        SELECT id,
+               user_id                AS userId,
+               linked_bank_account_id AS linkedBankAccountId,
+               amount
+        FROM maturity_deposit_rollovers
+        WHERE product_type = 'CMA'
+          AND status = 'RESERVED'
+          AND maturity_date IS NOT NULL
+          AND maturity_date &lt;= #{date}
+        ORDER BY id ASC
+    </select>
+
+    <update id="updateRolloverStatus">
+        UPDATE maturity_deposit_rollovers
+        SET status = #{status},
+            executed_at = CASE WHEN #{status} = 'EXECUTED' THEN CURRENT_TIMESTAMP ELSE executed_at END
+        WHERE id = #{id} AND status = 'RESERVED'
+    </update>
+
+</mapper>

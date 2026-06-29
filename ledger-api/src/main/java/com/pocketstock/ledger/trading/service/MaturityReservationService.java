@@ -85,11 +85,13 @@ public class MaturityReservationService {
         }
         LinkedAccountSummary account = resolveMaturityAccount(userId, accountId);
 
-        // 원금(현재 잔액)이 매수금액을 못 덮으면 거부 — 만기 시 잔액부족으로 집행 실패할 예약을 미리 차단.
-        if (account.balance() == null || account.balance().compareTo(buyAmount) < 0) {
+        // 만기 시 입금될 총 수령액(원금+이자)이 매수금액을 못 덮으면 거부 — 집행 시 잔액부족으로 실패할 예약을 미리 차단.
+        // 이자는 만기일에 입금된 뒤 집행되므로 한도는 원금이 아니라 총 수령액. (이전 데이터 호환: maturityAmount 없으면 원금)
+        BigDecimal available = account.maturityAmount() != null ? account.maturityAmount() : account.balance();
+        if (available == null || available.compareTo(buyAmount) < 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT,
-                    "매수금액이 예적금 원금을 초과합니다. (원금 "
-                            + (account.balance() == null ? BigDecimal.ZERO : account.balance())
+                    "매수금액이 예적금 만기 수령액을 초과합니다. (총 수령액 "
+                            + (available == null ? BigDecimal.ZERO : available)
                             + ", 매수 " + buyAmount + ")");
         }
 

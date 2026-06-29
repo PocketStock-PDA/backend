@@ -42,4 +42,14 @@ public class InternalCalendarController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return calendarMapper.findDividendPayouts(date);
     }
+
+    /**
+     * 배당락일(DIVIDEND_EX) 기준 배당 일정 — 해외(US)용. 해외는 정확한 지급일이 없어 EX에 주당배당금을 싣는다.
+     * ledger 배당 지급 엔진이 EX일에 해외 보유자에게 지급·재투자한다.
+     */
+    @GetMapping("/dividend-ex-payouts")
+    public List<DividendPayoutScheduleRow> getDividendExPayouts(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return calendarMapper.findDividendExPayouts(date);
+    }
 }

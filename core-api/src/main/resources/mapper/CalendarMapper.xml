@@ -43,4 +43,15 @@
           AND amount &gt; 0
     </select>
 
+    <select id="findDividendExPayouts"
+            resultType="com.pocketstock.core.internal.calendar.dto.DividendPayoutScheduleRow">
+        SELECT stock_code AS stockCode,
+               amount     AS perShare
+        FROM stock_events
+        WHERE event_type = 'DIVIDEND_EX'
+          AND event_date = #{date}
+          AND amount IS NOT NULL
+          AND amount &gt; 0
+    </select>
+
 </mapper>

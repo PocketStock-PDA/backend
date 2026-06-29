@@ -4,12 +4,26 @@
 
 <mapper namespace="com.pocketstock.core.recommendations.maturity.mapper.MaturityRecommendationMapper">
 
+    <!-- 총 수령액 = 원금 + 만기 단리 이자(원 단위 반올림). 가입일 없으면 12개월 가정.
+         예금(DEPOSIT): 원금 전액이 만기까지 예치 → 원금 × 이율 × 개월/12.
+         적금(SAVINGS): 매달 납입 → 각 회차가 남은 기간만큼만 이자 → 원금 × 이율 × (개월+1)/24. -->
+    <sql id="maturityAmountExpr">
+        balance + CASE
+            WHEN account_type = 'SAVINGS'
+            THEN ROUND(balance * interest_rate
+                       * (GREATEST(COALESCE(TIMESTAMPDIFF(MONTH, start_date, maturity_date), 12), 1) + 1) / 24)
+            ELSE ROUND(balance * interest_rate
+                       * GREATEST(COALESCE(TIMESTAMPDIFF(MONTH, start_date, maturity_date), 12), 1) / 12)
+        END
+    </sql>
+
     <select id="findUpcomingMaturityAccount"
             resultType="com.pocketstock.core.recommendations.maturity.dto.TriggerAccountRow">
         SELECT id                  AS accountId,
                account_name        AS accountName,
                maturity_date       AS maturityDate,
                balance             AS principalAmount,
+               <include refid="maturityAmountExpr"/> AS maturityAmount,
                interest_rate       AS interestRate,
                DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
         FROM linked_bank_accounts
@@ -29,6 +43,7 @@
                account_name        AS accountName,
                maturity_date       AS maturityDate,
                balance             AS principalAmount,
+               <include refid="maturityAmountExpr"/> AS maturityAmount,
                interest_rate       AS interestRate,
                DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
         FROM linked_bank_accounts
@@ -47,6 +62,7 @@
                account_name        AS accountName,
                maturity_date       AS maturityDate,
                balance             AS principalAmount,
+               <include refid="maturityAmountExpr"/> AS maturityAmount,
                interest_rate       AS interestRate,
                DATEDIFF(maturity_date, CURDATE()) AS daysUntilMaturity
         FROM linked_bank_accounts

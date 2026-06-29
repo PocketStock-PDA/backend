@@ -5,7 +5,17 @@
 
     <select id="findLinkedAccountsByUserAndIds"
             resultType="com.pocketstock.core.internal.asset.dto.LinkedAccountSummary">
-        SELECT id, account_type, balance, currency, maturity_date
+        <!-- maturityAmount = 원금 + 만기 단리 이자(예적금만; 그 외 = balance). 만기 굴리기 집행 한도 검증용.
+             적금(SAVINGS)은 매달 납입이라 (개월+1)/24, 예금(DEPOSIT)은 개월/12. -->
+        SELECT id, account_type, balance, currency, maturity_date,
+               balance + CASE
+                   WHEN interest_rate IS NULL OR maturity_date IS NULL THEN 0
+                   WHEN account_type = 'SAVINGS'
+                   THEN ROUND(balance * interest_rate
+                              * (GREATEST(COALESCE(TIMESTAMPDIFF(MONTH, start_date, maturity_date), 12), 1) + 1) / 24)
+                   ELSE ROUND(balance * interest_rate
+                              * GREATEST(COALESCE(TIMESTAMPDIFF(MONTH, start_date, maturity_date), 12), 1) / 12)
+                   END AS maturityAmount
         FROM linked_bank_accounts
         WHERE user_id = #{userId}
           AND closed_at IS NULL

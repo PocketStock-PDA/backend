@@ -11,6 +11,7 @@ public class TriggerAccountRow {
     private String accountName;
     private LocalDate maturityDate;
     private BigDecimal principalAmount;
+    private BigDecimal maturityAmount;   // 총 수령액 = 원금 + 만기 이자
     private BigDecimal interestRate;
     private int daysUntilMaturity;
 }

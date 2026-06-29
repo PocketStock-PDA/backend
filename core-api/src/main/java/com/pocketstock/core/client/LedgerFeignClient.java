@@ -55,6 +55,10 @@ public interface LedgerFeignClient {
     @GetMapping("/internal/trading/puzzle-valuation")
     java.math.BigDecimal getPuzzleValuation(@RequestParam("userId") Long userId);
 
+    /** 만기 굴리기: 활성 예약(RESERVED·EXECUTED) 계좌 id — 후보 목록에서 제외용. */
+    @GetMapping("/internal/maturity/reserved-account-ids")
+    List<Long> getReservedMaturityAccountIds(@RequestParam("userId") Long userId);
+
     /** 적립 소스타입 활성 일괄 변경 — 마이페이지 카드 잔돈 모으기 마스터 토글(sourceType=CARD)용. */
     @PutMapping("/internal/cma/collection-settings/enabled")
     void updateCollectionEnabled(

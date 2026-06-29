@@ -17,6 +17,7 @@ services:
       - ./scripts/stock-master/cards_seed.sql:/docker-entrypoint-initdb.d/02-cards-seed.sql
       - ./scripts/stock-master/card_benefits_seed.sql:/docker-entrypoint-initdb.d/02a-card-benefits-seed.sql
       - ./scripts/stock-master/dividend_stocks_seed.sql:/docker-entrypoint-initdb.d/02b-dividend-seed.sql
+      - ./scripts/stock-master/deposit_products_seed.sql:/docker-entrypoint-initdb.d/02c-deposit-products-seed.sql
       - ./scripts/mysql-a-persona-seed.sql:/docker-entrypoint-initdb.d/03-persona-seed.sql
       - ./scripts/mysql-a-persona-seed-extra.sql:/docker-entrypoint-initdb.d/04-persona-extra.sql
       - ./scripts/mysql-a-persona-seed-suhyun.sql:/docker-entrypoint-initdb.d/05-persona-suhyun.sql

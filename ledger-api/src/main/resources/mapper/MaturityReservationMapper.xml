@@ -98,4 +98,11 @@
         WHERE id = #{id} AND status = 'RESERVED'
     </update>
 
+    <select id="findActiveReservedAccountIds" resultType="java.lang.Long">
+        SELECT DISTINCT linked_bank_account_id
+        FROM maturity_buy_reservations
+        WHERE user_id = #{userId}
+          AND status IN ('RESERVED', 'EXECUTED')
+    </select>
+
 </mapper>

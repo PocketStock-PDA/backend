@@ -43,4 +43,10 @@ public interface MaturityReservationMapper {
                      @Param("status") String status,
                      @Param("orderId") Long orderId,
                      @Param("failReason") String failReason);
+
+    /**
+     * 활성 예약(RESERVED·EXECUTED) 계좌 id 집합 — 만기 굴리기 후보 제외용(core가 Feign 조회).
+     * 취소·실패(CANCELLED/FAILED)는 다시 굴릴 수 있어 제외하지 않는다.
+     */
+    List<Long> findActiveReservedAccountIds(@Param("userId") Long userId);
 }
