@@ -10,6 +10,7 @@ public record OrderFilledEvent(
         String eventId,
         Long userId,
         String stockCode,
+        String stockName,    // 종목명 — core가 종목 마스터(DB B) 조회 불가라 이벤트에 동봉(푸시 표시용)
         String side,         // BUY | SELL
         String fillType,     // FRACTIONAL(소수점 배치) | LIMIT(온주 지정가)
         String status,       // FILLED | REJECTED

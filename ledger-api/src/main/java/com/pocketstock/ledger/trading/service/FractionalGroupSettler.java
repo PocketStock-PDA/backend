@@ -193,8 +193,8 @@ public class FractionalGroupSettler {
                 String eventId = "order:" + o.getId() + ":filled";
                 String filledAt = LocalDateTime.now(KST).toString();
                 outboxPublisher.publish(OrderFilledEvent.TOPIC, eventId, OrderFilledEvent.AGGREGATE, o.getId(),
-                        new OrderFilledEvent(eventId, o.getUserId(), stockCode, o.getSide(), "FRACTIONAL", "FILLED",
-                                f.qty(), fillPrice, gross, currency, filledAt));
+                        new OrderFilledEvent(eventId, o.getUserId(), stockCode, stockNameOf(stockCode), o.getSide(),
+                                "FRACTIONAL", "FILLED", f.qty(), fillPrice, gross, currency, filledAt));
                 // 실시간 체결통보(#139) — WS 즉시 화면 반영(비영속).
                 orderNotificationPublisher.push(o.getUserId(), new OrderNotification(o.getId(), stockCode,
                         o.getSide(), "FRACTIONAL", "FILLED", f.qty(), fillPrice, currency, filledAt));
@@ -272,8 +272,8 @@ public class FractionalGroupSettler {
         String eventId = "order:" + o.getId() + ":rejected";
         String now = LocalDateTime.now(KST).toString();
         outboxPublisher.publish(OrderFilledEvent.TOPIC, eventId, OrderFilledEvent.AGGREGATE, o.getId(),
-                new OrderFilledEvent(eventId, o.getUserId(), o.getStockCode(), o.getSide(), "FRACTIONAL",
-                        "REJECTED", o.getOrderQuantity(), null, null, o.getCurrency(), now));
+                new OrderFilledEvent(eventId, o.getUserId(), o.getStockCode(), stockNameOf(o.getStockCode()),
+                        o.getSide(), "FRACTIONAL", "REJECTED", o.getOrderQuantity(), null, null, o.getCurrency(), now));
         orderNotificationPublisher.push(o.getUserId(), new OrderNotification(o.getId(), o.getStockCode(),
                 o.getSide(), "FRACTIONAL", "REJECTED", o.getOrderQuantity(), null, o.getCurrency(), now));
     }
@@ -296,6 +296,12 @@ public class FractionalGroupSettler {
      * 국내 금액매수=현재가+5틱(KRX 호가단위) / 국내 그 외=실행시점 시장가. 시세 없으면 502 → 그룹 거부.
      * 해외엔 DOMESTIC_TICK이 들어오지 않는다(가격모델 게이트, FractionalBatchService).
      */
+    /** 푸시 표시용 종목명(#204) — 마스터 없으면 코드로 폴백(알림은 정상 발송). */
+    private String stockNameOf(String stockCode) {
+        TradableStock stock = stockMapper.findByCode(stockCode);
+        return stock != null && stock.getStockName() != null ? stock.getStockName() : stockCode;
+    }
+
     private BigDecimal resolveFillPrice(String stockCode, boolean overseas, boolean buy, String pricingMethod) {
         if (overseas) {
             TradableStock stock = stockMapper.findByCode(stockCode);

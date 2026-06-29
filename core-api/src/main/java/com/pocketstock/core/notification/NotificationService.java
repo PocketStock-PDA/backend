@@ -12,6 +12,7 @@ import com.pocketstock.core.notification.dto.NotificationSettingsResponse;
 import com.pocketstock.core.notification.dto.PushTokenRequest;
 import com.pocketstock.core.notification.mapper.NotificationMapper;
 import com.pocketstock.core.notification.mapper.NotificationSettingMapper;
+import com.pocketstock.core.notification.push.PushPayload;
 import com.pocketstock.core.notification.push.PushResult;
 import com.pocketstock.core.notification.push.PushSender;
 import lombok.RequiredArgsConstructor;
@@ -47,20 +48,29 @@ public class NotificationService {
      */
     public void create(Long userId, NotificationType type, String title, String body,
                        String refType, Long refId) {
+        create(userId, type, title, body, refType, refId, null);
+    }
+
+    /**
+     * 구조화 푸시(#204) — 체결 등 FE가 화면 렌더에 쓸 {@code data}를 동반 발송한다.
+     * {@code push}=null이면 title/body 폴백으로 발송한다. 알림함 INSERT는 동일.
+     */
+    public void create(Long userId, NotificationType type, String title, String body,
+                       String refType, Long refId, PushPayload push) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    doCreate(userId, type, title, body, refType, refId);
+                    doCreate(userId, type, title, body, refType, refId, push);
                 }
             });
         } else {
-            doCreate(userId, type, title, body, refType, refId);
+            doCreate(userId, type, title, body, refType, refId, push);
         }
     }
 
     private void doCreate(Long userId, NotificationType type, String title, String body,
-                          String refType, Long refId) {
+                          String refType, Long refId, PushPayload push) {
         notificationMapper.insert(userId, type.name(), title, body, refType, refId);   // 1) 알림함 기록
 
         NotificationSettingRow setting = notificationSettingMapper.findByUserId(userId);
@@ -71,7 +81,19 @@ public class NotificationService {
         if (token == null || token.isBlank()) return;      // 미구독
         if (!"WEB".equalsIgnoreCase(setting.getPlatform())) return;  // 현재 WEB(VAPID)만 발송
 
-        PushResult result = pushSender.send(token, title, body);     // 2) 발송
+        // 구조화 push 없으면 title/body 폴백 payload 생성.
+        PushPayload payload = push != null ? push : PushPayload.basic(type.name(), title, body);
+
+        // #0 진단 로깅 — 실제 발송 payload 확인용("from PocketStock" 출처 규명).
+        // 1원 인증(ACCOUNT_VERIFY)은 코드가 본문에 있어 마스킹(로그 미기록 규칙).
+        if (type == NotificationType.ACCOUNT_VERIFY) {
+            log.info("[웹푸시 payload] userId={} type={} body=(마스킹: 인증코드)", userId, type);
+        } else {
+            log.info("[웹푸시 payload] userId={} type={} title={} body={} tag={} data={}",
+                    userId, type, payload.title(), payload.body(), payload.tag(), payload.data());
+        }
+
+        PushResult result = pushSender.send(token, payload);         // 2) 발송
         if (result == PushResult.EXPIRED) {
             try {
                 notificationSettingMapper.clearToken(userId);        // 만료 구독 정리 — best-effort

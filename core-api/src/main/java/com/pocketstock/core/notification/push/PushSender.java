@@ -6,8 +6,14 @@ package com.pocketstock.core.notification.push;
 public interface PushSender {
 
     /**
+     * 구조화 발송(#204) — title/body 폴백 + data envelope.
      * @param subscriptionJson notification_settings.push_token에 저장된 구독 JSON
      *                         ({"endpoint":..., "keys":{"p256dh":..., "auth":...}})
      */
-    PushResult send(String subscriptionJson, String title, String body);
+    PushResult send(String subscriptionJson, PushPayload payload);
+
+    /** 폴백 — 보안 1회성 알림(잠금 해제 등)처럼 구조화가 불필요한 경로용. */
+    default PushResult send(String subscriptionJson, String title, String body) {
+        return send(subscriptionJson, PushPayload.basic(null, title, body));
+    }
 }
