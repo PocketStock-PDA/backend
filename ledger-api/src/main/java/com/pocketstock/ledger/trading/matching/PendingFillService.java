@@ -8,8 +8,10 @@ import com.pocketstock.ledger.outbox.event.OrderFilledEvent;
 import com.pocketstock.ledger.trading.realtime.OrderNotification;
 import com.pocketstock.ledger.trading.realtime.OrderNotificationPublisher;
 import com.pocketstock.ledger.trading.domain.OrderStatus;
+import com.pocketstock.ledger.trading.domain.TradableStock;
 import com.pocketstock.ledger.trading.mapper.HoldingMapper;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
+import com.pocketstock.ledger.trading.mapper.StockMapper;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.trading.service.DepositService;
 import com.pocketstock.ledger.trading.service.OperatingInventoryService;
@@ -39,6 +41,7 @@ public class PendingFillService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final OrderMapper orderMapper;
+    private final StockMapper stockMapper;
     private final DepositService depositService;
     private final OperatingCashService operatingCashService;
     private final OperatingInventoryService operatingInventoryService;
@@ -103,8 +106,10 @@ public class PendingFillService {
         // 비동기 체결 알림(#204) — 온주 지정가 체결은 화면 떠난 뒤 확정이라 통보 대상. 같은 커밋에 outbox 기록.
         String eventId = "order:" + cmd.orderId() + ":filled";
         String now = LocalDateTime.now(KST).toString();
+        TradableStock stock = stockMapper.findByCode(cmd.stockCode());
+        String stockName = stock != null && stock.getStockName() != null ? stock.getStockName() : cmd.stockCode();
         outboxPublisher.publish(OrderFilledEvent.TOPIC, eventId, OrderFilledEvent.AGGREGATE, cmd.orderId(),
-                new OrderFilledEvent(eventId, cmd.userId(), cmd.stockCode(), cmd.side(), "LIMIT", "FILLED",
+                new OrderFilledEvent(eventId, cmd.userId(), cmd.stockCode(), stockName, cmd.side(), "LIMIT", "FILLED",
                         cmd.quantity(), cmd.fillPrice(), total, cmd.currency(), now));
         // 실시간 체결통보(#139) — 앱 켜져있을 때 즉시 화면 반영(WS, 비영속). 영속 알림은 위 outbox→core.
         orderNotificationPublisher.push(cmd.userId(), new OrderNotification(cmd.orderId(), cmd.stockCode(),
