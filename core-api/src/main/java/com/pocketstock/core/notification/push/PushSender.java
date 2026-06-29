@@ -16,4 +16,7 @@ public interface PushSender {
     default PushResult send(String subscriptionJson, String title, String body) {
         return send(subscriptionJson, PushPayload.basic(null, title, body));
     }
+
+    /** 개발용 — 임의 JSON payload를 검증·가공 없이 그대로 발송(푸시 포맷 검수 엔드포인트 전용). */
+    PushResult sendRaw(String subscriptionJson, String rawJsonPayload);
 }
