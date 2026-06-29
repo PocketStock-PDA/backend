@@ -1,5 +1,6 @@
 package com.pocketstock.core.notification.push;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,11 @@ import java.security.Security;
 public class VapidPushSender implements PushSender {
 
     private final PushService pushService;
-    // 프론트의 PushSubscription.toJSON()은 expirationTime 등 부가 필드를 포함하므로 unknown 무시
+    // 프론트의 PushSubscription.toJSON()은 expirationTime 등 부가 필드를 포함하므로 unknown 무시.
+    // NON_NULL: PushPayload의 빈 필드(tag/url/data 등)는 직렬화 제외 → 폴백 알림은 title/body만 전송.
     private final ObjectMapper objectMapper = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
     public VapidPushSender(
             @Value("${webpush.vapid.public-key}") String publicKey,
@@ -36,12 +39,12 @@ public class VapidPushSender implements PushSender {
     }
 
     @Override
-    public PushResult send(String subscriptionJson, String title, String body) {
+    public PushResult send(String subscriptionJson, PushPayload payload) {
         try {
             Subscription subscription = objectMapper.readValue(subscriptionJson, Subscription.class);
-            String payload = objectMapper.writeValueAsString(new PushPayload(title, body));
+            String json = objectMapper.writeValueAsString(payload);
 
-            HttpResponse response = pushService.send(new Notification(subscription, payload));
+            HttpResponse response = pushService.send(new Notification(subscription, json));
             int status = response.getStatusLine().getStatusCode();
 
             if (status == 404 || status == 410) {
@@ -58,7 +61,4 @@ public class VapidPushSender implements PushSender {
             return PushResult.FAILED;
         }
     }
-
-    /** Service Worker가 수신해 표시할 페이로드. */
-    private record PushPayload(String title, String body) {}
 }
