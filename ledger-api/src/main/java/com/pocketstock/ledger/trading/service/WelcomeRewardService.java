@@ -161,8 +161,11 @@ public class WelcomeRewardService {
         }
         BigDecimal grantPrice = price.setScale(PRICE_SCALE, RoundingMode.HALF_UP);
 
-        // 무상 지급 주식의 원화 취득원가 = 회사 실비용. 국내는 1,000원, 해외는 $1×매매기준율(mid) 1회 환산.
-        int budgetKrw = domestic ? GRANT_KRW.intValueExact() : usdToKrw(grantUnit);
+        // 무상 지급 주식의 원화 취득원가 = 실제 지급량 × 체결가(DOWN 잘림 반영). 국내는 원화 그대로, 해외는 매매기준율(mid)로 환산.
+        BigDecimal actualGranted = quantity.multiply(grantPrice);
+        int budgetKrw = domestic
+                ? actualGranted.setScale(0, RoundingMode.HALF_UP).intValueExact()
+                : usdToKrw(actualGranted);
         upsertHolding(userId, account.getId(), stockCode, currency, quantity, grantPrice,
                 BigDecimal.valueOf(budgetKrw));
 
