@@ -128,4 +128,24 @@ class CmaQueryServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.NOT_FOUND);
     }
+
+    @Test
+    @DisplayName("미인증(userId=null)이면 계좌 조회 전에 UNAUTHORIZED — 인증 실패를 404로 새지 않게 한다")
+    void unauthenticatedThrows401BeforeLookup() {
+        assertThatThrownBy(() -> service().getBalance(null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+        // 계좌 조회까지 내려가 NOT_FOUND(404)로 변질되지 않아야 한다
+        verify(accountMapper, never()).findByUserId(null);
+    }
+
+    @Test
+    @DisplayName("getHome도 미인증이면 UNAUTHORIZED")
+    void getHomeUnauthenticatedThrows401() {
+        assertThatThrownBy(() -> service().getHome(null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+    }
 }
