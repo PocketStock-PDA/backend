@@ -4,6 +4,7 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.client.AssetFeignClient;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
+import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
@@ -38,6 +39,9 @@ public class CmaQueryService {
             "ACCOUNT", "신한은행",
             "POINT",   "마이신한포인트"
     );
+    // 포인트 수집 소스 표시명 — 신한 포인트는 단독, 그 외 제휴 포인트는 하나로 묶는다.
+    private static final String POINT_SHINHAN_NAME = "마이신한포인트";
+    private static final String POINT_AFFILIATE_NAME = "제휴 포인트";
     // "수집한 잔돈" 영역은 카드(CARD)만 노출 — 계좌 끝전/포인트 전환은 응답에서 제외(확정).
     private static final String COLLECTED_CARD_NAME = "카드 사용 잔돈";
     private static final BigDecimal DEFAULT_THRESHOLD = BigDecimal.valueOf(10000);
@@ -87,17 +91,24 @@ public class CmaQueryService {
         // "수집 가능 잔돈" — 원화 소스(계좌 끝전·포인트)와 외화 소스(FX)를 통화별로 분리한다.
         // 끝전(ACCOUNT)은 원화 전용 개념이라 외화는 끼지 않고, 외화 입출금 지갑은 전부 FX로 노출한다.
         BigDecimal accountAmount = calcAccountAmount(userId, settings);
-        BigDecimal pointAmount   = calcPointAmount(userId, settings);
+        PointBreakdown points    = calcPointBreakdown(userId, settings);   // 신한 / 제휴 분리
         List<CmaHomeResponse.CollectSource> fxSources = calcFxSources(userId);
 
+        BigDecimal pointAmount = points.shinhan().add(points.affiliate());
         BigDecimal totalCollectable = accountAmount.add(pointAmount);   // KRW 소스 합
         BigDecimal totalCollectableUsd = fxSources.stream()            // USD 소스 합(통화가 달라 KRW와 분리)
                 .map(CmaHomeResponse.CollectSource::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 화면 노출 순서: 포인트 → SOL트래블 외화예금(FX) → 신한은행(끝전)
+        // 화면 노출 순서: 마이신한포인트 → 제휴 포인트 → SOL트래블 외화예금(FX) → 신한은행(끝전)
+        // 포인트는 잔액이 있는 그룹만 노출(빈 줄 방지). 수집 실행은 sourceType=POINT로 둘 다 함께 처리된다.
         List<CmaHomeResponse.CollectSource> collectSources = new ArrayList<>();
-        collectSources.add(new CmaHomeResponse.CollectSource("POINT", SOURCE_NAMES.get("POINT"), pointAmount, KRW));
+        if (points.shinhan().signum() > 0) {
+            collectSources.add(new CmaHomeResponse.CollectSource("POINT", POINT_SHINHAN_NAME, points.shinhan(), KRW));
+        }
+        if (points.affiliate().signum() > 0) {
+            collectSources.add(new CmaHomeResponse.CollectSource("POINT", POINT_AFFILIATE_NAME, points.affiliate(), KRW));
+        }
         collectSources.addAll(fxSources);
         collectSources.add(new CmaHomeResponse.CollectSource("ACCOUNT", SOURCE_NAMES.get("ACCOUNT"), accountAmount, KRW));
 
@@ -231,13 +242,37 @@ public class CmaQueryService {
                 .toList();
     }
 
-    private BigDecimal calcPointAmount(Long userId, List<CollectionSetting> settings) {
-        // 다중 포인트 합산 — 수집 실행(CmaCollectService.collectFromPoint)과 동일하게 활성 POINT 전부 더한다.
-        return settings.stream()
-                .filter(s -> "POINT".equals(s.getSourceType()) && Boolean.TRUE.equals(s.getIsEnabled()))
-                .map(s -> assetFeignClient.getAvailablePoints(userId, s.getSourceRefId()).availablePoints())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    /**
+     * 활성 POINT 소스를 신한(마이신한포인트) / 제휴(그 외 전부)로 나눠 각각 합산한다.
+     * 화면은 두 줄(마이신한포인트, 제휴 포인트)로 보여주고, 수집 실행은 기존대로 POINT 전체를 함께 처리한다.
+     */
+    private PointBreakdown calcPointBreakdown(Long userId, List<CollectionSetting> settings) {
+        BigDecimal shinhan = BigDecimal.ZERO;
+        BigDecimal affiliate = BigDecimal.ZERO;
+        for (CollectionSetting s : settings) {
+            if (!"POINT".equals(s.getSourceType()) || !Boolean.TRUE.equals(s.getIsEnabled())) {
+                continue;
+            }
+            PointSummary p = assetFeignClient.getAvailablePoints(userId, s.getSourceRefId());
+            BigDecimal amount = p.availablePoints();
+            if (amount == null || amount.signum() <= 0) {
+                continue;
+            }
+            if (isShinhanPoint(p.pointName())) {
+                shinhan = shinhan.add(amount);
+            } else {
+                affiliate = affiliate.add(amount);
+            }
+        }
+        return new PointBreakdown(shinhan, affiliate);
     }
+
+    /** 포인트명에 "신한"이 들어가면 신한 포인트(마이신한포인트)로 분류, 그 외는 제휴. */
+    private boolean isShinhanPoint(String pointName) {
+        return pointName != null && pointName.contains("신한");
+    }
+
+    private record PointBreakdown(BigDecimal shinhan, BigDecimal affiliate) {}
 
     /**
      * 미인증(토큰 없음/만료/무효) 요청은 401로 차단 — 다른 CMA 서비스(requireUser)와 동일 컨벤션.

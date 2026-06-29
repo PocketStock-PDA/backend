@@ -62,6 +62,14 @@
           AND id = #{linkedAccountId}
     </select>
 
+    <!-- 포인트명 — 신한/제휴 분류·표시용 -->
+    <select id="findPointName" resultType="java.lang.String">
+        SELECT point_name
+        FROM linked_points
+        WHERE user_id = #{userId}
+          AND id = #{linkedAccountId}
+    </select>
+
     <!-- 끝전 수집 확정: 연동 계좌 잔액에서 수집액 차감 → 잔액이 threshold 배수가 되어 다음 끝전=0.
          balance >= amount 가드로 음수 잔액을 DB 레벨에서 차단(조건 불충족 시 0건 → 서비스가 예외 처리) -->
     <update id="deductAccountBalance">

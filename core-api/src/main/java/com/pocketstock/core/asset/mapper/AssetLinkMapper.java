@@ -92,6 +92,9 @@ public interface AssetLinkMapper {
 
     Long findPointBalance(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
 
+    /** 방금 연동한 포인트 행 id — 수집설정 source_ref_id로 사용. */
+    Long findPointId(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
+
     int countHoldings(@Param("userId") Long userId, @Param("institutionId") Long institutionId);
 
     /** USD(외화) 지갑 잔액 — FX 멱등 판정. 없으면 null. */
