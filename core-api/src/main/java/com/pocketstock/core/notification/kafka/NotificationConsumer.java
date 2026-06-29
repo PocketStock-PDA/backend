@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pocketstock.core.notification.NotificationService;
 import com.pocketstock.core.notification.NotificationType;
 import com.pocketstock.core.notification.mapper.ProcessedEventMapper;
+import com.pocketstock.core.notification.push.PushPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -12,6 +13,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 비동기 알림 이벤트 구독(#204) — ledger가 Kafka로 발행한 체결·자동모으기 이벤트를 받아 알림함 저장 + PWA 푸시.
@@ -23,6 +28,8 @@ import java.math.BigDecimal;
 @Component
 @RequiredArgsConstructor
 public class NotificationConsumer {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");   // 이벤트 occurredAt 원천 타임존
 
     private final ObjectMapper objectMapper;
     private final ProcessedEventMapper processedEventMapper;
@@ -38,21 +45,44 @@ public class NotificationConsumer {
         }
         Long userId = e.path("userId").asLong();
         String stockCode = e.path("stockCode").asText();
+        String stockName = e.path("stockName").asText(stockCode);   // 구버전 메시지 폴백
         String side = e.path("side").asText();
+        String currency = e.path("currency").asText(null);
         Long orderId = refIdFromEventId(e.path("eventId").asText(""), 1);   // order:{orderId}:filled
+        String occurredAt = toUtc(e.path("occurredAt").asText(""));
+        String tag = orderId != null ? "order-" + orderId : null;
         boolean filled = "FILLED".equals(e.path("status").asText());
         if (filled) {
-            String qty = e.path("quantity").asText("");
-            String price = num(e.path("fillPrice").asText(""));
-            notificationService.create(userId, NotificationType.TRADE_FILLED,
-                    sideLabel(side) + " 체결",
-                    stockCode + " " + qty + "주 @ " + price + " 체결되었어요",
-                    "ORDER", orderId);
+            BigDecimal qty = dec(e.path("quantity"));
+            String title = sideLabel(side) + " 체결";
+            String body = stockName + " " + plain(qty) + "주 체결";
+            // FE 렌더용 — 숫자는 raw, 포맷은 FE 담당. url은 FE가 type 기반 파생(생략).
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("side", side);
+            data.put("stockCode", stockCode);
+            data.put("stockName", stockName);
+            data.put("quantity", qty);
+            data.put("fillPrice", dec(e.path("fillPrice")));
+            data.put("totalAmount", dec(e.path("amount")));
+            data.put("currency", currency);
+            data.put("orderId", orderId);
+            PushPayload push = new PushPayload(NotificationType.TRADE_FILLED.name(),
+                    title, body, tag, null, occurredAt, data);
+            notificationService.create(userId, NotificationType.TRADE_FILLED, title, body, "ORDER", orderId, push);
         } else {
-            notificationService.create(userId, NotificationType.UNFILLED,
-                    sideLabel(side) + " 주문 실패",
-                    stockCode + " 주문이 체결되지 못했어요",
-                    "ORDER", orderId);
+            BigDecimal qty = dec(e.path("quantity"));
+            String title = sideLabel(side) + " 주문 실패";
+            String body = stockName + " 주문이 체결되지 못했어요";
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("side", side);
+            data.put("stockCode", stockCode);
+            data.put("stockName", stockName);
+            data.put("quantity", qty);
+            data.put("currency", currency);
+            data.put("orderId", orderId);
+            PushPayload push = new PushPayload(NotificationType.UNFILLED.name(),
+                    title, body, tag, null, occurredAt, data);
+            notificationService.create(userId, NotificationType.UNFILLED, title, body, "ORDER", orderId, push);
         }
     }
 
@@ -123,6 +153,28 @@ public class NotificationConsumer {
             case "TAKE_PROFIT" -> "익절";
             default -> "자동모으기";
         };
+    }
+
+    /** JSON 숫자 노드 → BigDecimal(없거나 null이면 null — payload에서 직렬화 제외). */
+    private BigDecimal dec(JsonNode node) {
+        return node != null && node.isNumber() ? node.decimalValue() : null;
+    }
+
+    /** 폴백 body용 수량 표기 — 끝자리 0 제거(예: 0.140 → 0.14). */
+    private String plain(BigDecimal v) {
+        return v == null ? "" : v.stripTrailingZeros().toPlainString();
+    }
+
+    /** 이벤트 occurredAt(KST, 오프셋 없음) → UTC ISO-8601(Z). 파싱 실패 시 null(알림은 정상 발송). */
+    private String toUtc(String kstLocal) {
+        if (kstLocal == null || kstLocal.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(kstLocal).atZone(KST).toInstant().toString();
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     /** 숫자 천단위 콤마(파싱 실패 시 원문). */
