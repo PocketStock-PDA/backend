@@ -1,5 +1,6 @@
 package com.pocketstock.core.notification;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.core.notification.dto.MarkAllReadResponse;
@@ -32,6 +33,7 @@ public class NotificationService {
     private final NotificationMapper notificationMapper;
     private final NotificationSettingMapper notificationSettingMapper;
     private final PushSender pushSender;
+    private final ObjectMapper objectMapper;
 
     /**
      * 알림 생성 + (수신 설정 허용 시) 웹푸시 발송. 타 도메인(체결·목표 등)이 호출.
@@ -71,7 +73,11 @@ public class NotificationService {
 
     private void doCreate(Long userId, NotificationType type, String title, String body,
                           String refType, Long refId, PushPayload push) {
-        notificationMapper.insert(userId, type.name(), title, body, refType, refId);   // 1) 알림함 기록
+        notificationMapper.insert(userId, type.name(), title, body, refType, refId,
+                push == null ? null : push.tag(),
+                push == null ? null : push.url(),
+                push == null ? null : push.occurredAt(),
+                dataJson(push));   // 1) 알림함 기록
 
         NotificationSettingRow setting = notificationSettingMapper.findByUserId(userId);
         if (setting == null) return;                       // 설정 없음 → 푸시 생략
@@ -89,8 +95,8 @@ public class NotificationService {
         if (type == NotificationType.ACCOUNT_VERIFY) {
             log.info("[웹푸시 payload] userId={} type={} body=(마스킹: 인증코드)", userId, type);
         } else {
-            log.info("[웹푸시 payload] userId={} type={} title={} body={} tag={} data={}",
-                    userId, type, payload.title(), payload.body(), payload.tag(), payload.data());
+            log.info("[웹푸시 payload] userId={} type={} title={} body={} tag={} url={} data={}",
+                    userId, type, payload.title(), payload.body(), payload.tag(), payload.url(), payload.data());
         }
 
         PushResult result = pushSender.send(token, payload);         // 2) 발송
@@ -108,7 +114,7 @@ public class NotificationService {
 
         List<NotificationItem> items = notificationMapper.findByUser(userId, read, size, offset)
                 .stream()
-                .map(NotificationItem::from)
+                .map(row -> NotificationItem.from(row, objectMapper))
                 .toList();
 
         long unreadCount   = notificationMapper.countUnread(userId);
@@ -138,6 +144,18 @@ public class NotificationService {
     @Transactional
     public void registerToken(Long userId, PushTokenRequest request) {
         notificationSettingMapper.upsertToken(userId, request.token(), request.deviceType());
+    }
+
+    private String dataJson(PushPayload push) {
+        if (push == null || push.data() == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(push.data());
+        } catch (Exception e) {
+            log.warn("알림 data 직렬화 실패: {}", e.getMessage());
+            return null;
+        }
     }
 
     @Transactional

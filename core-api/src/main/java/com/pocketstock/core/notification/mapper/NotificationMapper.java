@@ -16,7 +16,11 @@ public interface NotificationMapper {
             @Param("title") String title,
             @Param("body") String body,
             @Param("refType") String refType,
-            @Param("refId") Long refId
+            @Param("refId") Long refId,
+            @Param("tag") String tag,
+            @Param("url") String url,
+            @Param("occurredAt") String occurredAt,
+            @Param("dataJson") String dataJson
     );
 
     List<NotificationRow> findByUser(
