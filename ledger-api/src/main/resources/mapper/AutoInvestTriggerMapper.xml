@@ -20,6 +20,7 @@
         <!-- 평가 join 전용 -->
         <result property="userId"            column="user_id"/>
         <result property="stockCode"         column="stock_code"/>
+        <result property="stockName"         column="stock_name"/>
         <result property="market"            column="market"/>
         <result property="accountId"         column="account_id"/>
         <result property="currency"          column="currency"/>
@@ -60,10 +61,11 @@
         SELECT t.id, t.auto_invest_stock_id, t.trigger_kind, t.condition_rate, t.action_type,
                t.action_amount, t.action_quantity, t.action_ratio, t.is_active, t.is_armed,
                t.last_fired_at, t.created_at, t.updated_at,
-               s.user_id, s.stock_code, s.market, s.account_id, s.currency
+               s.user_id, s.stock_code, ts.stock_name, s.market, s.account_id, s.currency
         FROM auto_invest_triggers t
         JOIN auto_invest_stocks s ON s.id = t.auto_invest_stock_id
         JOIN auto_invest_settings g ON g.user_id = s.user_id
+        LEFT JOIN tradable_stocks ts ON ts.stock_code = s.stock_code
         WHERE t.is_active = TRUE
           AND s.is_active = TRUE
           AND g.is_enabled = TRUE

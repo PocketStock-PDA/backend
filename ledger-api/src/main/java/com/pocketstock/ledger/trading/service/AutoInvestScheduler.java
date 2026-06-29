@@ -92,11 +92,11 @@ public class AutoInvestScheduler {
                 stock.getBuyAmount(), stock.getBuyQuantity());
         try {
             SplitOrderResponse resp = fractionalOrderService.place(stock.getUserId(), req, SOURCE_AUTO);
-            recorder.recordAccepted(stock.getUserId(), stock.getId(), stock.getStockCode(), roundNo, today,
+            recorder.recordAccepted(stock.getUserId(), stock.getId(), stock.getStockCode(), stock.getStockName(), roundNo, today,
                     TRIGGER_PERIODIC, SIDE_BUY, stock.getCurrency(), resp);
         } catch (BusinessException e) {
             // 잔액부족 등 비즈니스 실패 = 접수 실패. 주문은 안 생김(AUTO는 REJECTED 미기록) → 회차에 FAILED로.
-            recorder.recordFailed(stock.getUserId(), stock.getId(), stock.getStockCode(), roundNo, today,
+            recorder.recordFailed(stock.getUserId(), stock.getId(), stock.getStockCode(), stock.getStockName(), roundNo, today,
                     TRIGGER_PERIODIC, SIDE_BUY, stock.getCurrency(), e.getMessage());
         }
     }

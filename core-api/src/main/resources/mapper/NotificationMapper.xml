@@ -5,8 +5,11 @@
 <mapper namespace="com.pocketstock.core.notification.mapper.NotificationMapper">
 
     <insert id="insert">
-        INSERT INTO notifications (user_id, type, title, body, ref_type, ref_id)
-        VALUES (#{userId}, #{type}, #{title}, #{body}, #{refType}, #{refId})
+        INSERT INTO notifications
+            (user_id, type, title, body, ref_type, ref_id, tag, url, occurred_at, data_json)
+        VALUES
+            (#{userId}, #{type}, #{title}, #{body}, #{refType}, #{refId},
+             #{tag}, #{url}, #{occurredAt}, #{dataJson})
     </insert>
 
     <select id="findByUser" resultType="com.pocketstock.core.notification.dto.NotificationRow">
@@ -14,6 +17,10 @@
                type,
                title,
                body,
+               tag,
+               url,
+               occurred_at AS occurredAt,
+               data_json   AS dataJson,
                is_read    AS `read`,
                created_at AS createdAt
         FROM notifications

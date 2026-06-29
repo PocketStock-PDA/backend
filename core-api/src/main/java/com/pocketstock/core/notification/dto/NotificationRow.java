@@ -14,6 +14,10 @@ public class NotificationRow {
     private String type;
     private String title;
     private String body;
+    private String tag;
+    private String url;
+    private String occurredAt;
+    private String dataJson;
     private boolean read;
     private LocalDateTime createdAt;
 }

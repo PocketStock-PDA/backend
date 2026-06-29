@@ -167,20 +167,20 @@ public class AutoInvestTriggerEngine {
         try {
             SplitOrderResponse resp = buy ? fireBuy(tr, clientOrderId) : fireSell(tr, clientOrderId);
             if (resp == null) {
-                recorder.recordFailed(tr.userId(), tr.stockId(), tr.stockCode(), roundNo, today, source, side,
+                recorder.recordFailed(tr.userId(), tr.stockId(), tr.stockCode(), tr.stockName(), roundNo, today, source, side,
                         tr.currency(), "매도 가능 수량 없음");
                 return;   // armed 유지(다음 틱 재시도)
             }
             triggerMapper.markFired(tr.triggerId(), LocalDateTime.now());   // 발동 → armed=false
             trigs(tr.stockCode()).computeIfPresent(tr.triggerId(), (id, x) -> x.withArmed(false));
-            recorder.recordAccepted(tr.userId(), tr.stockId(), tr.stockCode(), roundNo, today, source, side,
+            recorder.recordAccepted(tr.userId(), tr.stockId(), tr.stockCode(), tr.stockName(), roundNo, today, source, side,
                     tr.currency(), resp);
             // 실시간 트리거 통보(#139 WS) — 보고 있을 때 즉시.
             Long orderId = resp.fractionalOrderId() != null ? resp.fractionalOrderId() : resp.wholeOrderId();
             orderNotificationPublisher.push(tr.userId(), new OrderNotification(orderId, tr.stockCode(), side,
                     "FRACTIONAL", "ACCEPTED", null, null, tr.currency(), LocalDateTime.now(KST).toString()));
         } catch (BusinessException e) {
-            recorder.recordFailed(tr.userId(), tr.stockId(), tr.stockCode(), roundNo, today, source, side,
+            recorder.recordFailed(tr.userId(), tr.stockId(), tr.stockCode(), tr.stockName(), roundNo, today, source, side,
                     tr.currency(), e.getMessage());   // armed 유지
         }
     }
@@ -317,18 +317,18 @@ public class AutoInvestTriggerEngine {
     }
 
     /** 평가용 트리거 스냅샷(돈 이동 권한은 place/placeSell의 DB 가드가 최종 검증). armed는 인덱스에서 관리. */
-    private record Trig(Long triggerId, Long stockId, Long userId, String stockCode, String currency,
+    private record Trig(Long triggerId, Long stockId, Long userId, String stockCode, String stockName, String currency,
                         String kind, BigDecimal conditionRate, String actionType,
                         BigDecimal actionAmount, BigDecimal actionQuantity, BigDecimal actionRatio, boolean armed) {
         static Trig of(AutoInvestTrigger t) {
-            return new Trig(t.getId(), t.getAutoInvestStockId(), t.getUserId(), t.getStockCode(), t.getCurrency(),
-                    t.getTriggerKind(), t.getConditionRate(), t.getActionType(),
+            return new Trig(t.getId(), t.getAutoInvestStockId(), t.getUserId(), t.getStockCode(), t.getStockName(),
+                    t.getCurrency(), t.getTriggerKind(), t.getConditionRate(), t.getActionType(),
                     t.getActionAmount(), t.getActionQuantity(), t.getActionRatio(),
                     Boolean.TRUE.equals(t.getIsArmed()));
         }
 
         Trig withArmed(boolean a) {
-            return new Trig(triggerId, stockId, userId, stockCode, currency, kind, conditionRate, actionType,
+            return new Trig(triggerId, stockId, userId, stockCode, stockName, currency, kind, conditionRate, actionType,
                     actionAmount, actionQuantity, actionRatio, a);
         }
     }

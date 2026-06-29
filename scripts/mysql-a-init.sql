@@ -363,6 +363,10 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read BOOLEAN DEFAULT FALSE,
   ref_type VARCHAR(20) NULL,           -- 딥링크 원천 종류: ORDER / AUTO_INVEST … (#204)
   ref_id BIGINT NULL,                  -- 원천 식별(값참조) — 알림 탭 시 해당 화면 이동
+  tag VARCHAR(80) NULL,                -- 웹푸시 tag/group key
+  url VARCHAR(255) NULL,               -- FE 딥링크 우선 경로
+  occurred_at VARCHAR(40) NULL,        -- 이벤트 발생시각 ISO-8601 UTC(Z)
+  data_json JSON NULL,                 -- 구조화 알림 payload.data
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_noti_user (user_id),
   -- 알림센터 목록: WHERE user_id=? ORDER BY created_at DESC 를 인덱스로 처리(filesort 제거)

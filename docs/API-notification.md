@@ -25,8 +25,19 @@
   "type": "TRADE_FILLED",
   "title": "주문 체결",
   "body": "삼성전자 매수 주문이 체결되었습니다.",
+  "tag": "order-1",
+  "url": null,
+  "occurredAt": "2026-06-29T02:08:00Z",
+  "data": {
+    "side": "BUY",
+    "stockCode": "005930",
+    "stockName": "삼성전자",
+    "quantity": 1,
+    "currency": "KRW",
+    "orderId": 1
+  },
   "isRead": false,
-  "createdAt": "2025-06-15T10:30:05"
+  "createdAt": "2026-06-29T02:08:05"
   }
   ],
   "unreadCount": 3,
@@ -34,6 +45,92 @@
   "totalElements": 20
  }
  }
+```
+
+> `tag`, `url`, `occurredAt`, `data`는 구조화 푸시가 있는 알림에서만 채워진다. 기존 폴백 알림은 null일 수 있다.
+
+---
+
+## Web Push payload — 자동매매
+
+자동매매(정기매수·물타기·익절)는 주문 체결 타입과 분리된 전용 type을 사용한다.
+
+- 성공/접수: `AUTO_INVEST_EXECUTED`
+- 실패: `AUTO_INVEST_FAILED`
+- `trigger`: `PERIODIC | DIP_BUY | TAKE_PROFIT`
+- `occurredAt`: ISO-8601 UTC `Z`
+- `url`: `/portfolio/detail?stockCode={stockCode}&view=collect`
+- 금액/수량 숫자는 raw 값이며 포맷은 FE 담당
+- `settingId`: 종목별 자동모으기 설정 ID(`auto_invest_stocks.id`)
+
+```json
+{
+  "type": "AUTO_INVEST_EXECUTED",
+  "title": "물타기 접수",
+  "body": "에코프로비엠 10000원 물타기 접수되었어요",
+  "tag": "autoinvest-12-3",
+  "url": "/portfolio/detail?stockCode=086520&view=collect",
+  "occurredAt": "2026-06-29T02:08:00Z",
+  "data": {
+    "trigger": "DIP_BUY",
+    "side": "BUY",
+    "stockCode": "086520",
+    "stockName": "에코프로비엠",
+    "amount": 10000,
+    "quantity": null,
+    "currency": "KRW",
+    "status": "ACCEPTED",
+    "reason": null,
+    "settingId": 12,
+    "roundNo": 3
+  }
+}
+```
+
+```json
+{
+  "type": "AUTO_INVEST_FAILED",
+  "title": "자동모으기 실패",
+  "body": "에코프로비엠 자동모으기 실패 (잔액 부족)",
+  "tag": "autoinvest-12-4",
+  "url": "/portfolio/detail?stockCode=086520&view=collect",
+  "occurredAt": "2026-06-29T02:08:00Z",
+  "data": {
+    "trigger": "PERIODIC",
+    "side": "BUY",
+    "stockCode": "086520",
+    "stockName": "에코프로비엠",
+    "amount": null,
+    "quantity": null,
+    "currency": "KRW",
+    "status": "FAILED",
+    "reason": "잔액 부족",
+    "settingId": 12,
+    "roundNo": 4
+  }
+}
+```
+
+### 운영 푸시 검증용 샘플
+
+운영 서버의 `/api/notifications/test`는 요청 본문을 가공 없이 본인 WEB 구독으로 전송한다.
+이 엔드포인트는 `webpush.test-endpoint.enabled=true`일 때만 활성화된다. 현재 운영 데모 프로파일에서는 검수용으로 활성화되어 있으며, 비활성 환경에서는 404가 반환된다.
+`$API`, `$TOKEN`을 운영 값으로 준비한 뒤 한 줄씩 발송한다.
+
+```bash
+curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_EXECUTED","title":"자동모으기 접수","body":"삼성전자 10000원 자동모으기 접수되었어요","tag":"autoinvest-12-1","url":"/portfolio/detail?stockCode=005930&view=collect","occurredAt":"2026-06-29T02:08:00Z","data":{"trigger":"PERIODIC","side":"BUY","stockCode":"005930","stockName":"삼성전자","amount":10000,"quantity":null,"currency":"KRW","status":"ACCEPTED","settingId":12,"roundNo":1}}' | head -8
+
+curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_EXECUTED","title":"자동모으기 접수","body":"테슬라 $13.2 자동모으기 접수되었어요","tag":"autoinvest-13-1","url":"/portfolio/detail?stockCode=TSLA&view=collect","occurredAt":"2026-06-29T02:09:00Z","data":{"trigger":"PERIODIC","side":"BUY","stockCode":"TSLA","stockName":"테슬라","amount":13.2,"quantity":null,"currency":"USD","status":"ACCEPTED","settingId":13,"roundNo":1}}' | head -8
+
+curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_EXECUTED","title":"자동모으기 접수","body":"엔비디아 0.025주 자동모으기 접수되었어요","tag":"autoinvest-14-1","url":"/portfolio/detail?stockCode=NVDA&view=collect","occurredAt":"2026-06-29T02:10:00Z","data":{"trigger":"PERIODIC","side":"BUY","stockCode":"NVDA","stockName":"엔비디아","amount":null,"quantity":0.025,"currency":"USD","status":"ACCEPTED","settingId":14,"roundNo":1}}' | head -8
+
+curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_FAILED","title":"자동모으기 실패","body":"에코프로비엠 자동모으기 실패 (잔액 부족)","tag":"autoinvest-15-2","url":"/portfolio/detail?stockCode=086520&view=collect","occurredAt":"2026-06-29T02:11:00Z","data":{"trigger":"PERIODIC","side":"BUY","stockCode":"086520","stockName":"에코프로비엠","amount":null,"quantity":null,"currency":"KRW","status":"FAILED","reason":"잔액 부족","settingId":15,"roundNo":2}}' | head -8
+
+curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_EXECUTED","title":"물타기 접수","body":"에코프로비엠 10000원 물타기 접수되었어요","tag":"autoinvest-16-3","url":"/portfolio/detail?stockCode=086520&view=collect","occurredAt":"2026-06-29T02:12:00Z","data":{"trigger":"DIP_BUY","side":"BUY","stockCode":"086520","stockName":"에코프로비엠","amount":10000,"quantity":null,"currency":"KRW","status":"ACCEPTED","settingId":16,"roundNo":3}}' | head -8
+
+curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_EXECUTED","title":"익절 접수","body":"테슬라 0.01주 익절 접수되었어요","tag":"autoinvest-17-4","url":"/portfolio/detail?stockCode=TSLA&view=collect","occurredAt":"2026-06-29T02:13:00Z","data":{"trigger":"TAKE_PROFIT","side":"SELL","stockCode":"TSLA","stockName":"테슬라","amount":null,"quantity":0.01,"currency":"USD","status":"ACCEPTED","settingId":17,"roundNo":4}}' | head -8
+
+curl -i -s -X POST "$API/api/notifications/test" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"AUTO_INVEST_EXECUTED","title":"자동모으기 접수","body":"005930 10000원 자동모으기 접수되었어요","tag":"autoinvest-18-1","url":"/portfolio/detail?stockCode=005930&view=collect","occurredAt":"2026-06-29T02:14:00Z","data":{"trigger":"PERIODIC","side":"BUY","stockCode":"005930","amount":10000,"quantity":null,"currency":"KRW","status":"ACCEPTED","settingId":18,"roundNo":1}}' | head -8
 ```
 
 ---
