@@ -78,6 +78,12 @@
         ORDER BY id ASC LIMIT 1
     </select>
 
+    <select id="findPointId" resultType="java.lang.Long">
+        SELECT id FROM linked_points
+        WHERE user_id = #{userId} AND institution_id = #{institutionId}
+        ORDER BY id DESC LIMIT 1
+    </select>
+
     <select id="countHoldings" resultType="int">
         SELECT COUNT(*) FROM external_holdings
         WHERE user_id = #{userId} AND institution_id = #{institutionId}

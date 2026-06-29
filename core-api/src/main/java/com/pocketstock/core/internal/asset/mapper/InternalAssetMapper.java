@@ -33,6 +33,12 @@ public interface InternalAssetMapper {
             @Param("linkedAccountId") Long linkedAccountId
     );
 
+    /** 포인트명 — 잔돈 수집 화면에서 신한/제휴 분류·표시용. */
+    String findPointName(
+            @Param("userId") Long userId,
+            @Param("linkedAccountId") Long linkedAccountId
+    );
+
     // 끝전 수집 확정 — 연동 계좌 잔액에서 수집액만큼 차감(원천을 닫아 재수집 방지)
     int deductAccountBalance(
             @Param("userId") Long userId,
