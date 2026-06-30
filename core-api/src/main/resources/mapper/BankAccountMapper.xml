@@ -21,6 +21,7 @@
         JOIN institution_master im ON im.id = li.institution_master_id
         WHERE lba.user_id = #{userId}
           AND lba.closed_at IS NULL
+          AND li.link_status = 'LINKED'   <!-- 연동 해제(AVAILABLE)된 기관 계좌는 발견/모으기 후보에서 제외 -->
         ORDER BY im.sort_order ASC, lba.id ASC
     </select>
 
