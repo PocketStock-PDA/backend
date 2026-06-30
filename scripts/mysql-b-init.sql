@@ -463,15 +463,6 @@ CREATE TABLE IF NOT EXISTS tradable_stocks (
   INDEX idx_ts_sectype (sec_type)
 );
 
-CREATE TABLE IF NOT EXISTS stock_categories (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  stock_code VARCHAR(20) NOT NULL,
-  category VARCHAR(40) NOT NULL,
-  `rank` INT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_sc (stock_code), INDEX idx_sc_cat (category)
-);
-
 CREATE TABLE IF NOT EXISTS whole_share_events (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
@@ -569,7 +560,6 @@ ALTER TABLE auto_invest_stocks   ADD INDEX idx_ais_stock  (stock_code);
 ALTER TABLE rewards              ADD INDEX idx_rwd_stock  (stock_code);
 -- 단순 FK(stock_code) — 종목 마스터 존재만 검증
 ALTER TABLE holdings             ADD CONSTRAINT fk_hold_stock FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
-ALTER TABLE stock_categories     ADD CONSTRAINT fk_sc_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE daily_valuations     ADD CONSTRAINT fk_dv_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE operating_account    ADD CONSTRAINT fk_oa_stock   FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);
 ALTER TABLE auto_invest_stocks   ADD CONSTRAINT fk_ais_stock  FOREIGN KEY (stock_code) REFERENCES tradable_stocks(stock_code);

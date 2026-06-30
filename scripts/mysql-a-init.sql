@@ -170,17 +170,6 @@ CREATE TABLE IF NOT EXISTS card_transactions (
   INDEX idx_ct_user (user_id), INDEX idx_ct_paid (paid_at)
 );
 
-CREATE TABLE IF NOT EXISTS spending_analysis (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  period VARCHAR(7),
-  category VARCHAR(40),
-  amount_sum DECIMAL(18,4),
-  ratio DECIMAL(7,4),
-  analyzed_at DATETIME,
-  INDEX idx_sa_user (user_id)
-);
-
 CREATE TABLE IF NOT EXISTS external_holdings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
@@ -229,27 +218,6 @@ CREATE TABLE IF NOT EXISTS budget_transfer_settings (
 );
 
 -- ========== portfolio ==========
-CREATE TABLE IF NOT EXISTS recommended_portfolios (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  is_current BOOLEAN DEFAULT TRUE,
-  generated_at DATETIME,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_rp_user (user_id)
-);
-
-CREATE TABLE IF NOT EXISTS portfolio_items (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  portfolio_id BIGINT NOT NULL,
-  stock_code VARCHAR(20),
-  basis VARCHAR(20),
-  sector VARCHAR(40),
-  target_weight DECIMAL(7,4),
-  rationale VARCHAR(500),
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_pi_pf (portfolio_id)
-);
-
 CREATE TABLE IF NOT EXISTS holdings_replica (
   id            BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id       BIGINT NOT NULL,
@@ -261,24 +229,6 @@ CREATE TABLE IF NOT EXISTS holdings_replica (
   currency      VARCHAR(3),
   synced_at     DATETIME,
   UNIQUE KEY uq_hr (user_id, stock_code)
-);
-
-CREATE TABLE IF NOT EXISTS category_sector_map (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  category VARCHAR(40),
-  sector VARCHAR(40),
-  weight DECIMAL(7,4)
-);
-
-CREATE TABLE IF NOT EXISTS peer_benchmarks (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  age_band VARCHAR(10),
-  gender_band VARCHAR(10),
-  asset_band VARCHAR(20),
-  asset_category VARCHAR(20),
-  avg_ratio DECIMAL(7,4),
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_pb (age_band, gender_band, asset_band, asset_category)
 );
 
 -- rebalancing_products 제거(2026-06-18): 갈아타기(REBAL-005·006)·대출 폐지로 삭제
@@ -348,16 +298,6 @@ CREATE TABLE IF NOT EXISTS maturity_deposit_rollovers (
   executed_at DATETIME NULL,                         -- CMA 이체 만기일 집행 시각
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_mdr_user (user_id)
-);
-
-CREATE TABLE IF NOT EXISTS calendar_recommendations (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NULL,
-  stock_code VARCHAR(20),
-  recommend_date DATE,
-  source VARCHAR(20),
-  reason VARCHAR(200) NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS cards (
@@ -444,7 +384,6 @@ ALTER TABLE linked_points        ADD CONSTRAINT fk_lp_inst    FOREIGN KEY (insti
 ALTER TABLE linked_securities    ADD CONSTRAINT fk_lsec_inst  FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
 ALTER TABLE external_holdings    ADD CONSTRAINT fk_eh_inst    FOREIGN KEY (institution_id)    REFERENCES linked_institutions(id);
 ALTER TABLE card_transactions    ADD CONSTRAINT fk_ct_card    FOREIGN KEY (card_id)           REFERENCES linked_cards(id);
-ALTER TABLE portfolio_items      ADD CONSTRAINT fk_pi_pf      FOREIGN KEY (portfolio_id)      REFERENCES recommended_portfolios(id);
 -- cross-domain (user_id → users, 같은 DB A)
 ALTER TABLE linked_institutions     ADD CONSTRAINT fk_li_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE linked_bank_accounts    ADD CONSTRAINT fk_lba_user  FOREIGN KEY (user_id) REFERENCES users(id);
@@ -452,14 +391,11 @@ ALTER TABLE linked_cards            ADD CONSTRAINT fk_lc_user   FOREIGN KEY (use
 ALTER TABLE linked_points           ADD CONSTRAINT fk_lp_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE linked_securities       ADD CONSTRAINT fk_lsec_user FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE card_transactions       ADD CONSTRAINT fk_ct_user   FOREIGN KEY (user_id) REFERENCES users(id);
-ALTER TABLE spending_analysis       ADD CONSTRAINT fk_sa_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE external_holdings       ADD CONSTRAINT fk_eh_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_goals            ADD CONSTRAINT fk_bg_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_savings          ADD CONSTRAINT fk_bs_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_transfer_settings ADD CONSTRAINT fk_bts_user  FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_transfer_settings ADD CONSTRAINT fk_bts_acc   FOREIGN KEY (account_id) REFERENCES linked_bank_accounts(id);
-ALTER TABLE recommended_portfolios  ADD CONSTRAINT fk_rp_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE holdings_replica        ADD CONSTRAINT fk_hr_user   FOREIGN KEY (user_id) REFERENCES users(id);
-ALTER TABLE calendar_recommendations ADD CONSTRAINT fk_cr_user  FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE notifications           ADD CONSTRAINT fk_noti_user FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE notification_settings   ADD CONSTRAINT fk_ns_user   FOREIGN KEY (user_id) REFERENCES users(id);
