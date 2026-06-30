@@ -253,7 +253,7 @@ public class CmaCollectService {
         getAccountOrThrow(userId);   // 계좌 자체가 없으면 전체 실패로 propagate
         List<CollectResult> results = new ArrayList<>();
         results.add(runSource(SRC_ACCOUNT, () -> self.collectFromAccount(userId, baseKey + ":ACCOUNT")));
-        results.add(runSource(SRC_CARD, () -> self.collectFromCard(userId, baseKey + ":CARD")));
+        // 카드 라운드업은 결제 시점 자동 수집이라 수동 통합 수집(모으기 슬라이드) 대상이 아니다 — 여기서 제외.
         results.add(runSource(SRC_POINT, () -> self.collectFromPoint(userId, baseKey + ":POINT")));
         results.add(runSource(SRC_FX, () -> self.collectFromFx(userId, baseKey + ":FX")));
         return results;

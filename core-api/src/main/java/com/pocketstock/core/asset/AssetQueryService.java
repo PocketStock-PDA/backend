@@ -78,18 +78,19 @@ public class AssetQueryService {
         List<CollectionSettingView> settings = ledgerFeignClient.getCollectionSettings(userId);
 
         BigDecimal accountAmount = calcAccountAmount(userId, settings);
-        BigDecimal cardAmount = calcCardAmount(userId, settings);
         BigDecimal pointAmount = calcPointAmount(userId, settings);
         BigDecimal fxAmount = calcFxAmount(userId);
 
+        // 카드 라운드업은 결제 시점에 자동 수집되는 영역 — '발견(스캔)'·수동 모으기 대상이 아니라 스캔에선 항상 0.
+        // (프론트는 amount>0 소스만 노출하므로 카드 줄은 자연히 숨겨진다.)
         List<ScanResponse.Source> sources = List.of(
                 new ScanResponse.Source("ACCOUNT", "신한은행 끝전", accountAmount),
-                new ScanResponse.Source("CARD", "신한카드 잔돈", cardAmount),
+                new ScanResponse.Source("CARD", "신한카드 잔돈", BigDecimal.ZERO),
                 new ScanResponse.Source("POINT", "마이신한포인트 잔돈", pointAmount),
                 new ScanResponse.Source("FX", "SOL트래블 환전 잔돈", fxAmount)
         );
 
-        BigDecimal total = accountAmount.add(cardAmount).add(pointAmount).add(fxAmount);
+        BigDecimal total = accountAmount.add(pointAmount).add(fxAmount);
         return new ScanResponse(total, sources);
     }
 
@@ -111,14 +112,6 @@ public class AssetQueryService {
         List<LinkedAccountSummary> accounts = internalAssetService.getLinkedAccounts(userId, enabledIds);
         return accounts.stream()
                 .map(a -> a.balance().remainder(thresholdByRefId.getOrDefault(a.id(), DEFAULT_THRESHOLD)))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /** 활성 CARD 설정들의 라운드업 잔돈 합계(다중 카드 합산). getCardRoundup 재사용(끝전 계산 단일 소스). */
-    private BigDecimal calcCardAmount(Long userId, List<CollectionSettingView> settings) {
-        return settings.stream()
-                .filter(s -> "CARD".equals(s.sourceType()) && s.enabled())
-                .map(s -> internalAssetService.getCardRoundup(userId, s.sourceRefId()).totalRoundupAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
