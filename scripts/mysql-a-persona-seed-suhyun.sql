@@ -34,9 +34,9 @@ INSERT INTO linked_bank_accounts (id,user_id,institution_id,account_type,account
 
 -- ── linked_cards ───────────────────────────────────────────────
 INSERT INTO linked_cards (id,user_id,institution_id,card_name,card_type,masked_no,payment_account_id,card_master_id,last_synced_at,created_at,updated_at) VALUES
-(4,3,9,'처음체크','CHECK',NULL,8,59,'2026-06-25 09:00:00','2026-02-15 10:00:00','2026-06-25 09:00:00'),
-(5,3,9,'처음신용','CREDIT',NULL,8,7,'2026-06-25 09:00:00','2026-02-15 10:00:00','2026-06-25 09:00:00'),
-(6,3,9,'SOL트래블체크','CHECK',NULL,11,62,'2026-06-25 09:00:00','2026-02-15 10:00:00','2026-06-25 09:00:00');
+(4,3,9,'처음체크','CHECK','4051-****-****-7263',8,59,'2026-06-25 09:00:00','2026-02-15 10:00:00','2026-06-25 09:00:00'),
+(5,3,9,'처음신용','CREDIT','5327-****-****-1840',8,7,'2026-06-25 09:00:00','2026-02-15 10:00:00','2026-06-25 09:00:00'),
+(6,3,9,'SOL트래블체크','CHECK','4410-****-****-9052',11,62,'2026-06-25 09:00:00','2026-02-15 10:00:00','2026-06-25 09:00:00');
 
 -- ── linked_points ──────────────────────────────────────────────
 INSERT INTO linked_points (id,user_id,institution_id,point_name,balance,last_synced_at,created_at,updated_at) VALUES
