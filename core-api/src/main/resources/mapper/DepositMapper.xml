@@ -114,12 +114,12 @@
         ORDER BY id DESC
     </select>
 
-    <update id="cancelCmaRollover">
+    <!-- RESERVED 상태 rollover 취소 — CMA 이체·예금 재예치 모두 대상(소유자 한정). -->
+    <update id="cancelRollover">
         UPDATE maturity_deposit_rollovers
         SET status = 'CANCELLED'
         WHERE id = #{id}
           AND user_id = #{userId}
-          AND product_type = 'CMA'
           AND status = 'RESERVED'
     </update>
 

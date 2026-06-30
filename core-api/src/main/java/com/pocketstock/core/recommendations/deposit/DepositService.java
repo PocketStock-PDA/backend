@@ -127,11 +127,11 @@ public class DepositService {
         }
     }
 
-    /** CMA 이체 예약 취소 — RESERVED 상태이고 소유한 항목만. */
-    public void cancelCmaTransfer(Long userId, Long id) {
-        int updated = mapper.cancelCmaRollover(userId, id);
+    /** rollover 취소 — RESERVED 상태이고 소유한 항목만(CMA 이체·예금 재예치 공용). */
+    public void cancelRollover(Long userId, Long id) {
+        int updated = mapper.cancelRollover(userId, id);
         if (updated == 0) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "취소할 수 있는 CMA 이체 예약이 없어요.");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "취소할 수 있는 전환 예약이 없어요.");
         }
     }
 

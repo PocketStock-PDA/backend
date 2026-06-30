@@ -69,14 +69,14 @@ public class DepositController {
         return ResponseEntity.ok(ApiResponse.ok("취소분 라우팅 완료", null));
     }
 
-    /** 'CMA 이체' 예약 취소 — RESERVED 상태인 경우만 가능. */
-    @DeleteMapping("/maturity/deposit-to-cma/{id}")
-    public ResponseEntity<ApiResponse<Void>> cancelCmaTransfer(
+    /** rollover 예약 취소 — RESERVED 상태인 경우만 가능(CMA 이체·예금 재예치 공용). */
+    @DeleteMapping("/maturity/rollover/{id}")
+    public ResponseEntity<ApiResponse<Void>> cancelRollover(
             @CurrentUserId Long userId,
             @PathVariable Long id) {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        depositService.cancelCmaTransfer(userId, id);
-        return ResponseEntity.ok(ApiResponse.ok("CMA 이체 예약이 취소됐어요.", null));
+        depositService.cancelRollover(userId, id);
+        return ResponseEntity.ok(ApiResponse.ok("전환 예약이 취소됐어요.", null));
     }
 
     /** '예금 재예치' 기록 — 전환내역에서 배당주 예약과 병합. */
