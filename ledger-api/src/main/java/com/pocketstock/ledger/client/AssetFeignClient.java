@@ -2,6 +2,7 @@ package com.pocketstock.ledger.client;
 
 import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
+import com.pocketstock.ledger.client.dto.LinkedPointSummary;
 import com.pocketstock.ledger.client.dto.PointSummary;
 import com.pocketstock.ledger.client.dto.SourceDeduction;
 import com.pocketstock.ledger.client.dto.UsdWalletSummary;
@@ -22,6 +23,9 @@ public interface AssetFeignClient {
 
     @GetMapping("/internal/assets/fx-wallets")
     List<UsdWalletSummary> getUsdWallets(@RequestParam("userId") Long userId);
+
+    @GetMapping("/internal/assets/points/list")
+    List<LinkedPointSummary> getLinkedPoints(@RequestParam("userId") Long userId);
 
     @GetMapping("/internal/assets/card-roundup")
     CardRoundupSummary getCardRoundup(@RequestParam("userId") Long userId,

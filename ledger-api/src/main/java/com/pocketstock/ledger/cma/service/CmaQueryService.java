@@ -4,7 +4,7 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.client.AssetFeignClient;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
-import com.pocketstock.ledger.client.dto.PointSummary;
+import com.pocketstock.ledger.client.dto.LinkedPointSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
 import com.pocketstock.ledger.cma.domain.CmaBalance;
 import com.pocketstock.ledger.cma.domain.CollectionSetting;
@@ -255,18 +255,20 @@ public class CmaQueryService {
     }
 
     /**
-     * 활성 POINT 소스를 신한(마이신한포인트) / 제휴(그 외 전부)로 나눠 각각 합산한다.
-     * 화면은 두 줄(마이신한포인트, 제휴 포인트)로 보여주고, 수집 실행은 기존대로 POINT 전체를 함께 처리한다.
+     * 연동 포인트를 신한(마이신한포인트) / 제휴(그 외 전부)로 나눠 각각 합산한다(opt-out).
+     * FX와 동일하게 "연동된 포인트는 기본 수집 대상"이며, collection_settings(POINT)로 명시적으로
+     * 끈(is_enabled=FALSE) 포인트만 제외한다 — 설정 행이 없어도(시드·과거 연동분) 자동 반영된다.
+     * 화면은 두 줄(마이신한포인트, 제휴 포인트)로 보여준다.
      */
     private PointBreakdown calcPointBreakdown(Long userId, List<CollectionSetting> settings) {
+        Set<Long> disabled = disabledPointIds(settings);
         BigDecimal shinhan = BigDecimal.ZERO;
         BigDecimal affiliate = BigDecimal.ZERO;
-        for (CollectionSetting s : settings) {
-            if (!"POINT".equals(s.getSourceType()) || !Boolean.TRUE.equals(s.getIsEnabled())) {
+        for (LinkedPointSummary p : assetFeignClient.getLinkedPoints(userId)) {
+            if (disabled.contains(p.id())) {
                 continue;
             }
-            PointSummary p = assetFeignClient.getAvailablePoints(userId, s.getSourceRefId());
-            BigDecimal amount = p.availablePoints();
+            BigDecimal amount = p.balance();
             if (amount == null || amount.signum() <= 0) {
                 continue;
             }
@@ -277,6 +279,14 @@ public class CmaQueryService {
             }
         }
         return new PointBreakdown(shinhan, affiliate);
+    }
+
+    /** POINT 수집을 명시적으로 끈(is_enabled=FALSE) 포인트 id 집합. 설정이 없으면 기본 ON이라 비어 있다. */
+    private Set<Long> disabledPointIds(List<CollectionSetting> settings) {
+        return settings.stream()
+                .filter(s -> "POINT".equals(s.getSourceType()) && Boolean.FALSE.equals(s.getIsEnabled()))
+                .map(CollectionSetting::getSourceRefId)
+                .collect(Collectors.toSet());
     }
 
     /** 포인트명에 "신한"이 들어가면 신한 포인트(마이신한포인트)로 분류, 그 외는 제휴. */

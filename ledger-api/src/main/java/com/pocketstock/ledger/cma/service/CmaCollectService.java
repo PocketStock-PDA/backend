@@ -5,7 +5,7 @@ import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.client.AssetFeignClient;
 import com.pocketstock.ledger.client.dto.CardRoundupSummary;
 import com.pocketstock.ledger.client.dto.LinkedAccountSummary;
-import com.pocketstock.ledger.client.dto.PointSummary;
+import com.pocketstock.ledger.client.dto.LinkedPointSummary;
 import com.pocketstock.ledger.client.dto.SourceDeduction;
 import com.pocketstock.ledger.client.dto.UsdWalletSummary;
 import com.pocketstock.ledger.cma.domain.CmaAccount;
@@ -158,29 +158,32 @@ public class CmaCollectService {
     }
 
     /**
-     * 포인트 전환 적립 — 활성 POINT 포인트들의 전환 가능 잔액 합산(다중 포인트)을 CMA 원화 풀로 입금.
+     * 포인트 전환 적립 — 연동된 포인트들의 전환 가능 잔액 합산(다중 포인트)을 CMA 원화 풀로 입금.
+     * 홈 표시(calcPointBreakdown)와 동일 기준: 연동된 포인트는 기본 수집 대상이고, POINT 수집설정으로
+     * 명시적으로 끈(is_enabled=FALSE) 포인트만 제외한다(기본은 설정 없음=ON).
      * E-1: 합산 1줄, ref_id는 포인트 1개면 해당 id·여러 개면 null.
      */
     @Transactional
     public CollectResult collectFromPoint(Long userId, String idempotencyKey) {
         CmaAccount account = getAccountOrThrow(userId);
-        List<CollectionSetting> enabled = enabledSettings(userId, SRC_POINT);
-        if (enabled.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 포인트 적립 소스가 없습니다.");
-        }
+
+        // POINT 수집설정으로 끈(is_enabled=FALSE) 포인트는 수집에서 제외 — 홈 표시와 동일 기준.
+        Set<Long> disabled = settingMapper.findByUserId(userId).stream()
+                .filter(s -> SRC_POINT.equals(s.getSourceType()) && Boolean.FALSE.equals(s.getIsEnabled()))
+                .map(CollectionSetting::getSourceRefId)
+                .collect(Collectors.toSet());
 
         // 적립액(amount)과 차감액(deductions)이 일치하도록, 전환 가능 포인트가 있는(>0) 소스만
         // 양쪽과 ref_id 후보에 함께 반영한다.
         BigDecimal amount = BigDecimal.ZERO;
         List<Long> refIds = new ArrayList<>();
         List<SourceDeduction> deductions = new ArrayList<>();
-        for (CollectionSetting setting : enabled) {
-            PointSummary point = assetFeignClient.getAvailablePoints(userId, setting.getSourceRefId());
-            BigDecimal points = point.availablePoints();
-            if (points.signum() > 0) {
+        for (LinkedPointSummary point : assetFeignClient.getLinkedPoints(userId)) {
+            BigDecimal points = point.balance();
+            if (points != null && points.signum() > 0 && !disabled.contains(point.id())) {
                 amount = amount.add(points);
-                refIds.add(setting.getSourceRefId());
-                deductions.add(new SourceDeduction(setting.getSourceRefId(), points));
+                refIds.add(point.id());
+                deductions.add(new SourceDeduction(point.id(), points));
             }
         }
         requireCollectible(amount);
