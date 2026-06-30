@@ -29,7 +29,9 @@ public class HoldingService {
                     java.math.BigDecimal frac = h.getFractionalQty() == null
                             ? java.math.BigDecimal.ZERO : h.getFractionalQty();
                     java.math.BigDecimal whole = h.getQuantity().subtract(frac);   // 온주(직접소유) = 총 − 소수
-                    return new HoldingResponse(h.getStockCode(), h.getQuantity(), whole, frac,
+                    java.math.BigDecimal heldFrac = h.getHeldFractional() == null
+                            ? java.math.BigDecimal.ZERO : h.getHeldFractional();
+                    return new HoldingResponse(h.getStockCode(), h.getQuantity(), whole, frac, heldFrac,
                             h.getAvgBuyPrice(), h.getCurrency());
                 })
                 .toList();
