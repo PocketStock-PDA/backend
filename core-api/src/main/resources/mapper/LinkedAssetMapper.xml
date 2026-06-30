@@ -19,6 +19,7 @@
         WHERE lba.user_id = #{userId}
           AND lba.is_dormant = TRUE
           AND lba.closed_at IS NULL
+          AND li.link_status = 'LINKED'   <!-- 연동 해제(AVAILABLE)된 기관의 휴면계좌는 발견 결과에서 제외 -->
         ORDER BY lba.balance DESC, lba.id ASC
     </select>
 
