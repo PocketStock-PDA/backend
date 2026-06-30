@@ -265,8 +265,6 @@ class CmaCollectServiceTest {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
         when(self.collectFromAccount(eq(USER_ID), anyString()))
                 .thenReturn(CollectResult.success("ACCOUNT", new BigDecimal("7500"), new BigDecimal("412990")));
-        when(self.collectFromCard(eq(USER_ID), anyString()))
-                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "활성화된 카드 적립 소스가 없습니다."));
         when(self.collectFromPoint(eq(USER_ID), anyString()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "수집 가능한 잔돈이 없습니다."));
         when(self.collectFromFx(eq(USER_ID), anyString()))
@@ -274,13 +272,14 @@ class CmaCollectServiceTest {
 
         List<CollectResult> results = service(self).collectAll(USER_ID, "base-key");
 
-        assertThat(results).hasSize(4);
+        // 카드는 통합 수집 대상이 아님 → 계좌/포인트/외화 3개 결과만
+        assertThat(results).hasSize(3);
         assertThat(results.get(0).sourceType()).isEqualTo("ACCOUNT");
         assertThat(results.get(0).status()).isEqualTo("SUCCESS");
+        assertThat(results.get(1).sourceType()).isEqualTo("POINT");
         assertThat(results.get(1).status()).isEqualTo("SKIPPED");
+        assertThat(results.get(2).sourceType()).isEqualTo("FX");
         assertThat(results.get(2).status()).isEqualTo("SKIPPED");
-        assertThat(results.get(3).sourceType()).isEqualTo("FX");
-        assertThat(results.get(3).status()).isEqualTo("SKIPPED");
     }
 
     @Test
@@ -290,19 +289,16 @@ class CmaCollectServiceTest {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
         when(self.collectFromAccount(eq(USER_ID), anyString()))
                 .thenReturn(CollectResult.success("ACCOUNT", new BigDecimal("7500"), new BigDecimal("412990")));
-        when(self.collectFromCard(eq(USER_ID), anyString()))
-                .thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌를 찾을 수 없습니다."));  // 실제 오류
         when(self.collectFromPoint(eq(USER_ID), anyString()))
-                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "수집 가능한 잔돈이 없습니다."));
+                .thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "CMA 계좌를 찾을 수 없습니다."));  // 실제 오류
         when(self.collectFromFx(eq(USER_ID), anyString()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT, "수집 가능한 잔돈이 없습니다."));
 
         List<CollectResult> results = service(self).collectAll(USER_ID, "base-key");
 
         assertThat(results.get(0).status()).isEqualTo("SUCCESS");
-        assertThat(results.get(1).status()).isEqualTo("FAILED");   // NOT_FOUND → 가려지지 않음
-        assertThat(results.get(2).status()).isEqualTo("SKIPPED");  // INVALID_INPUT → 정상 건너뜀
-        assertThat(results.get(3).status()).isEqualTo("SKIPPED");
+        assertThat(results.get(1).status()).isEqualTo("FAILED");   // POINT NOT_FOUND → 가려지지 않음
+        assertThat(results.get(2).status()).isEqualTo("SKIPPED");  // FX INVALID_INPUT → 정상 건너뜀
     }
 
     @Test
@@ -312,8 +308,6 @@ class CmaCollectServiceTest {
         when(accountMapper.findByUserId(USER_ID)).thenReturn(cmaAccount());
         when(self.collectFromAccount(eq(USER_ID), eq("base:ACCOUNT")))
                 .thenReturn(CollectResult.success("ACCOUNT", new BigDecimal("7500"), new BigDecimal("412990")));
-        when(self.collectFromCard(eq(USER_ID), eq("base:CARD")))
-                .thenReturn(CollectResult.success("CARD", new BigDecimal("280"), new BigDecimal("413270")));
         when(self.collectFromPoint(eq(USER_ID), eq("base:POINT")))
                 .thenReturn(CollectResult.success("POINT", new BigDecimal("5000"), new BigDecimal("418270")));
         when(self.collectFromFx(eq(USER_ID), eq("base:FX")))
@@ -322,11 +316,11 @@ class CmaCollectServiceTest {
         List<CollectResult> results = service(self).collectAll(USER_ID, "base");
 
         assertThat(results).extracting(CollectResult::status)
-                .containsExactly("SUCCESS", "SUCCESS", "SUCCESS", "SUCCESS");
+                .containsExactly("SUCCESS", "SUCCESS", "SUCCESS");
         verify(self).collectFromAccount(USER_ID, "base:ACCOUNT");
-        verify(self).collectFromCard(USER_ID, "base:CARD");
         verify(self).collectFromPoint(USER_ID, "base:POINT");
         verify(self).collectFromFx(USER_ID, "base:FX");
+        verify(self, never()).collectFromCard(USER_ID, "base:CARD"); // 카드는 통합 수집에서 제외
     }
 
     @Test

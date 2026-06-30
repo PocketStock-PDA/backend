@@ -13,6 +13,7 @@ import com.pocketstock.core.client.LedgerFeignClient;
 import com.pocketstock.core.client.dto.CollectionSettingView;
 import com.pocketstock.core.internal.asset.InternalAssetService;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
+import com.pocketstock.core.internal.asset.dto.LinkedPointSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -78,18 +80,19 @@ public class AssetQueryService {
         List<CollectionSettingView> settings = ledgerFeignClient.getCollectionSettings(userId);
 
         BigDecimal accountAmount = calcAccountAmount(userId, settings);
-        BigDecimal cardAmount = calcCardAmount(userId, settings);
         BigDecimal pointAmount = calcPointAmount(userId, settings);
         BigDecimal fxAmount = calcFxAmount(userId);
 
+        // 카드 라운드업은 결제 시점에 자동 수집되는 영역 — '발견(스캔)'·수동 모으기 대상이 아니라 스캔에선 항상 0.
+        // (프론트는 amount>0 소스만 노출하므로 카드 줄은 자연히 숨겨진다.)
         List<ScanResponse.Source> sources = List.of(
                 new ScanResponse.Source("ACCOUNT", "신한은행 끝전", accountAmount),
-                new ScanResponse.Source("CARD", "신한카드 잔돈", cardAmount),
+                new ScanResponse.Source("CARD", "신한카드 잔돈", BigDecimal.ZERO),
                 new ScanResponse.Source("POINT", "마이신한포인트 잔돈", pointAmount),
                 new ScanResponse.Source("FX", "SOL트래블 환전 잔돈", fxAmount)
         );
 
-        BigDecimal total = accountAmount.add(cardAmount).add(pointAmount).add(fxAmount);
+        BigDecimal total = accountAmount.add(pointAmount).add(fxAmount);
         return new ScanResponse(total, sources);
     }
 
@@ -114,19 +117,20 @@ public class AssetQueryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** 활성 CARD 설정들의 라운드업 잔돈 합계(다중 카드 합산). getCardRoundup 재사용(끝전 계산 단일 소스). */
-    private BigDecimal calcCardAmount(Long userId, List<CollectionSettingView> settings) {
-        return settings.stream()
-                .filter(s -> "CARD".equals(s.sourceType()) && s.enabled())
-                .map(s -> internalAssetService.getCardRoundup(userId, s.sourceRefId()).totalRoundupAmount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /** 활성 POINT 설정들의 포인트 잔액 합계(다중 포인트 합산). */
+    /**
+     * 연동 포인트 잔액 합계(opt-out) — 홈 표시(calcPointBreakdown)·수집(collectFromPoint)과 동일 기준.
+     * 연동된 포인트는 기본 포함하고, POINT 수집설정으로 명시적으로 끈(is_enabled=FALSE) 포인트만 제외한다.
+     * (스캔만 opt-in으로 두면 "발견=0인데 모으기는 적립"되는 불일치가 생겨 동일 기준으로 맞춘다.)
+     */
     private BigDecimal calcPointAmount(Long userId, List<CollectionSettingView> settings) {
-        return settings.stream()
-                .filter(s -> "POINT".equals(s.sourceType()) && s.enabled())
-                .map(s -> internalAssetService.getAvailablePoints(userId, s.sourceRefId()).availablePoints())
+        Set<Long> disabled = settings.stream()
+                .filter(s -> "POINT".equals(s.sourceType()) && !s.enabled())
+                .map(CollectionSettingView::sourceRefId)
+                .collect(Collectors.toSet());
+        return internalAssetService.getLinkedPoints(userId).stream()
+                .filter(p -> !disabled.contains(p.id()))
+                .map(LinkedPointSummary::balance)
+                .filter(b -> b != null && b.signum() > 0)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 

@@ -8,9 +8,8 @@ import com.pocketstock.core.client.LedgerFeignClient;
 import com.pocketstock.core.client.dto.CollectionSettingView;
 import com.pocketstock.core.client.dto.UsdKrwRateView;
 import com.pocketstock.core.internal.asset.InternalAssetService;
-import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
-import com.pocketstock.core.internal.asset.dto.PointSummary;
+import com.pocketstock.core.internal.asset.dto.LinkedPointSummary;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,10 +58,8 @@ class AssetQueryServiceScanTest {
         ));
         when(internalAssetService.getLinkedAccounts(USER_ID, List.of(1L))).thenReturn(List.of(
                 new LinkedAccountSummary(1L, "DEMAND", BigDecimal.valueOf(12300), "KRW", null, null)));
-        when(internalAssetService.getCardRoundup(USER_ID, 10L))
-                .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(700), List.of(5L)));
-        when(internalAssetService.getAvailablePoints(USER_ID, 20L))
-                .thenReturn(new PointSummary(20L, "마이신한포인트", BigDecimal.valueOf(28000)));
+        when(internalAssetService.getLinkedPoints(USER_ID))
+                .thenReturn(List.of(new LinkedPointSummary(20L, "마이신한포인트", BigDecimal.valueOf(28000))));
         // FX: 4.50 USD × 1378 = 6201
         when(linkedAssetMapper.sumUsdWalletBalance(USER_ID)).thenReturn(new BigDecimal("4.5000"));
         when(ledgerFeignClient.getUsdKrwRate()).thenReturn(new UsdKrwRateView(new BigDecimal("1378")));
@@ -70,10 +67,10 @@ class AssetQueryServiceScanTest {
         ScanResponse res = service.getScan(USER_ID);
 
         assertThat(source(res, "ACCOUNT").amount()).isEqualByComparingTo("2300");
-        assertThat(source(res, "CARD").amount()).isEqualByComparingTo("700");
+        assertThat(source(res, "CARD").amount()).isEqualByComparingTo("0");   // 카드는 자동 수집 영역 → 스캔에선 항상 0
         assertThat(source(res, "POINT").amount()).isEqualByComparingTo("28000");
         assertThat(source(res, "FX").amount()).isEqualByComparingTo("6201");
-        assertThat(res.totalAmount()).isEqualByComparingTo("37201"); // 2300+700+28000+6201
+        assertThat(res.totalAmount()).isEqualByComparingTo("36501"); // 2300+28000+6201 (카드 제외)
     }
 
     @Test
@@ -102,19 +99,15 @@ class AssetQueryServiceScanTest {
                 new CollectionSettingView("POINT", 20L, true, null),
                 new CollectionSettingView("POINT", 21L, true, null)
         ));
-        when(internalAssetService.getCardRoundup(USER_ID, 10L))
-                .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(280), List.of(1L)));
-        when(internalAssetService.getCardRoundup(USER_ID, 11L))
-                .thenReturn(new CardRoundupSummary(BigDecimal.valueOf(520), List.of(2L)));
-        when(internalAssetService.getAvailablePoints(USER_ID, 20L))
-                .thenReturn(new PointSummary(20L, "마이신한포인트", BigDecimal.valueOf(28000)));
-        when(internalAssetService.getAvailablePoints(USER_ID, 21L))
-                .thenReturn(new PointSummary(21L, "네이버페이 포인트", BigDecimal.valueOf(5000)));
+        when(internalAssetService.getLinkedPoints(USER_ID))
+                .thenReturn(List.of(
+                        new LinkedPointSummary(20L, "마이신한포인트", BigDecimal.valueOf(28000)),
+                        new LinkedPointSummary(21L, "네이버페이 포인트", BigDecimal.valueOf(5000))));
         when(linkedAssetMapper.sumUsdWalletBalance(USER_ID)).thenReturn(BigDecimal.ZERO);
 
         ScanResponse res = service.getScan(USER_ID);
 
-        assertThat(source(res, "CARD").amount()).isEqualByComparingTo("800");   // 280 + 520
+        assertThat(source(res, "CARD").amount()).isEqualByComparingTo("0");     // 카드는 스캔에서 항상 0
         assertThat(source(res, "POINT").amount()).isEqualByComparingTo("33000"); // 28000 + 5000
     }
 
