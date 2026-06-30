@@ -1,10 +1,10 @@
 -- ============================================================================
 -- [데모 시드 04] demo 유저 1-10의 연동자산·카드·거래를 user4(박지영)와 동일하게 통일
 -- 03-persona-seed.sql 직후 실행. 기본 시드의 demo1-10 연동데이터를 비우고
--- 박지영(scripts/persona/*.csv, user_id=4) 세트로 덮어쓴다.
--- PK는 100만대 → 기본 시드 id와 충돌 없음.
--- linked_securities/holdings_replica(user4엔 없음)·budget_goals는 비움
+-- 박지영(scripts/persona/*.csv, user_id=4) 세트로 덮어쓴다. PK는 100만대(충돌 회피).
+-- · linked_securities/holdings_replica(user4엔 없음)·budget_goals는 비움
 --   (budget_goals를 비워야 가계부 첫 진입 온보딩·절약금 안내가 노출됨).
+-- · 예적금(DEPOSIT/SAVINGS) 잔액 ×4 → 자산구성에서 증권/CMA보다 크게(만기·리밸런싱 노출).
 -- 재생성: scratchpad/clone_user4.py (persona CSV → SQL)
 -- ============================================================================
 SET FOREIGN_KEY_CHECKS=0;
@@ -3490,5 +3490,6 @@ INSERT INTO notification_settings (id,user_id,push_token,platform,notify_trade,n
 INSERT INTO notification_settings (id,user_id,push_token,platform,notify_trade,notify_goal,notify_unfilled,notify_marketing,created_at,updated_at) VALUES (1003468,8,NULL,'AOS',1,1,1,0,'2026-03-10 10:00:00','2026-03-10 10:00:00');
 INSERT INTO notification_settings (id,user_id,push_token,platform,notify_trade,notify_goal,notify_unfilled,notify_marketing,created_at,updated_at) VALUES (1003469,9,NULL,'AOS',1,1,1,0,'2026-03-10 10:00:00','2026-03-10 10:00:00');
 INSERT INTO notification_settings (id,user_id,push_token,platform,notify_trade,notify_goal,notify_unfilled,notify_marketing,created_at,updated_at) VALUES (1003470,10,NULL,'AOS',1,1,1,0,'2026-03-10 10:00:00','2026-03-10 10:00:00');
+UPDATE linked_bank_accounts SET balance = balance * 4 WHERE user_id IN (1,2,3,4,5,6,7,8,9,10) AND account_type IN ('DEPOSIT','SAVINGS');
 COMMIT;
 SET FOREIGN_KEY_CHECKS=1;
