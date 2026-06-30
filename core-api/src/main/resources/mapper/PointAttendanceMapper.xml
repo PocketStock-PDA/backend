@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pocketstock.core.point.mapper.PointAttendanceMapper">
+
+    <!-- 가장 최근 출석 1건. 컬럼 순서를 AttendanceRecord(attendedDate, streakAfter)와 일치 -->
+    <select id="findLastAttendance"
+            resultType="com.pocketstock.core.point.domain.AttendanceRecord">
+        SELECT attended_date, streak_after
+        FROM point_attendance
+        WHERE user_id = #{userId}
+        ORDER BY attended_date DESC
+        LIMIT 1
+    </select>
+
+    <!-- 출석 이력 append. (user_id, attended_date) UNIQUE → 하루1회/멱등 가드 -->
+    <insert id="insertAttendance">
+        INSERT INTO point_attendance (user_id, attended_date, awarded, streak_after)
+        VALUES (#{userId}, #{attendedDate}, #{awarded}, #{streakAfter})
+    </insert>
+
+    <!-- 마이신한포인트 적립: linked_points(1P=1원, BIGINT) 잔액 증액.
+         linked_institutions·institution_master를 조인해 company_code='SHINHAN_POINT' 이면서
+         LINKED 상태인 행만 대상(한글 point_name 매칭 대신 코드 기반). 대상 없으면 0건 → 서비스가 예외 처리. -->
+    <update id="increaseShinhanPoint">
+        UPDATE linked_points lp
+        JOIN linked_institutions li ON li.id = lp.institution_id
+        JOIN institution_master im ON im.id = li.institution_master_id
+        SET lp.balance = lp.balance + #{amount}
+        WHERE lp.user_id = #{userId}
+          AND im.company_code = 'SHINHAN_POINT'
+          AND li.link_status = 'LINKED'
+    </update>
+
+    <!-- 마이신한포인트 현재 잔액(balanceAfter·중복출석 응답용) -->
+    <select id="findShinhanPointBalance" resultType="java.lang.Long">
+        SELECT lp.balance
+        FROM linked_points lp
+        JOIN linked_institutions li ON li.id = lp.institution_id
+        JOIN institution_master im ON im.id = li.institution_master_id
+        WHERE lp.user_id = #{userId}
+          AND im.company_code = 'SHINHAN_POINT'
+          AND li.link_status = 'LINKED'
+        LIMIT 1
+    </select>
+
+</mapper>
