@@ -67,10 +67,7 @@ public class CmaBankChargeService implements CmaChargePort {
         // 은행계좌 소유·미해지 확인(타인/해지 계좌면 결과 비어 거부) + 잔액 부족 거부.
         LinkedAccountSummary src = findOwnedAccount(userId, source);
         if (src.balance() == null || src.balance().compareTo(chargeAmount) < 0) {
-            throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE,
-                    "출처 계좌 잔액이 부족합니다. (보유 "
-                            + (src.balance() == null ? BigDecimal.ZERO : src.balance())
-                            + ", 필요 " + chargeAmount + ")");
+            throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "출처 계좌 잔액이 부족합니다.");
         }
 
         try {

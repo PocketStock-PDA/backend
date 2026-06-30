@@ -102,12 +102,12 @@ public class FractionalGroupSettler {
         for (Order o : orders) {
             BigDecimal qty = desiredQty(o, buy, fillPrice);
             if (qty.signum() <= 0) {
-                rejectOne(o, "체결 수량 0");
+                rejectOne(o, "체결 가능 수량이 없습니다.");
                 continue;
             }
             BigDecimal cost = qty.multiply(fillPrice);
             if (buy && o.getHeldAmount() != null && cost.compareTo(o.getHeldAmount()) > 0) {
-                rejectOne(o, "예수금 부족(버퍼 초과 급등) — 합산 제외(FRAC-015)");
+                rejectOne(o, "예수금이 부족합니다.");
                 continue;
             }
             funded.add(new Funded(o, qty, cost));
@@ -348,11 +348,11 @@ public class FractionalGroupSettler {
         if (overseas) {
             TradableStock stock = stockMapper.findByCode(stockCode);
             if (stock == null) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + stockCode);
+                throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목입니다.");
             }
             BigDecimal best = positive(orderbookService.overseasReferencePrice(stock, buy));
             if (best == null) {
-                throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "체결가 산정 실패(시세 없음): " + stockCode);
+                throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "시세 정보를 불러올 수 없습니다.");
             }
             return best;
         }
@@ -363,7 +363,7 @@ public class FractionalGroupSettler {
                 base = positive(firstPrice(ob.asks()));   // 현재가 공백이면 최우선 매도호가로 대체
             }
             if (base == null) {
-                throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "체결가 산정 실패(시세 없음): " + stockCode);
+                throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "시세 정보를 불러올 수 없습니다.");
             }
             return base.add(tickSize(base).multiply(BigDecimal.valueOf(TICK_STEPS)));
         }

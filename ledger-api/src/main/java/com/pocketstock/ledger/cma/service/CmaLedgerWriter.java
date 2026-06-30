@@ -72,9 +72,7 @@ public class CmaLedgerWriter {
         // 3) 잔액 계산 + 출금 가드(입금은 통과)
         BigDecimal balanceAfter = balance.getBalance().add(signedAmount);
         if (balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE,
-                    currency + " 잔액이 부족합니다. (보유 " + balance.getBalance()
-                            + ", 필요 " + signedAmount.negate() + ")");
+            throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "잔액이 부족합니다.");
         }
 
         // 4) 원장 append. UNIQUE(idempotency_key)가 멱등 백스톱 — 1)~2) 사이 경합으로 다른 트랜잭션이

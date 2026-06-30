@@ -1,5 +1,7 @@
 package com.pocketstock.ledger.trading.matching;
 
+import com.pocketstock.common.exception.BusinessException;
+import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.ledger.trading.domain.Order;
 import com.pocketstock.ledger.trading.domain.TradingRound;
 import com.pocketstock.ledger.trading.mapper.OrderMapper;
@@ -51,7 +53,10 @@ public class FractionalBatchService {
                 log.error("[소수점배치] 그룹 정산 실패 stock={} {} — 거부+환원: {}",
                         head.getStockCode(), head.getSide(), e.getMessage());
                 try {
-                    settler.rejectGroup(group, "배치 정산 실패: " + e.getMessage());
+                    String userMsg = (e instanceof BusinessException be && be.getErrorCode() == ErrorCode.INTERNAL_ERROR)
+                            ? "일시적인 오류가 발생했습니다."
+                            : (e.getMessage() != null ? e.getMessage() : "일시적인 오류가 발생했습니다.");
+                    settler.rejectGroup(group, userMsg);
                 } catch (Exception re) {
                     log.error("[소수점배치] 거부 환원도 실패 stock={} — 수동 점검 필요", head.getStockCode(), re);
                 }

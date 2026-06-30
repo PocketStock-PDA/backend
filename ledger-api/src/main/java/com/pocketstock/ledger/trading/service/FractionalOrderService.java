@@ -120,8 +120,10 @@ public class FractionalOrderService {
             // AUTO(자동모으기) 실패는 REJECTED 안 남김 — 스케줄러가 잡아 auto_invest_executions에 FAILED로 기록(설계 ⑦·자잘).
             if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT && !"AUTO".equals(source)) {
                 try {
+                    String userMsg = e.getErrorCode() == ErrorCode.INTERNAL_ERROR
+                            ? "일시적인 오류가 발생했습니다." : e.getMessage();
                     rejectionService.recordRejection(userId, ctx.account().getId(), ctx.stock().getStockCode(),
-                            ctx.stock().getExchange(), "BUY", method, null, null, ctx.spec().currency(), e.getMessage());
+                            ctx.stock().getExchange(), "BUY", method, null, null, ctx.spec().currency(), userMsg);
                 } catch (Exception ignore) {
                     // 감사 기록 실패가 원 예외를 가리지 않게 무시.
                 }
@@ -286,8 +288,10 @@ public class FractionalOrderService {
             // AUTO(자동모으기 익절) 실패는 REJECTED 안 남김 — 스케줄러가 executions FAILED로 기록.
             if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT && !"AUTO".equals(source)) {
                 try {
+                    String userMsg = e.getErrorCode() == ErrorCode.INTERNAL_ERROR
+                            ? "일시적인 오류가 발생했습니다." : e.getMessage();
                     rejectionService.recordRejection(userId, ctx.account().getId(), ctx.stock().getStockCode(),
-                            ctx.stock().getExchange(), "SELL", method, null, null, ctx.spec().currency(), e.getMessage());
+                            ctx.stock().getExchange(), "SELL", method, null, null, ctx.spec().currency(), userMsg);
                 } catch (Exception ignore) {
                     // 감사 기록 실패가 원 예외를 가리지 않게 무시.
                 }
@@ -325,7 +329,7 @@ public class FractionalOrderService {
         }
         sellQty = sellQty.setScale(QTY_SCALE, RoundingMode.DOWN);
         if (sellQty.signum() <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도할 수량이 없습니다(보유 없음).");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도할 수량이 없습니다.");
         }
         // 온주 매도는 가용 정수까지만 — 나머지는 소수로(온주가 모자라면 소수에서 더 떼지 않음).
         int whole = Math.min(sellQty.setScale(0, RoundingMode.FLOOR).intValueExact(), wholeAvail.intValue());
@@ -398,7 +402,7 @@ public class FractionalOrderService {
         }
         TradableStock stock = stockMapper.findByCode(req.stockCode());
         if (stock == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + req.stockCode());
+            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목입니다.");
         }
         // 거래소로 시장(국내/해외) 판별 → 통화·계좌·최소주문·버퍼 규격을 결정. 해외는 USD·OVERSEAS 계좌(#155).
         MarketSpec spec;
@@ -407,10 +411,10 @@ public class FractionalOrderService {
         } else if (OVERSEAS_EXCHANGES.contains(stock.getExchange())) {
             spec = SPEC_OVERSEAS;
         } else {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 거래소: " + stock.getExchange());
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 거래소입니다.");
         }
         if (Boolean.FALSE.equals(stock.getIsActive())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "거래 정지 종목입니다: " + stock.getStockCode());
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "거래 정지 종목입니다.");
         }
         // 불변식: 거래소에서 파생한 통화 == 종목마스터 통화. 어긋나면 마스터 데이터 불일치(서버 오류).
         if (!spec.currency().equals(stock.getCurrency())) {
