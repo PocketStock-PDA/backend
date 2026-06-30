@@ -20,6 +20,8 @@ services:
       - ./scripts/stock-master/deposit_products_seed.sql:/docker-entrypoint-initdb.d/02c-deposit-products-seed.sql
       # demo1~10 통합 시드(03). 기존 04~06 분리 시드는 이 파일로 흡수됨.
       - ./scripts/mysql-a-persona-seed.sql:/docker-entrypoint-initdb.d/03-persona-seed.sql
+      # demo1~10 연동자산·카드·거래를 user4(박지영)와 동일하게 통일(데모)
+      - ./scripts/mysql-a-demo-clone.sql:/docker-entrypoint-initdb.d/04-demo-clone.sql
       - mysql-a-data:/var/lib/mysql
 
   # DB B (원장, pocketstock_ledger, 물리 격리) — mysql-b 인스턴스
@@ -37,6 +39,8 @@ services:
       - ./scripts/stock-master/tradable_stocks_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
       # demo1~10 통합 시드(03). 기존 04 분리 시드는 이 파일로 흡수됨.
       - ./scripts/mysql-b-persona-seed.sql:/docker-entrypoint-initdb.d/03-persona-seed.sql
+      # demo1~10 CMA 펀딩(KRW 10,000,000 + USD 5,000)(데모)
+      - ./scripts/mysql-b-demo-cma-fund.sql:/docker-entrypoint-initdb.d/04-demo-cma-fund.sql
       - mysql-b-data:/var/lib/mysql
 
   redis:
