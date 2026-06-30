@@ -9,7 +9,9 @@ import com.pocketstock.core.recommendations.deposit.dto.DepositRolloverRequest;
 import com.pocketstock.user.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -54,6 +56,16 @@ public class DepositController {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
         depositService.transferToCma(userId, request);
         return ResponseEntity.ok(ApiResponse.ok("CMA 이체 성공", null));
+    }
+
+    /** 'CMA 이체' 예약 취소 — RESERVED 상태인 경우만 가능. */
+    @DeleteMapping("/maturity/deposit-to-cma/{id}")
+    public ResponseEntity<ApiResponse<Void>> cancelCmaTransfer(
+            @CurrentUserId Long userId,
+            @PathVariable Long id) {
+        if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        depositService.cancelCmaTransfer(userId, id);
+        return ResponseEntity.ok(ApiResponse.ok("CMA 이체 예약이 취소됐어요.", null));
     }
 
     /** '예금 재예치' 기록 — 전환내역에서 배당주 예약과 병합. */

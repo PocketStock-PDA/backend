@@ -98,11 +98,21 @@
                base_rate              AS baseRate,
                max_rate               AS maxRate,
                period_months          AS periodMonths,
+               status,
                created_at             AS createdAt
         FROM maturity_deposit_rollovers
         WHERE user_id = #{userId}
         ORDER BY id DESC
     </select>
+
+    <update id="cancelCmaRollover">
+        UPDATE maturity_deposit_rollovers
+        SET status = 'CANCELLED'
+        WHERE id = #{id}
+          AND user_id = #{userId}
+          AND product_type = 'CMA'
+          AND status = 'RESERVED'
+    </update>
 
     <select id="findDueCmaTransfers"
             resultType="com.pocketstock.core.recommendations.deposit.dto.DueCmaTransfer">

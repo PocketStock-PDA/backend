@@ -35,7 +35,11 @@ def logo_url(row):
     if not folder:
         return ""
     rel = f"/{folder}/{row['stock_code']}.png"
-    return rel if os.path.isfile(os.path.join(LOGO_PUBLIC, folder, row["stock_code"] + ".png")) else ""
+    if os.path.isfile(os.path.join(LOGO_PUBLIC, folder, row["stock_code"] + ".png")):
+        return rel
+    if row.get("sec_type") == "ETF":
+        return "/icons/etf-default.png"
+    return ""
 
 # --- KR 큐레이션 기준 ---
 KOSPI_TOP_N = 200                      # KOSPI: 전일 시가총액 상위 N개 STOCK
