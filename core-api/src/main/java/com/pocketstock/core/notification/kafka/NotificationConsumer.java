@@ -176,7 +176,7 @@ public class NotificationConsumer {
         PushPayload push = new PushPayload(NotificationType.PUZZLE_COMPLETE.name(),
                 title, body, "puzzle-" + stockCode, url, occurredAt, data);
         notificationService.create(userId, NotificationType.PUZZLE_COMPLETE, title, body,
-                "PUZZLE", userId, push);
+                "PUZZLE", null, push);
     }
 
     /** eventId(콜론 구분)에서 idx번째 토막을 Long ref_id로. 파싱 실패 시 null(딥링크만 비고 알림은 정상). */

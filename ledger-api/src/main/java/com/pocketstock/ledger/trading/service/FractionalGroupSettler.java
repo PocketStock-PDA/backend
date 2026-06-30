@@ -148,7 +148,7 @@ public class FractionalGroupSettler {
         Map<Long, BigDecimal> addedFrac = new HashMap<>();    // accountId → 이 배치에서 더한 qty 합
         if (buy) {
             for (Funded f : funded) {
-                long accountId = f.order().getAccountId();
+                Long accountId = f.order().getAccountId();
                 if (!preFrac.containsKey(accountId)) {
                     BigDecimal fq = holdingMapper.findFractionalQtyByAccount(accountId, stockCode);
                     preFrac.put(accountId, fq != null ? fq : BigDecimal.ZERO);

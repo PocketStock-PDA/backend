@@ -116,7 +116,8 @@
     </update>
 
     <select id="findByUserId" resultMap="holding">
-        SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, avg_buy_price, krw_cost_basis, currency, created_at, updated_at
+        SELECT id, user_id, account_id, stock_code, quantity, fractional_qty, held_whole, held_fractional,
+               avg_buy_price, krw_cost_basis, currency, created_at, updated_at
         FROM holdings
         WHERE user_id = #{userId} AND quantity > 0
         ORDER BY id
