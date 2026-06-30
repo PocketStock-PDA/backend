@@ -90,6 +90,31 @@ INSERT INTO cma_transactions (id,user_id,cma_account_id,currency,tx_type,source_
 (48,10,8,'KRW','COLLECT','POINT',60000.0000,9970100.0000,NULL,NULL,'cma-u10-point','2026-06-15 10:05:00'),
 (49,10,8,'KRW','INTEREST','SYSTEM',29900.0000,10000000.0000,NULL,NULL,'cma-u10-interest','2026-06-16 10:06:00');
 
+-- 신투 첫 진입 시나리오에서는 카드/계좌/포인트 수집 이력이 보이면 어색하다.
+-- 잔액은 시연용 유동성으로 유지하되, 거래내역은 통화별 단일 시드 입금으로 접는다.
+DELETE FROM cma_transactions WHERE user_id BETWEEN 1 AND 10;
+
+INSERT INTO cma_transactions
+    (user_id, cma_account_id, currency, tx_type, source_type, amount, balance_after,
+     ref_type, ref_id, idempotency_key, created_at)
+SELECT
+    ca.user_id,
+    ca.id,
+    cb.currency,
+    'DEPOSIT',
+    'MANUAL',
+    cb.balance,
+    cb.balance,
+    NULL,
+    NULL,
+    CONCAT('cma-u', ca.user_id, '-seed-', LOWER(cb.currency)),
+    ca.opened_at
+FROM cma_accounts ca
+JOIN cma_balances cb ON cb.cma_account_id = ca.id
+WHERE ca.user_id BETWEEN 1 AND 10
+  AND cb.balance > 0
+ORDER BY ca.user_id, cb.currency;
+
 INSERT INTO collection_settings (id,user_id,source_type,source_ref_id,is_enabled,threshold,created_at,updated_at) VALUES
 (1,1,'ACCOUNT',1,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00'),
 (2,1,'CARD',1,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00'),
@@ -196,3 +221,9 @@ INSERT INTO auto_invest_stocks (id,user_id,account_id,stock_code,market,period,p
 (5,5,9,'005930','DOMESTIC','MONTHLY',1,'AMOUNT',50000.0000,NULL,'KRW',TRUE,'2026-02-25 10:00:00','2026-02-25 10:00:00'),
 (6,9,13,'005930','DOMESTIC','MONTHLY',1,'AMOUNT',50000.0000,NULL,'KRW',TRUE,'2026-04-06 10:00:00','2026-04-06 10:00:00');
 
+-- demo1~10은 신투 서비스 첫 진입 시나리오에 맞춰 내부 보유/자동모으기 흔적이 없는 상태로 둔다.
+-- CMA 잔액 1천만원은 시연용 유동성으로 유지한다.
+DELETE FROM holdings WHERE user_id BETWEEN 1 AND 10;
+DELETE FROM auto_invest_stocks WHERE user_id BETWEEN 1 AND 10;
+DELETE FROM auto_invest_settings WHERE user_id BETWEEN 1 AND 10;
+DELETE FROM cma_auto_charge_settings WHERE user_id BETWEEN 1 AND 10;

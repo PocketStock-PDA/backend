@@ -467,3 +467,150 @@ INSERT INTO stock_events (id,stock_code,event_type,event_date,title,detail,amoun
 (4,'066570','DIVIDEND_PAY','2026-08-21','LG전자 배당금 지급','현금배당금: 500원, 배당률: 1.8%',500,'2026-06-01 00:00:00'),
 (5,'000660','EARNINGS','2026-07-24','SK하이닉스 2Q26 실적발표',NULL,NULL,'2026-06-01 00:00:00');
 
+-- ---------------------------------------------------------------------
+-- demo1~10 보정: 2026-03~2026-07 초 카드 사용 내역을 월 240만원대 소비구간으로 재구성.
+-- 기준 월 총소비지출 2,461,262원, 카테고리 비중은 통계 표본과 동일하게 유지하되
+-- 사용자/월별 총액은 약간씩 흔들어 총액 +-10% 범위에 둔다. 신투 첫 진입 전 사용 내역이라
+-- 카드 라운드업은 아직 수집되지 않은 상태로 둔다.
+-- ---------------------------------------------------------------------
+DELETE FROM card_transactions WHERE user_id BETWEEN 1 AND 10;
+
+INSERT INTO card_transactions
+    (user_id, card_id, merchant_name, mcc, category, amount, paid_at, is_cancelled,
+     is_roundup_collected, roundup_collected_at, roundup_amount, created_at)
+SELECT
+    tx.user_id,
+    tx.card_id,
+    tx.merchant_name,
+    NULL,
+    tx.category,
+    tx.amount,
+    tx.paid_at,
+    FALSE,
+    FALSE,
+    NULL,
+    NULL,
+    tx.paid_at
+FROM (
+    SELECT
+        u.user_id,
+        CASE
+            WHEN u.user_id = 6 THEN NULL
+            WHEN u.user_id <= 5 THEN (u.user_id - 1) * 2 + c.card_slot
+            ELSE (u.user_id - 2) * 2 + c.card_slot
+        END AS card_id,
+        c.merchant_name,
+        c.category,
+        CAST(ROUND(c.base_amount * (2461262 + u.user_delta + m.month_delta) / 2461262, 0) AS DECIMAL(18,4)) AS amount,
+        DATE_ADD(
+            DATE_ADD(CAST(m.month_start AS DATETIME),
+                INTERVAL CASE WHEN m.month_start = '2026-07-01' THEN c.early_day_offset ELSE c.day_offset END DAY),
+            INTERVAL c.hour_offset HOUR
+        ) AS paid_at,
+        m.month_start,
+        c.sort_order
+    FROM (
+        SELECT 1 AS user_id,      0 AS user_delta UNION ALL
+        SELECT 2 AS user_id, -92000 AS user_delta UNION ALL
+        SELECT 3 AS user_id,  83000 AS user_delta UNION ALL
+        SELECT 4 AS user_id,-145000 AS user_delta UNION ALL
+        SELECT 5 AS user_id, 126000 AS user_delta UNION ALL
+        SELECT 6 AS user_id, -50000 AS user_delta UNION ALL
+        SELECT 7 AS user_id,  62000 AS user_delta UNION ALL
+        SELECT 8 AS user_id,-118000 AS user_delta UNION ALL
+        SELECT 9 AS user_id,  97000 AS user_delta UNION ALL
+        SELECT 10 AS user_id,-32000 AS user_delta
+    ) u
+    CROSS JOIN (
+        SELECT CAST('2026-03-01' AS DATE) AS month_start,  25000 AS month_delta UNION ALL
+        SELECT CAST('2026-04-01' AS DATE) AS month_start, -38000 AS month_delta UNION ALL
+        SELECT CAST('2026-05-01' AS DATE) AS month_start,      0 AS month_delta UNION ALL
+        SELECT CAST('2026-06-01' AS DATE) AS month_start,  54000 AS month_delta UNION ALL
+        SELECT CAST('2026-07-01' AS DATE) AS month_start, -22000 AS month_delta
+    ) m
+    CROSS JOIN (
+        SELECT  1 AS sort_order,'식료품·비주류음료' AS category,'이마트' AS merchant_name,1 AS card_slot,425060 AS base_amount, 2 AS day_offset,0 AS early_day_offset, 9 AS hour_offset UNION ALL
+        SELECT  2 AS sort_order,'주거·수도·광열' AS category,'아파트관리비' AS merchant_name,2 AS card_slot,418415 AS base_amount, 4 AS day_offset,0 AS early_day_offset,10 AS hour_offset UNION ALL
+        SELECT  3 AS sort_order,'음식·숙박' AS category,'한식당' AS merchant_name,1 AS card_slot,430229 AS base_amount, 6 AS day_offset,1 AS early_day_offset,12 AS hour_offset UNION ALL
+        SELECT  4 AS sort_order,'교통·운송' AS category,'GS칼텍스' AS merchant_name,2 AS card_slot,214130 AS base_amount, 8 AS day_offset,1 AS early_day_offset,13 AS hour_offset UNION ALL
+        SELECT  5 AS sort_order,'교육' AS category,'온라인강의' AS merchant_name,2 AS card_slot,65716 AS base_amount,10 AS day_offset,1 AS early_day_offset,14 AS hour_offset UNION ALL
+        SELECT  6 AS sort_order,'보건' AS category,'동네약국' AS merchant_name,1 AS card_slot,187794 AS base_amount,12 AS day_offset,2 AS early_day_offset,15 AS hour_offset UNION ALL
+        SELECT  7 AS sort_order,'오락·문화' AS category,'CGV' AS merchant_name,1 AS card_slot,122325 AS base_amount,14 AS day_offset,2 AS early_day_offset,16 AS hour_offset UNION ALL
+        SELECT  8 AS sort_order,'기타상품·서비스' AS category,'쿠팡' AS merchant_name,2 AS card_slot,217574 AS base_amount,16 AS day_offset,2 AS early_day_offset,17 AS hour_offset UNION ALL
+        SELECT  9 AS sort_order,'정보통신' AS category,'SKT통신비' AS merchant_name,2 AS card_slot,149891 AS base_amount,18 AS day_offset,3 AS early_day_offset,11 AS hour_offset UNION ALL
+        SELECT 10 AS sort_order,'의류·신발' AS category,'무신사' AS merchant_name,1 AS card_slot,103127 AS base_amount,21 AS day_offset,3 AS early_day_offset,18 AS hour_offset UNION ALL
+        SELECT 11 AS sort_order,'가정용품·가사서비스' AS category,'다이소' AS merchant_name,1 AS card_slot,90082 AS base_amount,24 AS day_offset,4 AS early_day_offset,19 AS hour_offset UNION ALL
+        SELECT 12 AS sort_order,'주류·담배' AS category,'와인앤모어' AS merchant_name,2 AS card_slot,36919 AS base_amount,27 AS day_offset,4 AS early_day_offset,20 AS hour_offset
+    ) c
+) tx
+ORDER BY tx.user_id, tx.month_start, tx.sort_order;
+
+DELETE FROM budget_goals WHERE user_id BETWEEN 1 AND 10 AND period = '2026-06';
+
+INSERT INTO budget_goals (user_id,period,category,target_amount,created_at,updated_at)
+SELECT u.user_id,'2026-06',NULL,2500000.0000,'2026-06-01 00:00:00','2026-06-29 09:00:00'
+FROM (
+    SELECT 1 AS user_id UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+    SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
+) u;
+
+INSERT INTO budget_goals (user_id,period,category,target_amount,created_at,updated_at)
+SELECT
+    u.user_id,
+    '2026-06',
+    c.category,
+    c.target_amount,
+    '2026-06-01 00:00:00',
+    '2026-06-29 09:00:00'
+FROM (
+    SELECT 1 AS user_id UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+    SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
+) u
+CROSS JOIN (
+    SELECT '식료품·비주류음료' AS category,425060.0000 AS target_amount UNION ALL
+    SELECT '주거·수도·광열' AS category,418415.0000 AS target_amount UNION ALL
+    SELECT '음식·숙박' AS category,430229.0000 AS target_amount UNION ALL
+    SELECT '교통·운송' AS category,214130.0000 AS target_amount UNION ALL
+    SELECT '교육' AS category,65716.0000 AS target_amount UNION ALL
+    SELECT '보건' AS category,187794.0000 AS target_amount UNION ALL
+    SELECT '오락·문화' AS category,122325.0000 AS target_amount UNION ALL
+    SELECT '기타상품·서비스' AS category,217574.0000 AS target_amount UNION ALL
+    SELECT '정보통신' AS category,149891.0000 AS target_amount UNION ALL
+    SELECT '의류·신발' AS category,103127.0000 AS target_amount UNION ALL
+    SELECT '가정용품·가사서비스' AS category,90082.0000 AS target_amount UNION ALL
+    SELECT '주류·담배' AS category,36919.0000 AS target_amount
+) c;
+
+INSERT INTO budget_savings
+    (user_id, period, target_amount, spent_amount, saved_amount, is_collect_agreed,
+     transfer_status, transferred_at, created_at, updated_at)
+SELECT
+    s.user_id,
+    '2026-06',
+    300000.0000,
+    s.spent_amount,
+    GREATEST(300000.0000 - s.spent_amount, 0),
+    TRUE,
+    'PENDING',
+    NULL,
+    '2026-06-01 00:00:00',
+    '2026-06-29 09:00:00'
+FROM (
+    SELECT user_id, SUM(amount) AS spent_amount
+    FROM card_transactions
+    WHERE user_id BETWEEN 1 AND 10
+      AND paid_at >= '2026-06-01 00:00:00'
+      AND paid_at <  '2026-07-01 00:00:00'
+      AND is_cancelled = FALSE
+    GROUP BY user_id
+) s
+ON DUPLICATE KEY UPDATE
+    spent_amount = VALUES(spent_amount),
+    saved_amount = VALUES(saved_amount),
+    is_collect_agreed = TRUE,
+    transfer_status = 'PENDING',
+    updated_at = '2026-06-29 09:00:00';
+
+-- 신한투자증권(내부 ledger) 보유 복제 스냅샷은 demo1~10에서 비워둔다.
+-- 타 증권사 보유(external_holdings)는 별도 요구가 없으므로 유지한다.
+DELETE FROM holdings_replica WHERE user_id BETWEEN 1 AND 10;
