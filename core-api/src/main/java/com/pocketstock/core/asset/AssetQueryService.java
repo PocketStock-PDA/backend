@@ -13,6 +13,7 @@ import com.pocketstock.core.client.LedgerFeignClient;
 import com.pocketstock.core.client.dto.CollectionSettingView;
 import com.pocketstock.core.internal.asset.InternalAssetService;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
+import com.pocketstock.core.internal.asset.dto.LinkedPointSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -115,11 +117,20 @@ public class AssetQueryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** 활성 POINT 설정들의 포인트 잔액 합계(다중 포인트 합산). */
+    /**
+     * 연동 포인트 잔액 합계(opt-out) — 홈 표시(calcPointBreakdown)·수집(collectFromPoint)과 동일 기준.
+     * 연동된 포인트는 기본 포함하고, POINT 수집설정으로 명시적으로 끈(is_enabled=FALSE) 포인트만 제외한다.
+     * (스캔만 opt-in으로 두면 "발견=0인데 모으기는 적립"되는 불일치가 생겨 동일 기준으로 맞춘다.)
+     */
     private BigDecimal calcPointAmount(Long userId, List<CollectionSettingView> settings) {
-        return settings.stream()
-                .filter(s -> "POINT".equals(s.sourceType()) && s.enabled())
-                .map(s -> internalAssetService.getAvailablePoints(userId, s.sourceRefId()).availablePoints())
+        Set<Long> disabled = settings.stream()
+                .filter(s -> "POINT".equals(s.sourceType()) && !s.enabled())
+                .map(CollectionSettingView::sourceRefId)
+                .collect(Collectors.toSet());
+        return internalAssetService.getLinkedPoints(userId).stream()
+                .filter(p -> !disabled.contains(p.id()))
+                .map(LinkedPointSummary::balance)
+                .filter(b -> b != null && b.signum() > 0)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
