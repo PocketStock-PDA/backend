@@ -2,6 +2,7 @@ package com.pocketstock.core.internal.asset;
 
 import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
+import com.pocketstock.core.internal.asset.dto.LinkedPointSummary;
 import com.pocketstock.core.internal.asset.dto.PointSummary;
 import com.pocketstock.core.internal.asset.dto.SourceDeduction;
 import com.pocketstock.core.internal.asset.dto.UsdWalletSummary;
@@ -32,6 +33,11 @@ public class InternalAssetController {
     @GetMapping("/fx-wallets")
     public List<UsdWalletSummary> getUsdWallets(@RequestParam Long userId) {
         return service.getUsdWallets(userId);
+    }
+
+    @GetMapping("/points/list")
+    public List<LinkedPointSummary> getLinkedPoints(@RequestParam Long userId) {
+        return service.getLinkedPoints(userId);
     }
 
     @GetMapping("/card-roundup")

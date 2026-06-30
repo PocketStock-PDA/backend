@@ -40,6 +40,20 @@
           AND closed_at IS NULL
     </select>
 
+    <!-- 연동 포인트 목록 — POINT 잔돈 수집 opt-out(기본 ON) 합산 소스.
+         연동된(link_status='LINKED') 기관의 포인트만 포함 — 연동 해제 기관의 잔여 포인트는 제외.
+         id+이름+잔액을 반환해 홈에 신한/제휴로 분류해 노출하고, 수집 후 deductPointBalance로 원천을 닫는다.
+         컬럼 순서는 LinkedPointSummary 레코드 구성요소(id, pointName, balance)와 일치시킨다. -->
+    <select id="findLinkedPoints"
+            resultType="com.pocketstock.core.internal.asset.dto.LinkedPointSummary">
+        SELECT lp.id, lp.point_name, lp.balance
+        FROM linked_points lp
+        JOIN linked_institutions li ON li.id = lp.institution_id
+        WHERE lp.user_id = #{userId}
+          AND li.link_status = 'LINKED'
+        ORDER BY lp.id ASC
+    </select>
+
     <!-- is_roundup_collected=FALSE, 미취소 건만 조회. card_id = linked_cards.id (구 linked_account_id) -->
     <select id="findUncollectedCardTxs" resultType="map">
         SELECT id, amount

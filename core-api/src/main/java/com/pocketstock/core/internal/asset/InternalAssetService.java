@@ -4,6 +4,7 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.core.internal.asset.dto.CardRoundupSummary;
 import com.pocketstock.core.internal.asset.dto.LinkedAccountSummary;
+import com.pocketstock.core.internal.asset.dto.LinkedPointSummary;
 import com.pocketstock.core.internal.asset.dto.PointSummary;
 import com.pocketstock.core.internal.asset.dto.SourceDeduction;
 import com.pocketstock.core.internal.asset.dto.UsdWalletSummary;
@@ -35,6 +36,12 @@ public class InternalAssetService {
     @Transactional(readOnly = true)
     public List<UsdWalletSummary> getUsdWallets(Long userId) {
         return mapper.findUsdWallets(userId);
+    }
+
+    /** 연동 포인트 목록(연동된 기관만) — POINT 잔돈 수집 opt-out(기본 ON)의 합산 소스. */
+    @Transactional(readOnly = true)
+    public List<LinkedPointSummary> getLinkedPoints(Long userId) {
+        return mapper.findLinkedPoints(userId);
     }
 
     @Transactional(readOnly = true)
