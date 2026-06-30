@@ -105,17 +105,17 @@
                AND e.event_date = m.md
                AND e.event_type = 'DIVIDEND_EX'
         ) ex ON ds.stock_code = ex.stock_code
-        <!-- 다가오는 배당 지급(주당배당금 + 지급일) — DIVIDEND_PAY. 가장 가까운 1건의 amount·date를 함께 집는다 -->
+        <!-- 배당 지급(주당배당금 + 지급일) — DIVIDEND_PAY. 국내 미래분은 주당금액 미발표라, 금액이 있는
+             '가장 최근(과거 포함)' 1건을 집어 연 배당 추정에 쓴다(직전 확정 배당액). -->
         LEFT JOIN (
             SELECT p.stock_code,
                    p.event_date AS pay_date,
                    p.amount     AS per_share
             FROM stock_events p
             JOIN (
-                SELECT stock_code, MIN(event_date) AS md
+                SELECT stock_code, MAX(event_date) AS md
                 FROM stock_events
                 WHERE event_type = 'DIVIDEND_PAY'
-                  AND event_date >= CURDATE()
                   AND amount IS NOT NULL
                   AND amount &gt; 0
                 GROUP BY stock_code

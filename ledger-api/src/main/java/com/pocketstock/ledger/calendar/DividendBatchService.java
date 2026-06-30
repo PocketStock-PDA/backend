@@ -40,12 +40,15 @@ public class DividendBatchService {
             return;   // 비활성 색 — 활성 색이 배치 실행(upsert 멱등이나 단일활성 일관성).
         }
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        // 과거 1년까지 포함 — 국내는 미래 배당의 주당금액·지급일이 미발표라, 직전 확정 지급분(DIVIDEND_PAY)을
+        // 잡아야 perShareDividend(연 배당 추정)가 채워진다. (해외 EX엔 금액이 실리나, 국내 EX엔 안 실림)
+        LocalDate oneYearAgo = today.minusYears(1);
         LocalDate oneYearLater = today.plusYears(1);
 
-        log.info("[배당배치] 조회 기간: {} ~ {}", today, oneYearLater);
+        log.info("[배당배치] 조회 기간: {} ~ {}", oneYearAgo, oneYearLater);
 
         List<KisDividendResponse.Item> items =
-                kisDividendClient.fetchDividends(today, oneYearLater);
+                kisDividendClient.fetchDividends(oneYearAgo, oneYearLater);
 
         List<StockEventUpsertRequest> events = new ArrayList<>();
         for (KisDividendResponse.Item item : items) {
