@@ -15,5 +15,6 @@ public record DepositRolloverDto(
         BigDecimal baseRate,
         BigDecimal maxRate,
         int periodMonths,
+        String status,
         LocalDateTime createdAt
 ) {}

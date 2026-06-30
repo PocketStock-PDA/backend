@@ -52,6 +52,9 @@ public interface DepositMapper {
     /** 만기 도래한 'CMA 이체' 예약(RESERVED, product_type='CMA', maturity_date ≤ date) — ledger 스케줄러 집행 대상. */
     List<DueCmaTransfer> findDueCmaTransfers(@Param("date") LocalDate date);
 
+    /** CMA 이체 예약 취소 — RESERVED인 CMA 항목만 CANCELLED로. user_id 소유권 검증 포함. */
+    int cancelCmaRollover(@Param("userId") Long userId, @Param("id") Long id);
+
     /** CMA 이체 예약 상태 갱신 — EXECUTED면 executed_at도 기록. RESERVED에서만 전이(멱등). */
     int updateRolloverStatus(@Param("id") Long id, @Param("status") String status);
 }

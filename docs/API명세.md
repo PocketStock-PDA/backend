@@ -7,11 +7,11 @@
 
 | 담당 | 영역 | API 수 |
 |---|---|---|
-| **A·우정인** | 회원·인증 · 증권계좌 개설 · 알림 · 퍼즐/보상 | 30 |
-| **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 | 34 |
-| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 35 |
-| **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 리밸런싱 | 28 |
-| | **합계** | **127** |
+| **A·우정인** | 회원·인증 · 증권계좌 개설 · 알림 · 마이페이지 | 29 |
+| **B·김준형** | 소수점 매매엔진 · 정기적립 · 시세/실시간시세 · 예적금만기 · 배치 | 84 |
+| **C·강문군** | 자산연동 · CMA · 환전 · 매수/매도 탭 | 53 |
+| **D·김서현** | 소비분석 · 종목추천 · 가계부 · 캘린더 · 예적금추천 | 28 |
+| | **합계** | **194** |
 
 ## 📌 범례
 
@@ -39,7 +39,11 @@
 | 회원·인증 | PIN/패턴 설정 | POST | `/api/users/auth-method` |  | A·우정인 | ✅ |
 | 회원·인증 | 계좌 비밀번호 설정 | POST | `/api/users/account-password` |  | A·우정인 | ✅ |
 | 회원·인증 | 거래 인증(계좌비번 검증, 30분 유지) | POST | `/api/users/account-password/verify` |  | A·우정인 | ✅ |
+| 회원·인증 | 계좌 비밀번호 잠금해제(5회 초과 시) | POST | `/api/users/account-password/unlock` |  | A·우정인 | ✅ |
+| 회원·인증 | 계좌 비밀번호 잠금해제 SMS 인증 | POST | `/api/users/account-password/unlock/sms` |  | A·우정인 | ✅ |
 | 회원·인증 | 회원정보(비밀번호) 수정 | PUT | `/api/users/me` |  | A·우정인 | ✅ |
+| 마이페이지 | 마이페이지 조회 | GET | `/api/users/me/mypage` |  | A·우정인 | ✅ |
+| 마이페이지 | 마이페이지 설정 수정 | PATCH | `/api/users/me/mypage/settings` |  | A·우정인 | ✅ |
 
 ## Asset
 
@@ -67,6 +71,11 @@
 | 소비패턴분석 | 소비분석 리포트 | GET | `/api/assets/spending/report` |  | D·김서현 | ✅ |
 | 자산분석 | 자산 분석 탭 요약 (순자산·포트폴리오·고정비/변동비 합산) | GET | `/api/assets/summary` |  | D·김서현 | ✅ |
 | 타사소수점 | 타사 보유 소수점 통합 조회 | GET | `/api/assets/external-holdings` |  | C·강문군 |  |
+| 자산연동 | 은행 계좌 연동 해제 | DELETE | `/api/assets/links/bank/{companyCode}` |  | C·강문군 | ✅ |
+| 자산연동 | 카드 연동 해제 | DELETE | `/api/assets/links/card/{companyCode}` |  | C·강문군 | ✅ |
+| 자산연동 | 포인트 연동 해제 | DELETE | `/api/assets/links/point/{companyCode}` |  | C·강문군 | ✅ |
+| 자산연동 | 타 증권사 연동 해제 | DELETE | `/api/assets/links/securities/{companyCode}` |  | C·강문군 | ✅ |
+| 자산연동 | 외화잔액 연동 해제 | DELETE | `/api/assets/links/fx` |  | C·강문군 | ✅ |
 
 ## CMA
 
@@ -160,6 +169,11 @@
 |---|---|---|---|---|---|---|
 | 종목추천 | 추천 종목 조회(또래·소비섹터·만기, type 쿼리로 필터) | GET | `/api/recommendations` |  | D·김서현 |  |
 | 종목추천 | 예적금 만기 도래 → 배당주 추천 | GET | `/api/recommendations/maturity` |  | D·김서현 | ✅ |
+| 종목추천 | 만기 연계 계좌 목록 조회 | GET | `/api/recommendations/maturity/accounts` |  | D·김서현 | ✅ |
+| 예적금 | 예적금 상품 추천 목록 조회 | GET | `/api/recommendations/deposits` |  | D·김서현 | ✅ |
+| 예적금 | 만기 예적금 → CMA 전입(이자+원금) | POST | `/api/recommendations/maturity/deposit-to-cma` |  | D·김서현 | ✅ |
+| 예적금 | 만기 예적금 재예치(롤오버) | POST | `/api/recommendations/maturity/deposit-rollover` |  | D·김서현 | ✅ |
+| 예적금 | 만기 예적금 재예치 이력 조회 | GET | `/api/recommendations/maturity/deposit-rollovers` |  | D·김서현 | ✅ |
 | 카드추천 | 소비 기반 맞춤 카드 추천 | GET | `/api/recommendations/cards` |  | D·김서현 | ✅ |
 
 ## Budget
@@ -199,6 +213,8 @@
 | 알림 | 알림 읽음 처리 | PATCH | `/api/notifications/{id}/read` |  | A·우정인 | ✅ |
 | 알림 | 알림 전체 읽음 | PATCH | `/api/notifications/read-all` |  | A·우정인 | ✅ |
 | 알림 | 푸시 토큰 등록 | POST | `/api/notifications/token` |  | A·우정인 | ✅ |
+| 알림 | 푸시 토큰 삭제 | DELETE | `/api/notifications/token` |  | A·우정인 | ✅ |
+| 알림 | 알림 수신 설정 조회 | GET | `/api/notifications/settings` |  | A·우정인 | ✅ |
 | 알림 | 알림 수신 설정 | PUT | `/api/notifications/settings` |  | A·우정인 | ✅ |
 
 ## Recon
@@ -228,3 +244,38 @@
 | 자산 | 포인트 차감 | PATCH | `/internal/assets/points/deduct` |  | C·강문군 | ✅ |
 | 캘린더 | 종목 캘린더 이벤트(배당·실적) 일괄 upsert(배당은 주당배당금 amount 포함) | POST | `/internal/calendar/stock-events` |  | D·김서현 | ✅ |
 | 캘린더 | 지급일 배당 일정(주당배당금) 조회 — 배당 지급 엔진용 | GET | `/internal/calendar/dividend-payouts` |  | B·김준형 | ✅ |
+| 캘린더 | 배당락일 일정 조회 — 배당 처리 엔진용 | GET | `/internal/calendar/dividend-ex-payouts` |  | D·김서현 | ✅ |
+| CMA | CMA 원화 잔액 조회(원화RP만) | GET | `/internal/cma/krw-balance` |  | C·강문군 | ✅ |
+| CMA | CMA 수집 설정 등록 | POST | `/internal/cma/collection-settings` |  | C·강문군 | ✅ |
+| CMA | CMA 수집 활성화/비활성화 | PUT | `/internal/cma/collection-settings/enabled` |  | C·강문군 | ✅ |
+| 예적금만기 | 만기 도래 CMA 예금 목록 조회 | GET | `/internal/maturity-deposit/due-cma` |  | B·김준형 | ✅ |
+| 예적금만기 | 만기 예금 상태 변경 | POST | `/internal/maturity-deposit/{id}/status` |  | B·김준형 | ✅ |
+| 예적금만기 | 만기 예금 이자 정산 | POST | `/internal/maturity-deposit/account/{accountId}/settle-interest` |  | B·김준형 | ✅ |
+| 보유종목 | 보유종목 레플리카 동기화 | POST | `/internal/holdings/replica` |  | B·김준형 | ✅ |
+| 보유종목 | 보유종목 레플리카 삭제 | DELETE | `/internal/holdings/replica/{userId}/{stockCode}` |  | B·김준형 | ✅ |
+| 매매 | 퍼즐 평가액 조회 | GET | `/internal/trading/puzzle-valuation` |  | B·김준형 | ✅ |
+| 만기예약 | 만기 예약 계좌 ID 목록 조회 | GET | `/internal/maturity/reserved-account-ids` |  | B·김준형 | ✅ |
+| 서비스생애주기 | 서비스 Quiesce(점검모드 진입) | POST | `/internal/lifecycle/quiesce` |  | B·김준형 | ✅ |
+| 서비스생애주기 | 서비스 Rearm(점검모드 해제) | POST | `/internal/lifecycle/rearm` |  | B·김준형 | ✅ |
+
+## Dev (개발·테스트 전용)
+
+> 배치 수동 트리거 및 디버그 전용. 프로덕션 배포 시 비활성화 필요.
+
+| 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
+|---|---|---|---|---|---|---|
+| 개발 | 서버 헬스체크 | GET | `/dev` |  | B·김준형 | ✅ |
+| 개발 | 거래인증 토큰 조회(테스트용) | GET | `/dev/txn-auth` |  | B·김준형 | ✅ |
+| 개발 | JWT 토큰 발급(테스트용) | GET | `/dev/token` |  | B·김준형 | ✅ |
+| 배치트리거 | 해외 배당 배치 수동 실행 | GET | `/dev/overseas-dividend-batch` |  | B·김준형 | ✅ |
+| 배치트리거 | Outbox 이벤트 조회 | GET | `/dev/outbox` |  | B·김준형 | ✅ |
+| 배치트리거 | 만기 배치 수동 실행 | GET | `/dev/maturity-run` |  | B·김준형 | ✅ |
+| 배치트리거 | 환율 헬스체크 | GET | `/dev/fx-health` |  | B·김준형 | ✅ |
+| 배치트리거 | 실적 배치 수동 실행 | GET | `/dev/earnings-batch` |  | B·김준형 | ✅ |
+| 배치트리거 | 배당 지급 배치 수동 실행 | GET | `/dev/dividend-payout-run` |  | B·김준형 | ✅ |
+| 배치트리거 | 배당 데이터 수집 배치 수동 실행 | GET | `/dev/dividend-batch` |  | B·김준형 | ✅ |
+| 배치트리거 | 예금 테스트 | GET | `/dev/deposit` |  | B·김준형 | ✅ |
+| 배치트리거 | 일별 평가 배치 수동 실행 | GET | `/dev/daily-valuation-run` |  | B·김준형 | ✅ |
+| 배치트리거 | CMA 크레딧 테스트 | GET | `/dev/cma-credit` |  | C·강문군 | ✅ |
+| 배치트리거 | 자동모으기 트리거 수동 실행 | GET | `/dev/auto-invest-trigger-run` |  | B·김준형 | ✅ |
+| 배치트리거 | 자동모으기 배치 수동 실행 | GET | `/dev/auto-invest-run` |  | B·김준형 | ✅ |
