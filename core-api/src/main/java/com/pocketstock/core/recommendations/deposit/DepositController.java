@@ -3,6 +3,7 @@ package com.pocketstock.core.recommendations.deposit;
 import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.common.response.ApiResponse;
+import com.pocketstock.core.recommendations.deposit.dto.CanceledRerouteRequest;
 import com.pocketstock.core.recommendations.deposit.dto.DepositProductDto;
 import com.pocketstock.core.recommendations.deposit.dto.DepositRolloverDto;
 import com.pocketstock.core.recommendations.deposit.dto.DepositRolloverRequest;
@@ -56,6 +57,16 @@ public class DepositController {
         if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
         depositService.transferToCma(userId, request);
         return ResponseEntity.ok(ApiResponse.ok("CMA 이체 성공", null));
+    }
+
+    /** 배당주 예약 취소분 라우팅 — 활성 rollover 있으면 합산, 없으면 target(CMA/재예치)으로 새로 생성. */
+    @PostMapping("/maturity/canceled-reroute")
+    public ResponseEntity<ApiResponse<Void>> rerouteCanceled(
+            @CurrentUserId Long userId,
+            @RequestBody CanceledRerouteRequest request) {
+        if (userId == null) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        depositService.rerouteCanceled(userId, request);
+        return ResponseEntity.ok(ApiResponse.ok("취소분 라우팅 완료", null));
     }
 
     /** 'CMA 이체' 예약 취소 — RESERVED 상태인 경우만 가능. */

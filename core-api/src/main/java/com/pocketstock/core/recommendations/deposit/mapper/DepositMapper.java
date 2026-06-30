@@ -46,6 +46,14 @@ public interface DepositMapper {
                        @Param("maxRate") BigDecimal maxRate,
                        @Param("periodMonths") int periodMonths);
 
+    /**
+     * 계좌의 활성(RESERVED) rollover(재예치/CMA) 금액에 amount만큼 합산 — 배당주 예약 취소분 병합용.
+     * 한 계좌당 활성 rollover는 최대 1개라 1행이면 성공, 0행이면 활성 rollover 없음(호출 측이 생성으로 분기).
+     */
+    int addAmountToActiveRollover(@Param("userId") Long userId,
+                                 @Param("accountId") Long accountId,
+                                 @Param("amount") long amount);
+
     /** 유저의 재예치 기록 전체(최신순) — 전환내역용. */
     List<DepositRolloverDto> findRolloversByUser(@Param("userId") Long userId);
 

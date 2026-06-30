@@ -87,6 +87,15 @@
              #{amount}, #{baseRate}, #{maxRate}, #{periodMonths})
     </insert>
 
+    <!-- 활성 rollover(재예치/CMA) 금액 합산 — 배당주 취소분 병합. 한 계좌당 활성 1개라 1행 갱신. -->
+    <update id="addAmountToActiveRollover">
+        UPDATE maturity_deposit_rollovers
+        SET amount = amount + #{amount}
+        WHERE user_id = #{userId}
+          AND linked_bank_account_id = #{accountId}
+          AND status = 'RESERVED'
+    </update>
+
     <select id="findRolloversByUser"
             resultType="com.pocketstock.core.recommendations.deposit.dto.DepositRolloverDto">
         SELECT id,

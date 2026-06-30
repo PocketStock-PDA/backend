@@ -4,6 +4,7 @@ import com.pocketstock.common.exception.BusinessException;
 import com.pocketstock.common.exception.ErrorCode;
 import com.pocketstock.core.recommendations.deposit.dto.DepositProductDto;
 import com.pocketstock.core.recommendations.deposit.dto.DepositRolloverDto;
+import com.pocketstock.core.recommendations.deposit.dto.CanceledRerouteRequest;
 import com.pocketstock.core.recommendations.deposit.dto.DepositRolloverRequest;
 import com.pocketstock.core.recommendations.deposit.dto.DueCmaTransfer;
 import com.pocketstock.core.recommendations.deposit.dto.RolloverSourceAccount;
@@ -94,6 +95,28 @@ public class DepositService {
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 0);
+    }
+
+    /**
+     * 배당주 예약 취소분을 '남은 자금 굴리기'로 라우팅 — 취소금액이 공중분해되지 않게 한다.
+     * 계좌에 활성 rollover(재예치/CMA)가 있으면 그 금액에 합산(타입 무관), 없으면 target에 따라
+     * CMA 이체("CMA") 또는 같은 상품 재예치(그 외)로 새로 생성한다.
+     */
+    public void rerouteCanceled(Long userId, CanceledRerouteRequest req) {
+        if (req.linkedBankAccountId() == null || req.amount() == null || req.amount() <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "취소분 라우팅 값이 올바르지 않습니다.");
+        }
+        // 기존 활성 rollover가 있으면 그 금액에 합산하고 끝.
+        if (mapper.addAmountToActiveRollover(userId, req.linkedBankAccountId(), req.amount()) > 0) {
+            return;
+        }
+        // 활성 rollover가 없으면(배당주 100% 전환) 사용자가 고른 행선지로 새로 생성.
+        DepositRolloverRequest create = new DepositRolloverRequest(req.linkedBankAccountId(), req.amount());
+        if ("CMA".equals(req.target())) {
+            transferToCma(userId, create);
+        } else {
+            createRollover(userId, create);
+        }
     }
 
     /** 예금 재예치·CMA 이체 동시 예약 차단 — 한 계좌엔 활성(RESERVED) 굴리기 하나만. */
