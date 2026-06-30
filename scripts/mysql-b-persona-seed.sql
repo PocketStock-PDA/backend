@@ -23,21 +23,21 @@ INSERT INTO cma_accounts (id,user_id,account_no_enc,status,opened_at,created_at,
 (8,10,NULL,'ACTIVE','2026-04-25 10:00:00','2026-04-25 10:00:00','2026-04-25 10:00:00');
 
 INSERT INTO cma_balances (id,cma_account_id,currency,balance,interest_rate,created_at,updated_at) VALUES
-(1,1,'KRW',10000000.0000,3.5000,'2026-01-20 10:00:00','2026-06-29 09:00:00'),
-(2,1,'USD',250.0000,4.2000,'2026-01-20 10:00:00','2026-06-29 09:00:00'),
-(3,2,'KRW',10000000.0000,3.5000,'2026-01-25 10:00:00','2026-06-29 09:00:00'),
-(4,2,'USD',250.0000,4.2000,'2026-01-25 10:00:00','2026-06-29 09:00:00'),
-(5,3,'KRW',10000000.0000,3.5000,'2026-02-07 10:00:00','2026-06-29 09:00:00'),
-(6,3,'USD',250.0000,4.2000,'2026-02-07 10:00:00','2026-06-29 09:00:00'),
-(7,4,'KRW',10000000.0000,3.5000,'2026-02-17 10:00:00','2026-06-29 09:00:00'),
-(8,4,'USD',250.0000,4.2000,'2026-02-17 10:00:00','2026-06-29 09:00:00'),
-(9,5,'KRW',10000000.0000,3.5000,'2026-02-25 10:00:00','2026-06-29 09:00:00'),
-(10,5,'USD',250.0000,4.2000,'2026-02-25 10:00:00','2026-06-29 09:00:00'),
-(11,6,'KRW',0.0000,3.5000,'2026-03-23 10:00:00','2026-06-29 09:00:00'),
-(12,7,'KRW',10000000.0000,3.5000,'2026-04-06 10:00:00','2026-06-29 09:00:00'),
-(13,7,'USD',250.0000,4.2000,'2026-04-06 10:00:00','2026-06-29 09:00:00'),
-(14,8,'KRW',10000000.0000,3.5000,'2026-04-25 10:00:00','2026-06-29 09:00:00'),
-(15,8,'USD',250.0000,4.2000,'2026-04-25 10:00:00','2026-06-29 09:00:00');
+(1,1,'KRW',10000000.0000,0.0350,'2026-01-20 10:00:00','2026-06-29 09:00:00'),
+(2,1,'USD',250.0000,0.0420,'2026-01-20 10:00:00','2026-06-29 09:00:00'),
+(3,2,'KRW',10000000.0000,0.0350,'2026-01-25 10:00:00','2026-06-29 09:00:00'),
+(4,2,'USD',250.0000,0.0420,'2026-01-25 10:00:00','2026-06-29 09:00:00'),
+(5,3,'KRW',10000000.0000,0.0350,'2026-02-07 10:00:00','2026-06-29 09:00:00'),
+(6,3,'USD',250.0000,0.0420,'2026-02-07 10:00:00','2026-06-29 09:00:00'),
+(7,4,'KRW',10000000.0000,0.0350,'2026-02-17 10:00:00','2026-06-29 09:00:00'),
+(8,4,'USD',250.0000,0.0420,'2026-02-17 10:00:00','2026-06-29 09:00:00'),
+(9,5,'KRW',10000000.0000,0.0350,'2026-02-25 10:00:00','2026-06-29 09:00:00'),
+(10,5,'USD',250.0000,0.0420,'2026-02-25 10:00:00','2026-06-29 09:00:00'),
+(11,6,'KRW',0.0000,0.0350,'2026-03-23 10:00:00','2026-06-29 09:00:00'),
+(12,7,'KRW',10000000.0000,0.0350,'2026-04-06 10:00:00','2026-06-29 09:00:00'),
+(13,7,'USD',250.0000,0.0420,'2026-04-06 10:00:00','2026-06-29 09:00:00'),
+(14,8,'KRW',10000000.0000,0.0350,'2026-04-25 10:00:00','2026-06-29 09:00:00'),
+(15,8,'USD',250.0000,0.0420,'2026-04-25 10:00:00','2026-06-29 09:00:00');
 
 INSERT INTO cma_transactions (id,user_id,cma_account_id,currency,tx_type,source_type,amount,balance_after,ref_type,ref_id,idempotency_key,created_at) VALUES
 (1,1,1,'KRW','DEPOSIT','MANUAL',9900000.0000,9900000.0000,NULL,NULL,'cma-u1-manual','2026-06-10 10:00:00'),
@@ -89,6 +89,31 @@ INSERT INTO cma_transactions (id,user_id,cma_account_id,currency,tx_type,source_
 (47,10,8,'KRW','COLLECT','ACCOUNT',8000.0000,9910100.0000,NULL,NULL,'cma-u10-acct','2026-06-14 10:04:00'),
 (48,10,8,'KRW','COLLECT','POINT',60000.0000,9970100.0000,NULL,NULL,'cma-u10-point','2026-06-15 10:05:00'),
 (49,10,8,'KRW','INTEREST','SYSTEM',29900.0000,10000000.0000,NULL,NULL,'cma-u10-interest','2026-06-16 10:06:00');
+
+-- 신투 첫 진입 시나리오에서는 카드/계좌/포인트 수집 이력이 보이면 어색하다.
+-- 잔액은 시연용 유동성으로 유지하되, 거래내역은 통화별 단일 시드 입금으로 접는다.
+DELETE FROM cma_transactions WHERE user_id BETWEEN 1 AND 10;
+
+INSERT INTO cma_transactions
+    (user_id, cma_account_id, currency, tx_type, source_type, amount, balance_after,
+     ref_type, ref_id, idempotency_key, created_at)
+SELECT
+    ca.user_id,
+    ca.id,
+    cb.currency,
+    'DEPOSIT',
+    'MANUAL',
+    cb.balance,
+    cb.balance,
+    NULL,
+    NULL,
+    CONCAT('cma-u', ca.user_id, '-seed-', LOWER(cb.currency)),
+    ca.opened_at
+FROM cma_accounts ca
+JOIN cma_balances cb ON cb.cma_account_id = ca.id
+WHERE ca.user_id BETWEEN 1 AND 10
+  AND cb.balance > 0
+ORDER BY ca.user_id, cb.currency;
 
 INSERT INTO collection_settings (id,user_id,source_type,source_ref_id,is_enabled,threshold,created_at,updated_at) VALUES
 (1,1,'ACCOUNT',1,TRUE,10000.0000,'2026-01-20 10:00:00','2026-01-20 10:00:00'),
@@ -196,3 +221,9 @@ INSERT INTO auto_invest_stocks (id,user_id,account_id,stock_code,market,period,p
 (5,5,9,'005930','DOMESTIC','MONTHLY',1,'AMOUNT',50000.0000,NULL,'KRW',TRUE,'2026-02-25 10:00:00','2026-02-25 10:00:00'),
 (6,9,13,'005930','DOMESTIC','MONTHLY',1,'AMOUNT',50000.0000,NULL,'KRW',TRUE,'2026-04-06 10:00:00','2026-04-06 10:00:00');
 
+-- demo1~10은 신투 서비스 첫 진입 시나리오에 맞춰 내부 보유/자동모으기 흔적이 없는 상태로 둔다.
+-- CMA 잔액 1천만원은 시연용 유동성으로 유지한다.
+DELETE FROM holdings WHERE user_id BETWEEN 1 AND 10;
+DELETE FROM auto_invest_stocks WHERE user_id BETWEEN 1 AND 10;
+DELETE FROM auto_invest_settings WHERE user_id BETWEEN 1 AND 10;
+DELETE FROM cma_auto_charge_settings WHERE user_id BETWEEN 1 AND 10;
