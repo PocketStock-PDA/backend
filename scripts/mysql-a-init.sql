@@ -182,6 +182,19 @@ CREATE TABLE IF NOT EXISTS external_holdings (
   INDEX idx_eh_user (user_id), INDEX idx_eh_inst (institution_id)
 );
 
+-- 출석체크 적립 이력(append-only 로그). 하루 1회 마이신한포인트(SHINHAN_POINT) 적립.
+-- UNIQUE(user_id, attended_date)가 곧 하루1회/멱등 가드. attended_date는 서버 KST 기준 일자.
+CREATE TABLE IF NOT EXISTS point_attendance (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  attended_date DATE NOT NULL,               -- 출석 일자 (KST, Asia/Seoul)
+  awarded INT NOT NULL,                       -- 해당 출석 적립 포인트 (정상 10)
+  streak_after INT NOT NULL,                  -- 출석 처리 후 연속 일수
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_attendance (user_id, attended_date),
+  INDEX idx_pa_user (user_id)
+);
+
 -- ========== budget ==========
 CREATE TABLE IF NOT EXISTS budget_goals (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -392,6 +405,7 @@ ALTER TABLE linked_points           ADD CONSTRAINT fk_lp_user   FOREIGN KEY (use
 ALTER TABLE linked_securities       ADD CONSTRAINT fk_lsec_user FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE card_transactions       ADD CONSTRAINT fk_ct_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE external_holdings       ADD CONSTRAINT fk_eh_user   FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE point_attendance        ADD CONSTRAINT fk_pa_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_goals            ADD CONSTRAINT fk_bg_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_savings          ADD CONSTRAINT fk_bs_user   FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budget_transfer_settings ADD CONSTRAINT fk_bts_user  FOREIGN KEY (user_id) REFERENCES users(id);

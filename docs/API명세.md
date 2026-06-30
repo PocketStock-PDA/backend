@@ -99,6 +99,15 @@
 | 자동충전 | 부족금액 자동충전 설정 조회 | GET | `/api/cma/auto-charge-settings` |  | C·강문군 |  |
 | 자동충전 | 부족금액 자동충전 설정(ON/OFF·1회한도·대상계좌) | PUT | `/api/cma/auto-charge-settings` |  | C·강문군 |  |
 
+## Points
+
+| 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
+|---|---|---|---|---|---|---|
+| 출석체크 | 출석 현황 조회(checkedToday·streak·lastCheckedDate·dailyReward) | GET | `/api/points/attendance` |  | C·강문군 | ✅ |
+| 출석체크 | 출석체크 적립(하루1회·마이신한포인트 10P·멱등) | POST | `/api/points/attendance` |  | C·강문군 | ✅ |
+
+> 적립 대상은 마이신한포인트(SHINHAN_POINT, `linked_points`/DB A). 적립분은 `/api/cma/home` collectSources(POINT)에 자동 반영. 일자 기준은 서버 KST(Asia/Seoul). 중복 출석 시 200 + `awarded:0`.
+
 ## Trading
 
 | 대분류 | Description | Method | URI | LS TR코드 | 담당 | 완료 |
