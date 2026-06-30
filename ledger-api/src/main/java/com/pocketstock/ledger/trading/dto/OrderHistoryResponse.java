@@ -33,6 +33,8 @@ public record OrderHistoryResponse(
          * 실현손익 환산 KRW. 해외 = realizedPnl(raw) × 체결환율(fx 없으면 null), 국내 = realizedPnl.
          * 월 판매수익 합계·환산 표시용. priced 무관(체결 스냅샷 기반).
          */
-        BigDecimal realizedPnlKrw
+        BigDecimal realizedPnlKrw,
+        /** REJECTED 사유. 정상 주문은 null. */
+        String failReason
 ) {
 }

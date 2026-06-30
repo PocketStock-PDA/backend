@@ -111,11 +111,11 @@ public class WholeOrderService {
         // 소수점이 정수부로 이 메서드를 재사용하므로, 여기 두면 인증이 정수부 유무로 들쭉날쭉해진다 — 진입점 게이트로 통일.
         TradableStock stock = stockMapper.findByCode(req.stockCode());
         if (stock == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목코드: " + req.stockCode());
+            throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 종목입니다.");
         }
         boolean overseas = OVERSEAS_EXCHANGES.contains(stock.getExchange());
         if (!overseas && !DOMESTIC_EXCHANGES.contains(stock.getExchange())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 거래소: " + stock.getExchange());
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "지원하지 않는 거래소입니다.");
         }
         String accountMarket = overseas ? ACCOUNT_OVERSEAS : ACCOUNT_DOMESTIC;
         String currency = overseas ? CURRENCY_USD : CURRENCY_KRW;
@@ -240,8 +240,10 @@ public class WholeOrderService {
             if (e.getErrorCode() != ErrorCode.IDEMPOTENCY_CONFLICT) {
                 try {
                     // 자금 이동은 본 tx 롤백으로 환원됨. REJECTED 행만 별도 tx(REQUIRES_NEW)로 commit.
+                    String userMsg = e.getErrorCode() == ErrorCode.INTERNAL_ERROR
+                            ? "일시적인 오류가 발생했습니다." : e.getMessage();
                     rejectionService.recordRejection(userId, account.getId(), req.stockCode(), stock.getExchange(),
-                            side, type, BigDecimal.valueOf(req.quantity()), req.price(), currency, e.getMessage());
+                            side, type, BigDecimal.valueOf(req.quantity()), req.price(), currency, userMsg);
                 } catch (Exception ignore) {
                     // 감사 기록 실패가 원 비즈니스 예외를 가리지 않도록 무시.
                 }
@@ -311,7 +313,7 @@ public class WholeOrderService {
                             o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
                             o.getStatus().name(), o.getCurrency(), o.getCreatedAt(),
                             filled, o.getAvgBuyPriceAtSell(), o.getFxRateAtFill(),
-                            pnl.amount(), pnl.krw());
+                            pnl.amount(), pnl.krw(), o.getFailReason());
                 })
                 .toList();
     }
@@ -379,7 +381,7 @@ public class WholeOrderService {
                 .map(o -> new OrderHistoryResponse(o.getId(), o.getStockCode(), o.getSide(),
                         o.getOrderType(), o.getOrderQuantity(), o.getOrderAmount(), o.getPrice(),
                         o.getStatus().name(), o.getCurrency(), o.getCreatedAt(),
-                        null, null, null, null, null))
+                        null, null, null, null, null, null))
                 .toList();
     }
 
@@ -409,7 +411,7 @@ public class WholeOrderService {
                 if (!overseas && book.prices()[0].signum() <= 0 && book.current().signum() > 0) {
                     return new Execution(true, book.current());
                 }
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "시장가로 전량 체결할 호가 잔량이 부족합니다.");
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "호가 잔량이 부족해 체결할 수 없습니다.");
             }
             // 가격제한폭(국내): 체결 평균가가 상·하한가를 벗어나면 호가 비정상 → 거부. 해외는 무제한.
             if (!overseas) {
@@ -462,7 +464,7 @@ public class WholeOrderService {
         if ("BUY".equals(side)) {
             depositService.hold(accountId, notional);   // 주문가능 부족이면 INSUFFICIENT_BALANCE
         } else if (holdingMapper.reserveWholeForSell(accountId, stockCode, quantity) == 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "온주 매도가능 수량이 부족합니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "매도 가능 수량이 부족합니다.");
         }
         return notional;
     }
@@ -501,7 +503,7 @@ public class WholeOrderService {
     /** 온주 매도 — 보유 수량 원자 차감(온주 매도가능 가드). 전량매도 시 quantity=0으로 row 보존. */
     private void applySell(Long accountId, String stockCode, BigDecimal qty) {
         if (holdingMapper.reduceWholeForSell(accountId, stockCode, qty) == 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "온주 보유 수량이 부족합니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "보유 수량이 부족합니다.");
         }
     }
 
