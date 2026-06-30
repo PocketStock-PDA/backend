@@ -216,23 +216,21 @@ MYSQL_DEFAULT_FILES+=("$CORE_DEFAULTS_FILE")
 LEDGER_DEFAULTS_FILE="$(create_mysql_defaults_file ledger "$LEDGER_HOST" "$LEDGER_PORT" "$LEDGER_USER" "$LEDGER_PASSWORD")"
 MYSQL_DEFAULT_FILES+=("$LEDGER_DEFAULTS_FILE")
 
+# docker-compose initdb(로컬 fresh)와 동일 순서/구성. init이 이미 notifications 구조
+# 컬럼을 포함하므로 별도 notification 마이그레이션은 drop/create 흐름에서 불필요.
 CORE_SQL_FILES=(
   "$APP_DIR/scripts/mysql-a-init.sql"
-  "$APP_DIR/scripts/mysql-a-notification-structured-migration.sql"
   "$APP_DIR/scripts/stock-master/cards_seed.sql"
   "$APP_DIR/scripts/stock-master/card_benefits_seed.sql"
   "$APP_DIR/scripts/stock-master/dividend_stocks_seed.sql"
+  "$APP_DIR/scripts/stock-master/deposit_products_seed.sql"
   "$APP_DIR/scripts/mysql-a-persona-seed.sql"
-  "$APP_DIR/scripts/mysql-a-persona-seed-extra.sql"
-  "$APP_DIR/scripts/mysql-a-persona-seed-suhyun.sql"
-  "$APP_DIR/scripts/mysql-a-persona-seed-jiyoung.sql"
 )
 
 LEDGER_SQL_FILES=(
   "$APP_DIR/scripts/mysql-b-init.sql"
   "$APP_DIR/scripts/stock-master/tradable_stocks_seed.sql"
   "$APP_DIR/scripts/mysql-b-persona-seed.sql"
-  "$APP_DIR/scripts/mysql-b-persona-seed-extra.sql"
 )
 
 log "=== 시연용 RDS reset/reseed 시작 ==="
