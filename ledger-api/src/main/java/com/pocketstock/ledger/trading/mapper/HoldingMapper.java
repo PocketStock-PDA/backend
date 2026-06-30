@@ -55,6 +55,10 @@ public interface HoldingMapper {
     java.math.BigDecimal findAvailableFractional(@Param("accountId") Long accountId,
                                                  @Param("stockCode") String stockCode);
 
+    /** 현재 fractional_qty 조회 — 퍼즐 완성(≥1.0) 알림 판정용. 보유행 없으면 null. */
+    java.math.BigDecimal findFractionalQtyByAccount(@Param("accountId") Long accountId,
+                                                    @Param("stockCode") String stockCode);
+
     /** 소수점 매도 hold — held_fractional += qty, 소수 매도가능(fractional_qty − held_fractional) ≥ qty 가드. */
     int reserveFractionalForSell(@Param("accountId") Long accountId,
                                  @Param("stockCode") String stockCode,

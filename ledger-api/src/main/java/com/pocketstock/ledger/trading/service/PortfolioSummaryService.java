@@ -62,6 +62,11 @@ public class PortfolioSummaryService {
         BigDecimal ovsInvestedUsd = BigDecimal.ZERO;
         BigDecimal ovsEvalKrw = BigDecimal.ZERO;
         BigDecimal ovsInvestedKrw = BigDecimal.ZERO;
+        // 개별 보유의 스케일된 profitKrw 합산 — 세그먼트와 카드가 동일 소스를 쓰도록 함
+        // (세그먼트를 원시합 → scaleKrw 순으로 계산하면 개별 scaleKrw 합과 반올림 차이 발생)
+        BigDecimal domProfitKrwSum = BigDecimal.ZERO;
+        BigDecimal ovsProfitKrwSum = BigDecimal.ZERO;
+        BigDecimal ovsProfitUsdSum = BigDecimal.ZERO;
 
         for (Holding h : holdings) {
             boolean domestic = KRW.equals(h.getCurrency());
@@ -95,11 +100,14 @@ public class PortfolioSummaryService {
                 if (domestic) {
                     domEval = domEval.add(evalAmount);
                     domInvested = domInvested.add(invested);
+                    if (profitKrw != null) domProfitKrwSum = domProfitKrwSum.add(profitKrw);
                 } else if (usdKrwRate != null) {
                     ovsEvalUsd = ovsEvalUsd.add(evalAmount);
                     ovsInvestedUsd = ovsInvestedUsd.add(invested);
                     ovsEvalKrw = ovsEvalKrw.add(evalAmount.multiply(usdKrwRate));
                     ovsInvestedKrw = ovsInvestedKrw.add(krwCost);
+                    if (profitKrw != null) ovsProfitKrwSum = ovsProfitKrwSum.add(profitKrw);
+                    ovsProfitUsdSum = ovsProfitUsdSum.add(scaleNative(profit, USD_SCALE));
                 }
             }
 
@@ -123,12 +131,14 @@ public class PortfolioSummaryService {
                     priced));
         }
 
-        Segment domestic = segment(domEval, domInvested);
+        Segment domestic = segment(domEval, domInvested, domProfitKrwSum);
         OverseasSegment overseas = hasOverseas
-                ? overseasSegment(ovsEvalUsd, ovsInvestedUsd, ovsEvalKrw, ovsInvestedKrw)
+                ? overseasSegment(ovsEvalUsd, ovsInvestedUsd, ovsEvalKrw, ovsInvestedKrw,
+                                  ovsProfitUsdSum, ovsProfitKrwSum)
                 : null;
         // 전체(환산 KRW) = 국내 + 해외 환산
-        Segment total = segment(domEval.add(ovsEvalKrw), domInvested.add(ovsInvestedKrw));
+        Segment total = segment(domEval.add(ovsEvalKrw), domInvested.add(ovsInvestedKrw),
+                                domProfitKrwSum.add(ovsProfitKrwSum));
 
         return new PortfolioSummaryResponse(
                 LocalDateTime.now().toString(),
@@ -139,27 +149,32 @@ public class PortfolioSummaryService {
                 items);
     }
 
-    private Segment segment(BigDecimal evalKrw, BigDecimal investedKrw) {
-        BigDecimal profit = evalKrw.subtract(investedKrw);
+    /**
+     * KRW 세그먼트 조립. profitKrwSum은 개별 보유의 스케일된 profitKrw 합산값으로,
+     * 원시합 → scaleKrw 방식과 반올림 순서 차이로 인한 카드/헤더 불일치를 방지한다.
+     * rate는 정밀도 유지를 위해 원시(unscaled) evalKrw/investedKrw로 계산.
+     */
+    private Segment segment(BigDecimal evalKrw, BigDecimal investedKrw, BigDecimal profitKrwSum) {
+        BigDecimal rawProfit = evalKrw.subtract(investedKrw);
         return new Segment(
                 scaleKrw(evalKrw),
                 scaleKrw(investedKrw),
-                scaleKrw(profit),
-                rate(profit, investedKrw));
+                profitKrwSum,
+                rate(rawProfit, investedKrw));
     }
 
     private OverseasSegment overseasSegment(BigDecimal evalUsd, BigDecimal investedUsd,
-                                            BigDecimal evalKrw, BigDecimal investedKrw) {
-        BigDecimal profitUsd = evalUsd.subtract(investedUsd);
-        BigDecimal profitKrw = evalKrw.subtract(investedKrw);
+                                            BigDecimal evalKrw, BigDecimal investedKrw,
+                                            BigDecimal profitUsdSum, BigDecimal profitKrwSum) {
+        BigDecimal rawProfitUsd = evalUsd.subtract(investedUsd);
         return new OverseasSegment(
                 scaleNative(evalUsd, USD_SCALE),
                 scaleNative(investedUsd, USD_SCALE),
-                scaleNative(profitUsd, USD_SCALE),
-                rate(profitUsd, investedUsd),    // USD 기준(환차 제외)
+                profitUsdSum,                        // 개별 스케일 합산 — USD 카드와 동일 소스
+                rate(rawProfitUsd, investedUsd),     // USD 기준(환차 제외), 원시값으로 정밀도 유지
                 scaleKrw(evalKrw),
                 scaleKrw(investedKrw),
-                scaleKrw(profitKrw));            // 환차 포함
+                profitKrwSum);                       // 개별 스케일 합산 — KRW 카드와 동일 소스
     }
 
     /** 수익률 % = profit / invested × 100. 원금 0이면 0(웰컴보상 등 0원가 보유분 보호). */

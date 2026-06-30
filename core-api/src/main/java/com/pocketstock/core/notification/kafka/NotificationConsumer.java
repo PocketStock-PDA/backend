@@ -153,6 +153,32 @@ public class NotificationConsumer {
         }
     }
 
+    /** 퍼즐 완성 알림 — trading.puzzle.complete (소수점 100조각 달성 → 온주 전환 안내). */
+    @KafkaListener(topics = "trading.puzzle.complete", groupId = "core-notification")
+    @Transactional
+    public void onPuzzleComplete(String message) {
+        JsonNode e = parse(message);
+        if (e == null || !firstTime(e)) {
+            return;
+        }
+        Long userId = e.path("userId").asLong();
+        String stockCode = e.path("stockCode").asText();
+        String stockName = e.path("stockName").asText(stockCode);
+        String occurredAt = toUtc(e.path("occurredAt").asText(""));
+        String url = "/portfolio/detail?stockCode=" + stockCode + "&view=pieces";
+        String title = "퍼즐 완성!";
+        String body = stockName + " 조각이 1주가 됐어요. 온주로 전환해 보세요.";
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("stockCode", stockCode);
+        data.put("stockName", stockName);
+
+        PushPayload push = new PushPayload(NotificationType.PUZZLE_COMPLETE.name(),
+                title, body, "puzzle-" + stockCode, url, occurredAt, data);
+        notificationService.create(userId, NotificationType.PUZZLE_COMPLETE, title, body,
+                "PUZZLE", null, push);
+    }
+
     /** eventId(콜론 구분)에서 idx번째 토막을 Long ref_id로. 파싱 실패 시 null(딥링크만 비고 알림은 정상). */
     private Long refIdFromEventId(String eventId, int idx) {
         try {

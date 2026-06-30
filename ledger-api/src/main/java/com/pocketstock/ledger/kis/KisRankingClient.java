@@ -49,13 +49,27 @@ public class KisRankingClient {
 
     /**
      * 해외 거래대금 상위 종목. excd=거래소(NAS/NYS/AMS …), 당일·전체 거래량·가격 무필터.
+     * 당일(NDAY=0) 결과가 비어있거나 KIS가 오류를 반환하면 전일(NDAY=1) 폴백.
      */
     public List<KisOverseasRankResponse.Item> getOverseasTradeAmountRank(String excd) {
+        try {
+            List<KisOverseasRankResponse.Item> result = fetchOverseasTradeAmountRank(excd, "0");
+            if (!result.isEmpty()) {
+                return result;
+            }
+            log.warn("KIS 해외 거래대금 순위 당일 결과 없음(NDAY=0) — 전일로 폴백 (excd={})", excd);
+        } catch (BusinessException e) {
+            log.warn("KIS 해외 거래대금 순위 당일 조회 실패(NDAY=0) — 전일로 폴백 (excd={}, reason={})", excd, e.getMessage());
+        }
+        return fetchOverseasTradeAmountRank(excd, "1");
+    }
+
+    private List<KisOverseasRankResponse.Item> fetchOverseasTradeAmountRank(String excd, String nday) {
         Map<String, String> q = Map.ofEntries(
                 Map.entry("KEYB", ""),
                 Map.entry("AUTH", ""),
                 Map.entry("EXCD", excd),
-                Map.entry("NDAY", "0"),      // 0: 당일
+                Map.entry("NDAY", nday),
                 Map.entry("VOL_RANG", "0"),  // 0: 전체
                 Map.entry("PRC1", ""),       // 가격 필터 없음(전체)
                 Map.entry("PRC2", "")

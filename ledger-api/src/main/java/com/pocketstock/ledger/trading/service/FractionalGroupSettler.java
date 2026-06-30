@@ -6,6 +6,7 @@ import com.pocketstock.ledger.exchange.CurrencyRateProvider;
 import com.pocketstock.ledger.firm.service.OperatingCashService;
 import com.pocketstock.ledger.outbox.OutboxEventPublisher;
 import com.pocketstock.ledger.outbox.event.OrderFilledEvent;
+import com.pocketstock.ledger.outbox.event.PuzzleCompleteEvent;
 import com.pocketstock.ledger.trading.realtime.OrderNotification;
 import com.pocketstock.ledger.trading.realtime.OrderNotificationPublisher;
 import com.pocketstock.ledger.trading.domain.Allocation;
@@ -25,9 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -137,6 +141,22 @@ public class FractionalGroupSettler {
         }
 
         // 5) 배분 + 고객 정산. 집행 중 취소된 주문(sendForBatch=0)은 건너뛰고 firm이 흡수(0-sum 유지).
+        // 퍼즐 완성 감지: 매수 배치에서 accountId별 정산 전 fractional_qty 스냅샷 확보.
+        // 정산 후 (스냅샷 + 배분량) ≥ 1.0이 된 계좌에만 알림 발행(경계 첫 교차만).
+        Map<Long, BigDecimal> preFrac = new HashMap<>();      // accountId → 정산 전 fractional_qty
+        Map<Long, Long> accountUser = new HashMap<>();         // accountId → userId
+        Map<Long, BigDecimal> addedFrac = new HashMap<>();    // accountId → 이 배치에서 더한 qty 합
+        if (buy) {
+            for (Funded f : funded) {
+                Long accountId = f.order().getAccountId();
+                if (!preFrac.containsKey(accountId)) {
+                    BigDecimal fq = holdingMapper.findFractionalQtyByAccount(accountId, stockCode);
+                    preFrac.put(accountId, fq != null ? fq : BigDecimal.ZERO);
+                    accountUser.put(accountId, f.order().getUserId());
+                }
+            }
+        }
+
         BigDecimal allocatedTotal = BigDecimal.ZERO;
         for (Funded f : funded) {
             BigDecimal sellAvgBuyPrice = null;  // 매도 체결 스냅샷용(주문별 평단), BUY는 null 유지
@@ -163,6 +183,8 @@ public class FractionalGroupSettler {
                 // 소수점 매수 → fractionalDelta=qty(즉시 floor 전환).
                 holdingMapper.upsertBuy(o.getUserId(), o.getAccountId(), stockCode,
                         f.qty(), fillPrice, krwAmount, currency, f.qty());
+                // 퍼즐 완성 감지용 누적
+                addedFrac.merge(o.getAccountId(), f.qty(), BigDecimal::add);
                 // 충당 버퍼 반납(#174): 정산 후 예수금 주문가능(held−gross 버퍼)을 CMA로 sweep(REVERT). 같은 tx.
                 fundingService.revertUnusedFunding(o.getUserId(), o.getAccountId(), currency, o.getId(), "fracbuf");
             } else {
@@ -200,6 +222,26 @@ public class FractionalGroupSettler {
                         o.getSide(), "FRACTIONAL", "FILLED", f.qty(), fillPrice, currency, filledAt));
             }
             allocatedTotal = allocatedTotal.add(f.qty());
+        }
+
+        // 5-after) 퍼즐 완성 알림 — 매수 배치 후 fractional_qty가 처음으로 1.0을 넘은 계좌에만 발행.
+        // eventId에 날짜를 넣어 같은 날 중복 알림을 DuplicateKey로 흡수(사용자가 전환 후 당일 재완성 시 재알림 없음).
+        if (buy && !addedFrac.isEmpty()) {
+            String today = LocalDate.now(KST).toString();
+            String stockName = stockNameOf(stockCode);
+            String occurredAt = LocalDateTime.now(KST).toString();
+            for (Map.Entry<Long, BigDecimal> entry : addedFrac.entrySet()) {
+                Long accountId = entry.getKey();
+                BigDecimal pre = preFrac.getOrDefault(accountId, BigDecimal.ZERO);
+                BigDecimal post = pre.add(entry.getValue());
+                if (pre.compareTo(BigDecimal.ONE) < 0 && post.compareTo(BigDecimal.ONE) >= 0) {
+                    Long userId = accountUser.get(accountId);
+                    String eventId = "puzzle:complete:" + userId + ":" + stockCode + ":" + today;
+                    outboxPublisher.publish(PuzzleCompleteEvent.TOPIC, eventId,
+                            PuzzleCompleteEvent.AGGREGATE, userId,
+                            new PuzzleCompleteEvent(eventId, userId, stockCode, stockName, post, occurredAt));
+                }
+            }
         }
 
         // 6) firm 끝수재고 양방향 정산 — 매수: +(whole−배분) 흡수 / 매도: +(배분−whole) 흡수. 음수가드.
