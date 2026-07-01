@@ -225,12 +225,18 @@ CORE_SQL_FILES=(
   "$APP_DIR/scripts/stock-master/dividend_stocks_seed.sql"
   "$APP_DIR/scripts/stock-master/deposit_products_seed.sql"
   "$APP_DIR/scripts/mysql-a-persona-seed.sql"
+  # demo1~10 연동자산·카드·거래를 user4와 동일하게 통일(persona-seed 이후에 클론)
+  "$APP_DIR/scripts/mysql-a-demo-clone.sql"
+  # 추천 KR 배당주 배당 이벤트 고정 시드(persona-seed 이후여야 stock_events PK 충돌 안 남)
+  "$APP_DIR/scripts/mysql-a-kr-dividend-seed.sql"
 )
 
 LEDGER_SQL_FILES=(
   "$APP_DIR/scripts/mysql-b-init.sql"
   "$APP_DIR/scripts/stock-master/tradable_stocks_seed.sql"
   "$APP_DIR/scripts/mysql-b-persona-seed.sql"
+  # demo1~10 CMA 펀딩(KRW 10,000,000 + USD 5,000)(persona-seed 이후에 펀딩)
+  "$APP_DIR/scripts/mysql-b-demo-cma-fund.sql"
 )
 
 log "=== 시연용 RDS reset/reseed 시작 ==="
