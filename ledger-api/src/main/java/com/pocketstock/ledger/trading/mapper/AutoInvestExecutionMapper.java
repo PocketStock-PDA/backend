@@ -22,4 +22,7 @@ public interface AutoInvestExecutionMapper {
 
     /** 종목별 모으기 내역(회차 desc) — #195 조회 API용. */
     List<AutoInvestExecution> findByStock(@Param("autoInvestStockId") Long autoInvestStockId);
+
+    /** FILLED 체결 횟수 — summary 응답에 executedCount 포함용. */
+    int countFilledByStock(@Param("autoInvestStockId") Long autoInvestStockId);
 }

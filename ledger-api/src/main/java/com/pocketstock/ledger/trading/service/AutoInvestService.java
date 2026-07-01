@@ -105,7 +105,7 @@ public class AutoInvestService {
         requireUser(userId);
         AutoInvestSetting s = settingMapper.findByUserId(userId);
         List<AutoInvestResponse> stocks = stockMapper.findByUserId(userId).stream()
-                .map(AutoInvestResponse::from)
+                .map(stock -> AutoInvestResponse.from(stock, executionMapper.countFilledByStock(stock.getId())))
                 .toList();
         boolean enabled = s != null && Boolean.TRUE.equals(s.getIsEnabled());
         boolean paused = s != null && Boolean.TRUE.equals(s.getIsPaused());

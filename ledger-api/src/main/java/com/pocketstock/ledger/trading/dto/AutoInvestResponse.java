@@ -18,11 +18,16 @@ public record AutoInvestResponse(
         BigDecimal buyAmount,
         BigDecimal buyQuantity,
         String currency,
-        Boolean isActive
+        Boolean isActive,
+        int executedCount
 ) {
     public static AutoInvestResponse from(AutoInvestStock s) {
+        return from(s, 0);
+    }
+
+    public static AutoInvestResponse from(AutoInvestStock s, int executedCount) {
         return new AutoInvestResponse(s.getId(), s.getStockCode(), s.getStockName(), s.getMarket(),
                 s.getPeriod(), s.getPeriodDay(), s.getAmountType(), s.getBuyAmount(), s.getBuyQuantity(),
-                s.getCurrency(), s.getIsActive());
+                s.getCurrency(), s.getIsActive(), executedCount);
     }
 }

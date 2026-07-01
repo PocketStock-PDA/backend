@@ -44,6 +44,13 @@
           AND trigger_source = 'PERIODIC'
     </select>
 
+    <select id="countFilledByStock" resultType="int">
+        SELECT COUNT(*)
+        FROM auto_invest_executions
+        WHERE auto_invest_stock_id = #{autoInvestStockId}
+          AND status = 'FILLED'
+    </select>
+
     <select id="findByStock" resultMap="execution">
         SELECT e.id, e.auto_invest_stock_id, e.round_no, e.trigger_source, e.side, e.exec_date,
                e.status, e.fail_reason, e.order_id, e.exec_amount, e.exec_quantity, e.currency, e.created_at,
