@@ -19,6 +19,7 @@
         WHERE user_id = #{userId}
           AND paid_at >= #{from}
           AND paid_at &lt;  #{to}
+          AND paid_at &lt;= NOW()   <!-- 미래(현재시각 이후) 거래 제외 -->
           AND is_cancelled = false
           AND category IS NOT NULL
         GROUP BY category
@@ -32,6 +33,7 @@
         WHERE user_id = #{userId}
           AND paid_at >= #{from}
           AND paid_at &lt;  #{to}
+          AND paid_at &lt;= NOW()   <!-- 미래(현재시각 이후) 거래 제외 -->
           AND is_cancelled = false
         GROUP BY DATE_FORMAT(paid_at, '%Y-%m-%d')
         ORDER BY DATE_FORMAT(paid_at, '%Y-%m-%d')
